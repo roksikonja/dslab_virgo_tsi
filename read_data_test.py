@@ -1,5 +1,6 @@
 import os
-
+from astropy.io import fits
+from scipy.io import readsav
 
 def read_dat(file_dir_):
     lines = []
@@ -16,12 +17,36 @@ def read_dat(file_dir_):
     return lines
 
 
-data_dir = "./data/virgo"
-file = "virgo_tsi_d_v4_902.dat"
+def read_fits(file_dir_):
+    hdulist = fits.open(file_dir_)
+    print(hdulist.info())
 
-data = read_dat(os.path.join(data_dir, file))
+    hdu = hdulist[0]
+    print("data shape", hdu.data.shape)
+    print(hdu.header)
+
+    return hdu.data
+
+
+def read_idl(file_dir_):
+    return readsav(file_dir_, python_dict=True, verbose=True)
+
+
+data_dir = "./data/virgo"
+
+# file = "virgo_tsi_d_v4_902.dat"
+# data = read_dat(os.path.join(data_dir, file))
+#
+# print(data)
+# for line in data:
+#     print("\t".join(line))
+
+fits_file = "VIRGO_1min_0083-7404.fits"
+idl_file = "VIRGO_1min_0083-7404.idl"
+# data = read_fits(os.path.join(data_dir, "1-minute_Data", fits_file))
+data = read_idl(os.path.join(data_dir, "1-minute_Data", idl_file))
+
+for key in data:
+    print(key, data[key])
 
 print(data)
-
-for line in data:
-    print("\t".join(line))
