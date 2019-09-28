@@ -30,8 +30,8 @@ def download_folder(ftp_, remote_dir_, local_dir_, depth=1):
     filenames_ = ftp.nlst()
     for idx_, filename_ in enumerate(filenames_):
         file_is_dir_ = is_dir(ftp, filename_)
-        print("{}{:<10}\t{:<20}\tfile = {:<5}\tdir = {:<}".format("\t\t" * depth + "-->\t", idx_, filename_,
-                                                                  str(not file_is_dir_), str(file_is_dir_)))
+        print("{}{:<10}\t{:<50}\t{:<5}".format("\t\t" * depth + "-->\t", idx_, filename_,
+                                               "DIR" if file_is_dir_ else "FILE"))
 
         if file_is_dir_:
             if filename_ != "SSI":
