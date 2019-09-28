@@ -14,9 +14,10 @@ def is_dir(ftp_, name_):
 
 def download_file(ftp_, remote_dir_, local_dir_):
     format_ = remote_dir_.split(".")[-1]
-    if format_ not in ["pdf", "jpg", "jpeg", "html", "htm"] and "":
-        with open(local_dir_, "wb") as f:
-            ftp_.retrbinary("RETR %s" % remote_dir_, lambda data: f.write(data))
+    if format_ not in ["pdf", "jpg", "jpeg", "html", "htm", "ps"] or "SPM" in local_dir_:
+        if not os.path.exists(local_dir_):
+            with open(local_dir_, "wb") as f:
+                ftp_.retrbinary("RETR %s" % remote_dir_, lambda data: f.write(data))
 
 
 def download_folder(ftp_, remote_dir_, local_dir_, depth=1):

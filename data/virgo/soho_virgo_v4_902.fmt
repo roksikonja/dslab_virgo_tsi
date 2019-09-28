@@ -1,0 +1,37 @@
+================================================================================
+Data format for the SoHO_VIRGO_v4_902.PLT
+
+  COL   FMT    DESCRIPTION
+--------------------------------------------------------------------------------
+ 1- 4   I4     Year
+ 5- 6   I2     Month
+ 7- 8   I2     Day
+ 9-10   2X     Blank
+11-18   F8.3   Total Solar Irradiance (TSI)
+
+CREATED: Feb 24 2002
+VERSION: 4.902
+NOTE:    Versions higher than 3.0 use a new algorithm for level2 (see ref 4 below)
+         More detailled information about the individual measurements 
+         of the VIRGO radiometers can be found on 
+         http://www.pmodwrc.ch/virgo/virgo.html and in the references below.
+--------------------------------------------------------------------------------
+Total Solar Irradiance results from VIRGO (Variablity of solar IRradiance and
+Gravity Oscillations) onboard SOHO (SOlar and Heliospheric Observatory).
+REFERENCES: (these papers can also be found at the anonymous ftp server 
+obsun.pmodwrc.ch/pub/publications/ as re- or preprints
+(1) Fr{\"o}hlich, C., Crommelynck, D., Wehrli, C., Anklin, M., Dewitte, S., Fichot,
+  A., Finsterle, W., Jim{\e}nez, A., Chevalier, A. and Roth, H.~J.: 1997,
+  In-flight performances of {VIRGO} solar irradiance instruments on {SOHO},
+  {\em Sol. Phys.} {\bf 175},~267--286.
+(2) Anklin, M., Fr{\"o}hlich, C., Finsterle, W., Crommelynck, D.~A. and Dewitte,
+  S.: 1998, Assessment of degradation of {VIRGO} radiometers onboard {SOHO},
+  {\em Metrologia} {\bf 35}, p.686-688, 1999.
+(3) Fröhlich, C. and M. Anklin, `Uncertainty of Total Solar Irradiance: 
+   An Assessment of the Last 20 Years of Space Radiometry. {\em Metrologia}, 
+  {\bf 37}, 387-391, 2000
+(4) Fröhlich, C. and W. Finsterle, `VIRGO Radiometry and Total Solar 
+  Irradiance 1996-2000 Revised. In: P. Brekke, B. Fleck, and J. B. Gurman (eds.): 
+  Recent Insights Into the Physics of the Sun and Heliosphere - Highlights
+  from SOHO and Other Space Missions. p.105-110, ASP Conference Series, Vol. 203, 2001
+----------------------------------------------------------------------------------
