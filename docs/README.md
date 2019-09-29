@@ -62,6 +62,7 @@ special relativity effects.** ```????```
         * fully corrected DIARAD-L corresponds to the final level-2 data set
         * corrected PMO6V-B is now used to correct PMO6V-A to level-2 data set
 
+    * Algorithm: ```????``` 
     * Level-2.0 DIARAD data: ```????```,
     * Level-2.0 PMO6V data: ```????```.
 
@@ -86,21 +87,37 @@ and DIARAD values as:
         * Hourly data: ftp://ftp.pmodwrc.ch/pub/data/irradiance/virgo/TSI/virgo_tsi_h_v6_005_1805.dat
     
 
- 
+### PROJECT GOAL
 
-Current understanding of problem:
+We understand that the project final goal is to automatize the computation of the final VIRGO TSI level-2.0 signal.
 
-Main goal is to infer VIRGO TSI, which is at level 2. Level 2 means that exposure and non-exposure dependent changes have been accounted for. Level 1.8 on the other hand means that only exposure dependent changes have been taken into account. There are 2 signals, DIARAD and PMO6V, from which VIRGO TSI is inferred. Both of them have 2 channels, one main and one backup, where backup channel samples at much lower frequency in order to account for degradation. Degradation has lower influence on backup sensor, since degradation is proportional to exposure of sensor to sun. In latest version of algorithm, level 1.8 is never constructed. Instead, Level 2 is constructed directly from level 1 data.We are not sure what exactly is goal of our project:
-- Infer corrected DIARAD signal from 2 DIARAD channels
-- Same as previous bullet point for PMVO6
-- Infer VIRGO TSI from DIARAD and PMVO6 (basically try to improve method 6.4 from level 1 data)Inferrence of VIRGO TSI:
-DIARAD-L and PMO6V-A sample way more frequently than DIARAD-R and PMO6V-BDIARAD-R (Level 1) -> DIARAD-L (Level 1) -> Corrected DIARAD-L (Level 2)
-                                            
-                                            +                                            Corrected PMO6V-B -> Corrected PMO6V-A (Level 2)- Not sure what switch-offs are exactly
+In the slides:
+* Extract common solar signal. (VIRGO TSI)
+* Determine time-dependent sensor degradation and noise spectrum.
+    * Time dependent degradation is the process between data levels 1.8-2.0
+    * Noise spectrum. FFT of the final VIRGO TSI? What is considered as noise? Sun emits certain electromagnetic wavelengths,
+    analysis of the spectrum?
+* Algorithm to automatically perform above tasks. 
+    * Automatic pipeline with user interface, which includes parameter selection (e.g. moving average window size, include
+    degradation correction or not, etc.) and input data selection (e.g. import new data and input data level).
+    
+* Building a web app (GUI).
+
 
 ### QUESTIONS
 
 Questions for the upcoming session. Also, we would need further clarification on the topics with associated ```????```.
+
+#### MAIN QUESTIONS
+
+- Which data will be available to us? Data at which level? Will the algorithms will be available to us, e.g. to obtain
+level 1.0, 1.8 and 2.0 data? We will examine IDL routines and rewrite them in Python if necessary, this will
+give us a reliable baseline. These routines would be implemented in the pipeline and improved.
+    * Examination of data fusion methods. (Kalman Filters, NN?)
+
+- How to access SOHO public/private archives? Licence for IDL?
+
+#### AUXILIARY QUESTIONS
 
 - What are SOHO vacations? Period, when the SOHO experiments, including VIRGO, did not produce data? Instead ACRIM2 data
 was used?
