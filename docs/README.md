@@ -34,8 +34,15 @@ two instances: the main sensor and the backup sensor.
 Our understanding of the data and its adjustment and correction flow is described below.
 
 * Level-0: This is the raw data format stored in daily files.
-* Level-1: Level-0 data is converted to physical units.  
+    * Level-0 source: ????
 
+* Level-1: Level-0 data is converted to physical units, this process includes all a-priori
+known information about the instrument: mapping raw values to physical units, temperature variation, etc. Additionally,
+measurements are adjusted to 1 AU and to zero radial velocity. **This process standardizes TSI to the same distance at all
+times (Solar irradiance is proportional to 1/r^2 with r being the distance between the Sun and the satellite) and eliminates
+special relativity effects.**
+    * The convertion algorithm was developed by the developer.
+    * Level-1 source: ftp://ftp.pmodwrc.ch/pub/data/irradiance/virgo/1-minute_Data/VIRGO_1min_0083-7404.fits/.idl (PMO6V ?)
 
 
 
@@ -51,3 +58,14 @@ DIARAD-L and PMO6V-A sample way more frequently than DIARAD-R and PMO6V-BDIARAD-
                                             +                                            Corrected PMO6V-B -> Corrected PMO6V-A (Level 2)- Not sure what switch-offs are exactly
 - Not sure what SOHO vacations are
 - Do not understand rapid increase behaviourLENART:- what are SOHO vacations?
+
+
+
+- We would like to know a little bit more about the VIRGO satellite. What is its orbit and the orbit's center? 
+What is its revolution period? Are the VIRGO instruments at all times 
+
+
+- Level-0 to level-1 convertion requires instrument's calibration and temperature variation information and temperature
+measurements during the VIRGO experiment. Moreover, it requires information on the VIRGO distance to Sun and its radial velocity.
+ Where can we obtain this data? Will the convertion algorithm for both instruments be available to us? Would it be sensible
+ to have it as a reliable baseline? 
