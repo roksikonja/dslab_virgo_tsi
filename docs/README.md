@@ -3,6 +3,7 @@
 ### VIRGO EXPERIMENT 
 
 The VIRGO Experiment is part of SOHO Mission and consists of measurements of 3 physical quantities:
+
 * total solar irradiance (TSI),
 * spectral solar irradiance and
 * spectral radiance. 
@@ -21,6 +22,7 @@ global warming).
 
 In VIRGO experiment TSI is measured with two types of absolute radiometers, DIARAD and PMO6V. Both instruments have
 two instances: the main sensor and the backup sensor.
+
 * PMO6V (mode of operation after 23 February 1996): 
     * PMO6V-A (main): sampling continuosly at ```1 measurement/minute```,
     * PMO6V-B (backup): reduced sampling at ```1 measurement/week```.
@@ -71,15 +73,15 @@ and PMO6V level-2.0, corrected data for degradation. The final VIRGO TSI is obta
 and DIARAD values as: 
         
         function instrument_variance
-        input(S)                                    // S[t] is the instrument's measured value at time step t (days)
-        for each time step t:                       // determine weight at every step
-            W <- S[t-40:t+40]                       // get measurement window of length 81 with the center at timestep t
-            var <- variance(W)                      // compute variance for window W
+        input(S)                    // S[t] is the instrument's measured value at time step t (days)
+        for each time step t:       // determine weight at every step
+            W <- S[t-40:t+40]       // get measurement window of length 81 with the center at timestep t
+            var <- variance(W)      // compute variance for window W
             result[t] <- var
-        output result                               // variance for every time step
+        output result               // variance for every time step
         
         weight_PMO6V <- instrument_variance(PMO6V) - instrument_variance(DIARAD) // ????
-        weight_DIARAD <- 1 - weight_PMO6V           // ????
+        weight_DIARAD <- 1 - weight_PMO6V // ????
         
     * Final TSI is 131-day boxcar smoothed.
     * VIRGO TSI is available as daily and hourly data.
@@ -92,6 +94,7 @@ and DIARAD values as:
 We understand that the project final goal is to automatize the computation of the final VIRGO TSI level-2.0 signal.
 
 In the slides:
+
 * Extract common solar signal. (VIRGO TSI)
 * Determine time-dependent sensor degradation and noise spectrum.
     * Time dependent degradation is the process between data levels 1.8-2.0
