@@ -61,11 +61,17 @@ DIARAD-L and PMO6V-A sample way more frequently than DIARAD-R and PMO6V-BDIARAD-
 
 
 
-- We would like to know a little bit more about the VIRGO satellite. What is its orbit and the orbit's center? 
-What is its revolution period? Are the VIRGO instruments at all times 
+- We would like to know a little bit more about the VIRGO satellite. What is its orbit and the orbit's center?
+What is its revolution period? Are the VIRGO instruments at all times
 
 
 - Level-0 to level-1 convertion requires instrument's calibration and temperature variation information and temperature
 measurements during the VIRGO experiment. Moreover, it requires information on the VIRGO distance to Sun and its radial velocity.
  Where can we obtain this data? Will the convertion algorithm for both instruments be available to us? Would it be sensible
- to have it as a reliable baseline? 
+ to have it as a reliable baseline?
+
+From Level-1 to Level-2:
+* Step 1:
+    * We  corrcet DIARAD-L using backup DIARAD-R with splines
+* Step 2:
+    * using the comparison of DIARAD and PMO6V we correct both time series
