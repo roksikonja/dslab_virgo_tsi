@@ -99,9 +99,9 @@ In the slides:
     analysis of the spectrum?
 * Algorithm to automatically perform above tasks. 
     * Automatic pipeline with user interface, which includes parameter selection (e.g. moving average window size, include
-    degradation correction or not, etc.) and input data selection (e.g. import new data and input data level).
+    degradation correction or not, file names, version etc.) and input data selection (e.g. import new data and input data level).
     
-* Building a web app (GUI).
+* Building a web app (GUI). Automatic result output.
 
 
 ### QUESTIONS
@@ -114,6 +114,8 @@ Questions for the upcoming session. Also, we would need further clarification on
 level 1.0, 1.8 and 2.0 data? We will examine IDL routines and rewrite them in Python if necessary, this will
 give us a reliable baseline. These routines would be implemented in the pipeline and improved.
     * Examination of data fusion methods. (Kalman Filters, NN?)
+    * If lower level data is our input, then we would need your results and algorithms for all consecutive levels for 
+    the purpose of reproduction of your results.
 
 - How to access SOHO public/private archives? Licence for IDL?
 
@@ -125,7 +127,7 @@ was used?
 - Could you explain again, what is the cause of the early increase and how are the measurements corrected for it?
 
 - We would like to know a little bit more about the VIRGO satellite. What is its orbit and the orbit's center?
-What is its revolution period? Are the VIRGO instruments at all times
+What is its revolution period? Are the VIRGO instruments at all times directed directly towards the Sun?
 
 - Difference between exposure and non-exposure changes. What counts as degradation, exposure or non-exposure? We assume
 that exposure, article Frohling 2014. 
