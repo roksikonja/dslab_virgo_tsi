@@ -34,6 +34,7 @@ two instances: the main sensor and the backup sensor.
 Our understanding of the data and its adjustment and correction flow is described below.
 
 * Level-0: This is the raw data format stored in daily files.
+    * Algorithm: ```????```
     * Level-0 source: ```????```
 
 * Level-1: Level-0 data is converted to physical units, this process includes all a-priori
@@ -46,6 +47,11 @@ special relativity effects.** ```????```
     ```(PMO6V ????)```
 
 * Level-1.8: Exposure dependent changes are determined for each radiometer individually.
+    * Algorithm: ```????```
+    * Data source: ```????```
+
+![From Level-1 to Level-2](Level1ToLevel2.jpg)
+
 * Level-1 to Level-2:
     * Step 1:
         * DIARAD-L time series are corrected using backup DIARAD-R with splines
@@ -55,6 +61,9 @@ special relativity effects.** ```????```
     * Step 3:
         * fully corrected DIARAD-L corresponds to the final level-2 data set
         * corrected PMO6V-B is now used to correct PMO6V-A to level-2 data set
+
+    * Level-2.0 DIARAD data: ```????```,
+    * Level-2.0 PMO6V data: ```????```.
 
 * Level-2.0 (VIRGO TSI): Inputs are the DIARAD level-2.0, corrected data for degradation, 
 and PMO6V level-2.0, corrected data for degradation. The final VIRGO TSI is obtained by a weighted average of PMO6V
@@ -78,7 +87,6 @@ and DIARAD values as:
     
 
  
-![From Level-1 to Level-2](Level1ToLevel2.jpg)
 
 Current understanding of problem:
 
@@ -89,19 +97,23 @@ Main goal is to infer VIRGO TSI, which is at level 2. Level 2 means that exposur
 DIARAD-L and PMO6V-A sample way more frequently than DIARAD-R and PMO6V-BDIARAD-R (Level 1) -> DIARAD-L (Level 1) -> Corrected DIARAD-L (Level 2)
                                             
                                             +                                            Corrected PMO6V-B -> Corrected PMO6V-A (Level 2)- Not sure what switch-offs are exactly
-- Not sure what SOHO vacations are
-- Do not understand rapid increase behaviourLENART:- what are SOHO vacations?
+
+### QUESTIONS
+
+Questions for the upcoming session. Also, we would need further clarification on the topics with associated ```????```.
+
+- What are SOHO vacations? Period, when the SOHO experiments, including VIRGO, did not produce data? Instead ACRIM2 data
+was used?
 
 - Could you explain again, what is the cause of the early increase and how are the measurements corrected for it?
 
 - We would like to know a little bit more about the VIRGO satellite. What is its orbit and the orbit's center?
 What is its revolution period? Are the VIRGO instruments at all times
 
-- Difference between exposure and non-exposure changes.
+- Difference between exposure and non-exposure changes. What counts as degradation, exposure or non-exposure? We assume
+that exposure, article Frohling 2014. 
 
 - Level-0 to level-1 convertion requires instrument's calibration and temperature variation information and temperature
 measurements during the VIRGO experiment. Moreover, it requires information on the VIRGO distance to Sun and its radial velocity.
  Where can we obtain this data? Will the convertion algorithm for both instruments be available to us? Would it be sensible
  to have it as a reliable baseline?
-
-
