@@ -34,7 +34,7 @@ two instances the main sensor and the backup sensor.
 Our understanding of the data and its adjustment and correction flow is described below.
 
 * Level-0: This is the raw data format stored in daily files.
-* Level-1: Level-0 
+* Level-1: Level-0 data is converted to physical units.  
 
 
 
