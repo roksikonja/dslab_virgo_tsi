@@ -44,7 +44,7 @@ special relativity effects.**
     * The convertion algorithm was developed by the developer.
     * Level-1 source: ftp://ftp.pmodwrc.ch/pub/data/irradiance/virgo/1-minute_Data/VIRGO_1min_0083-7404.fits/.idl (PMO6V ?)
 
-
+* Level-2: 
 
 
 Current understanding of problem:
