@@ -20,7 +20,7 @@ global warming).
 ### TSI MEASUREMENT INSTRUMENTATION 
 
 In VIRGO experiment TSI is measured with two types of absolute radiometers, DIARAD and PMO6V. Both instruments have
-two instances the main sensor and the backup sensor. 
+two instances: the main sensor and the backup sensor.
 * PMO6V (mode of operation after 23 February 1996): 
     * PMO6V-A (main): sampling continuosly at ```1 measurement/minute```,
     * PMO6V-B (backup): reduced sampling at ```1 measurement/week```.
