@@ -46,6 +46,15 @@ special relativity effects.** ```????```
     ```(PMO6V ????)```
 
 * Level-1.8: Exposure dependent changes are determined for each radiometer individually.
+* Level-1 to Level-2:
+    * Step 1:
+        * DIARAD-L time series are corrected using backup DIARAD-R with splines
+    * Step 2:
+        * corrected DIARAD are compared with PMO6V-B by fitting an exponential correction for the non-exposure dependent
+          change of DIARAD and a dose and temperature dependent correction for the early increase of PMO6V-B simultaneously
+    * Step 3:
+        * fully corrected DIARAD-L corresponds to the final level-2 data set
+        * corrected PMO6V-B is now used to correct PMO6V-A to level-2 data set
 
 * Level-2.0 (VIRGO TSI): Inputs are the DIARAD level-2.0, corrected data for degradation, 
 and PMO6V level-2.0, corrected data for degradation. The final VIRGO TSI is obtained by a weighted average of PMO6V
@@ -69,6 +78,7 @@ and DIARAD values as:
     
 
  
+![From Level-1 to Level-2](Level1ToLevel2.jpg)
 
 Current understanding of problem:
 
@@ -94,8 +104,4 @@ measurements during the VIRGO experiment. Moreover, it requires information on t
  Where can we obtain this data? Will the convertion algorithm for both instruments be available to us? Would it be sensible
  to have it as a reliable baseline?
 
-From Level-1 to Level-2:
-* Step 1:
-    * We  corrcet DIARAD-L using backup DIARAD-R with splines
-* Step 2:
-    * using the comparison of DIARAD and PMO6V we correct both time series
+
