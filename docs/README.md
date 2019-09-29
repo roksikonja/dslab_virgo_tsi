@@ -51,3 +51,9 @@ DIARAD-L and PMO6V-A sample way more frequently than DIARAD-R and PMO6V-BDIARAD-
                                             +                                            Corrected PMO6V-B -> Corrected PMO6V-A (Level 2)- Not sure what switch-offs are exactly
 - Not sure what SOHO vacations are
 - Do not understand rapid increase behaviourLENART:- what are SOHO vacations?
+
+From Level-1 to Level-2:
+* Step 1:
+    * We  corrcet DIARAD-L using backup DIARAD-R with splines
+* Step 2:
+    * using the comparison of DIARAD and PMO6V we correct both time series
