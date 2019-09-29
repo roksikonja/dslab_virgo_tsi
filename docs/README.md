@@ -34,15 +34,23 @@ two instances: the main sensor and the backup sensor.
 Our understanding of the data and its adjustment and correction flow is described below.
 
 * Level-0: This is the raw data format stored in daily files.
-    * Level-0 source: ????
+    * Algorithm: ```????```
+    * Level-0 source: ```????```
 
 * Level-1: Level-0 data is converted to physical units, this process includes all a-priori
 known information about the instrument: mapping raw values to physical units, temperature variation, etc. Additionally,
 measurements are adjusted to 1 AU and to zero radial velocity. **This process standardizes TSI to the same distance at all
 times (Solar irradiance is proportional to 1/r^2 with r being the distance between the Sun and the satellite) and eliminates
-special relativity effects.**
+special relativity effects.** ```????```
     * The convertion algorithm was developed by the developer.
-    * Level-1 source: ftp://ftp.pmodwrc.ch/pub/data/irradiance/virgo/1-minute_Data/VIRGO_1min_0083-7404.fits/.idl (PMO6V ?)
+    * Level-1 source: ftp://ftp.pmodwrc.ch/pub/data/irradiance/virgo/1-minute_Data/VIRGO_1min_0083-7404.fits/.idl 
+    ```(PMO6V ????)```
+
+* Level-1.8: Exposure dependent changes are determined for each radiometer individually.
+    * Algorithm: ```????```
+    * Data source: ```????```
+
+![From Level-1 to Level-2](Level1ToLevel2.jpg)
 
 * Level-1 to Level-2:
     * Step 1:
@@ -54,7 +62,31 @@ special relativity effects.**
         * fully corrected DIARAD-L corresponds to the final level-2 data set
         * corrected PMO6V-B is now used to correct PMO6V-A to level-2 data set
 
-![From Level-1 to Level-2](Level1ToLevel2.jpg)
+    * Level-2.0 DIARAD data: ```????```,
+    * Level-2.0 PMO6V data: ```????```.
+
+* Level-2.0 (VIRGO TSI): Inputs are the DIARAD level-2.0, corrected data for degradation, 
+and PMO6V level-2.0, corrected data for degradation. The final VIRGO TSI is obtained by a weighted average of PMO6V
+and DIARAD values as: 
+        
+        function instrument_variance
+        input(S)                                    // S[t] is the instrument's measured value at time step t (days)
+        for each time step t:                       // determine weight at every step
+            W <- S[t-40:t+40]                       // get measurement window of length 81 with the center at timestep t
+            var <- variance(W)                      // compute variance for window W
+            result[t] <- var
+        output result                               // variance for every time step
+        
+        weight_PMO6V <- instrument_variance(PMO6V) - instrument_variance(DIARAD) // ????
+        weight_DIARAD <- 1 - weight_PMO6V           // ????
+        
+    * Final TSI is 131-day boxcar smoothed.
+    * VIRGO TSI is available as daily and hourly data.
+        * Daily data: ftp://ftp.pmodwrc.ch/pub/data/irradiance/virgo/TSI/virgo_tsi_d_v6_005_1805.dat
+        * Hourly data: ftp://ftp.pmodwrc.ch/pub/data/irradiance/virgo/TSI/virgo_tsi_h_v6_005_1805.dat
+    
+
+ 
 
 Current understanding of problem:
 
@@ -65,18 +97,23 @@ Main goal is to infer VIRGO TSI, which is at level 2. Level 2 means that exposur
 DIARAD-L and PMO6V-A sample way more frequently than DIARAD-R and PMO6V-BDIARAD-R (Level 1) -> DIARAD-L (Level 1) -> Corrected DIARAD-L (Level 2)
                                             
                                             +                                            Corrected PMO6V-B -> Corrected PMO6V-A (Level 2)- Not sure what switch-offs are exactly
-- Not sure what SOHO vacations are
-- Do not understand rapid increase behaviourLENART:- what are SOHO vacations?
 
+### QUESTIONS
 
+Questions for the upcoming session. Also, we would need further clarification on the topics with associated ```????```.
+
+- What are SOHO vacations? Period, when the SOHO experiments, including VIRGO, did not produce data? Instead ACRIM2 data
+was used?
+
+- Could you explain again, what is the cause of the early increase and how are the measurements corrected for it?
 
 - We would like to know a little bit more about the VIRGO satellite. What is its orbit and the orbit's center?
 What is its revolution period? Are the VIRGO instruments at all times
 
+- Difference between exposure and non-exposure changes. What counts as degradation, exposure or non-exposure? We assume
+that exposure, article Frohling 2014. 
 
 - Level-0 to level-1 convertion requires instrument's calibration and temperature variation information and temperature
 measurements during the VIRGO experiment. Moreover, it requires information on the VIRGO distance to Sun and its radial velocity.
  Where can we obtain this data? Will the convertion algorithm for both instruments be available to us? Would it be sensible
  to have it as a reliable baseline?
-
-
