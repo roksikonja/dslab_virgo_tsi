@@ -5,8 +5,8 @@ setup(
     version='1.0',
     url='https://github.com/roksikonja/dslab_virgo_tsi',
 
-    author='Rok Šikonja, Luka Kolar and Lenart Treven',
-    author_email='rsikonja@student.ethz.ch, kolarl@student.ethz.ch and trevenl@student.ethz.ch',
+    author='Luka Kolar, Rok Šikonja and Lenart Treven',
+    author_email='kolarl@student.ethz.ch, rsikonja@student.ethz.ch and trevenl@student.ethz.ch',
     description='ETHs Data Science Lab Project - Autumn 2019.',
 
     packages=find_packages(exclude=[]),
@@ -14,11 +14,8 @@ setup(
     install_requires=[
                 "numpy",
                 "pandas",
+                "matplotlib",
                 "ipykernel",
                 "jupyter",
-                "matplotlib",
-                "sklearn",
-                "scipy",
-                "astropy"
         ],
 )
