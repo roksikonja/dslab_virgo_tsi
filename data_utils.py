@@ -58,6 +58,11 @@ def mission_day_to_year(day):
     return years
 
 
+def make_dir(directory):
+    if not os.path.exists(directory):
+        os.mkdir(directory)
+
+
 if __name__ == "__main__":
     data_dir = "./data"
     virgo_file = "VIRGO_Level1.txt"

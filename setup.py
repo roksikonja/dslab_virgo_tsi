@@ -17,5 +17,8 @@ setup(
                 "matplotlib",
                 "ipykernel",
                 "jupyter",
+                "scipy",
+                "sklearn",
+                "csaps"
         ],
 )
