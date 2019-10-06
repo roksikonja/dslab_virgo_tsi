@@ -1,15 +1,12 @@
 from data_utils import load_data, make_dir
 from constants import Constants as C
-from modeling import compute_exposure, initial_fit, DegradationModels
+from modeling import compute_exposure, initial_fit, em_estimate, DegradationModels
 
 import os
 import datetime
 
 import numpy as np
 import matplotlib.pyplot as plt
-
-from scipy.optimize import curve_fit
-
 
 # Parameters
 data_dir = C.DATA_DIR
@@ -28,8 +25,8 @@ pmo_a = data["pmo6v_a"]
 pmo_b = data["pmo6v_b"]
 
 # Calculate exposure
-data["exposure_a"] = compute_exposure(pmo_a, "exposure_sum")
-data["exposure_b"] = compute_exposure(pmo_b, "exposure_sum")
+data["exposure_a"] = compute_exposure(pmo_a, "exposure_sum", pmo_b.mean())
+data["exposure_b"] = compute_exposure(pmo_b, "exposure_sum", pmo_b.mean())
 
 # Extract not nan rows
 data_nn = data[["timestamp", "pmo6v_a", "pmo6v_b", "exposure_a", "exposure_b"]].dropna()
@@ -46,28 +43,12 @@ ratio_a_b = x_a_nn/x_b_nn
 gamma_initial, lambda_initial, e_0_initial = initial_fit(ratio_a_b, e_a_nn)
 ratio_a_b_initial = DegradationModels.exp_unc_model(e_a_nn, gamma_initial, lambda_initial, e_0_initial)
 
+# plt.figure(1, figsize=(16, 8))
+# plt.plot(t_nn, ratio_a_b, t_nn, ratio_a_b_initial)
+# plt.savefig(os.path.join(results_dir, "ratio_a_b_raw.pdf"), bbox_inches="tight", quality=100, dpi=200)
+# plt.show()
 
-plt.figure(1, figsize=(16, 8))
-plt.plot(t_nn, ratio_a_b, t_nn, ratio_a_b_initial)
-plt.savefig(os.path.join(results_dir, "ratio_a_b_raw.pdf"), bbox_inches="tight", quality=100, dpi=200)
-plt.show()
+parameters_initial = [gamma_initial, lambda_initial, e_0_initial, 0]
+parameters_opt = em_estimate(x_a_nn, x_b_nn, e_a_nn, e_b_nn, t_nn, parameters_initial)
 
-
-
-
-
-
-
-ratio_a_b_pred = gamma + np.exp(-lambda_ * (e_a_nn - t_0))
-
-
-popt, pcov = curve_fit(exponential_model,  e_a_nn,  ratio_a_b, p0=(gamma, lambda_, t_0))
-popt_lin, pcov = curve_fit(exponential_linear_model,  e_a_nn,  ratio_a_b, p0=(gamma, lambda_, t_0, 0))
-
-
-plt.figure(2, figsize=(16, 8))
-# plt.plot(t_nn, ratio_a_b, t_nn, ratio_a_b_pred, t_nn, exponential_model(e_a_nn, *popt))
-plt.plot(t_nn, ratio_a_b_pred, t_nn, exponential_model(e_a_nn, *popt),
-         t_nn, exponential_linear_model(e_a_nn, *popt_lin))
-plt.show()
 
