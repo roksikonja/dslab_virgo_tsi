@@ -45,6 +45,9 @@ def notnan_indices(x):
 
 
 def moving_average(x, w, center=True):
+    if not isinstance(x, pd.Series):
+        x = pd.Series(x)
+
     if w > 1:
         return x.rolling(w, center=center).mean()
     else:
