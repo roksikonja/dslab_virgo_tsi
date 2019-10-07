@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -40,18 +42,42 @@ def compute_exposure(x, mode="num_measurements", mean=1):
         return np.cumsum(x)
 
 
-def em_estimate(x_a_raw, x_b_raw, e_a, e_b, t, parameters_initial, visualize=True):
+def em_estimate_exp(x_a_raw, x_b_raw, e_a, e_b, parameters_initial, epsilon=1e-7):
     x_a_c = None
-    ratio_a_b_c = None
-
     x_b_c = x_b_raw
-    ratio_a_b = x_a_raw / x_b_raw
+
+    parameters_prev = np.zeros(shape=(2,))
+    parameters_opt = [parameters_initial[1], parameters_initial[2]]
+
+    convergence = True
+    while convergence:
+        ratio_a_b_c = x_a_raw / x_b_c
+
+        parameters_opt, _ = curve_fit(DegradationModels.exp_model, e_a, ratio_a_b_c,
+                                      p0=(parameters_initial[1], parameters_initial[2]))
+
+        x_a_c = x_a_raw / DegradationModels.exp_model(e_a, *parameters_opt)
+        x_b_c = x_b_raw / DegradationModels.exp_model(e_b, *parameters_opt)
+
+        delta_norm = np.linalg.norm(parameters_prev - parameters_opt) / np.linalg.norm(parameters_prev)
+
+        print("norm\t", delta_norm)
+        parameters_prev = parameters_opt
+
+        convergence = delta_norm > epsilon
+
+    return parameters_opt, x_a_c, x_b_c
+
+
+def em_estimate_exp_lin(x_a_raw, x_b_raw, e_a, e_b, parameters_initial, epsilon=1e-7):
+    x_a_c = None
+    x_b_c = x_b_raw
 
     parameters_prev = np.zeros(shape=(3,))
-    parameters_opt = parameters_prev
+    parameters_opt = [parameters_initial[1], parameters_initial[2], parameters_initial[3]]
 
-    num_iter = 50
-    for i in range(1, num_iter + 1):
+    convergence = True
+    while convergence:
         ratio_a_b_c = x_a_raw / x_b_c
 
         parameters_opt, _ = curve_fit(DegradationModels.exp_lin_model, e_a, ratio_a_b_c,
@@ -60,30 +86,14 @@ def em_estimate(x_a_raw, x_b_raw, e_a, e_b, t, parameters_initial, visualize=Tru
         x_a_c = x_a_raw / DegradationModels.exp_lin_model(e_a, *parameters_opt)
         x_b_c = x_b_raw / DegradationModels.exp_lin_model(e_b, *parameters_opt)
 
-        print("norm\t", np.linalg.norm(parameters_prev - parameters_opt), parameters_opt)
+        delta_norm = np.linalg.norm(parameters_prev - parameters_opt) / np.linalg.norm(parameters_prev)
+
+        print("norm\t", delta_norm)
         parameters_prev = parameters_opt
 
-        # if visualize:
-        #     plt.figure(4, figsize=(16, N * 8))
-        #     plt.subplot(2*N, 1, 2*(i-1)+1)
-        #     plt.plot(t_nn, x_b_nn, t_nn, x_a_nn_c_lin, t_nn, x_b_nn_c_lin)
-        #     plt.legend(["pmo_b", "pmo_a_c_lin", "pmo_b_c_lin"])
-        #     plt.subplot(2*N, 1, 2*(i-1)+2)
-        #     plt.plot(t_nn, ratio_a_b, t_nn, ratio, t_nn, exponential_linear_model(e_a_nn, *popt))
-        #     plt.legend(["ratio_a_b", "ratio"])
+        convergence = delta_norm > epsilon
 
-    if visualize:
-        plt.figure(4, figsize=(16, 8))
-        plt.plot(t, x_b_raw, t, x_a_c, t, x_b_c)
-        plt.legend(["pmo_b", "pmo_a_c", "pmo_b_c"])
-        plt.show()
-
-        plt.figure(5, figsize=(16, 8))
-        plt.plot(t, ratio_a_b, t, ratio_a_b_c, t, DegradationModels.exp_lin_model(e_a, *parameters_opt))
-        plt.legend(["ratio_a_b_raw", "ratio_a_b_c", "exp_lin_opt"])
-        plt.show()
-
-    return parameters_opt
+    return parameters_opt, x_a_c, x_b_c
 
 
 class DegradationModels(object):
