@@ -1,4 +1,4 @@
-from data_utils import load_data, make_dir, downsample_signal, moving_average, notnan_indices, mission_day_to_year
+from data_utils import load_data, make_dir, downsample_signal, moving_average_std, notnan_indices, mission_day_to_year
 from constants import Constants as C
 from modeling import compute_exposure, initial_fit, em_estimate_exp_lin, em_estimate_exp, DegradationModels
 
@@ -8,6 +8,7 @@ import argparse
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import style
 
 
 parser = argparse.ArgumentParser()
@@ -112,32 +113,34 @@ elif ARGS.model_type == "exp":
     deg_a = DegradationModels.exp_model(e_a_nn, *parameters_opt)
     deg_b = DegradationModels.exp_model(e_b_nn, *parameters_opt)
 
-x_a_ma = moving_average(x_a, w=ARGS.window, center=True)
-x_a_c_ma = moving_average(x_a_c, w=ARGS.window, center=True)
-x_b_ma = moving_average(x_b, w=ARGS.window, center=True)
-x_b_c_ma = moving_average(x_b_c, w=ARGS.window, center=True)
+x_a_ma, x_a_std = moving_average_std(x_a, w=ARGS.window, center=True)
+x_a_c_ma, x_a_c_std = moving_average_std(x_a_c, w=ARGS.window, center=True)
+x_b_ma, x_b_std = moving_average_std(x_b, w=ARGS.window, center=True)
+x_b_c_ma, x_b_c_std = moving_average_std(x_b_c, w=ARGS.window, center=True)
 
-plt.figure(1, figsize=(16, 8))
+style.use(C.MATPLOTLIB_STYLE)
+
+plt.figure(1, figsize=C.FIG_SIZE)
 plt.plot(t_nn, ratio_a_b, t_nn, ratio_a_b_initial)
 plt.title("PMO6V-a to PMO6V-b ratio - raw, initial fit")
 plt.savefig(os.path.join(results_dir, ARGS.model_type + "_ratio_a_b_raw_initial.pdf"),
             bbox_inches="tight", quality=100, dpi=200)
 
-plt.figure(2, figsize=(16, 8))
+plt.figure(2, figsize=C.FIG_SIZE)
 plt.plot(t_nn, x_b_nn, t_nn, x_a_nn_c, t_nn, x_b_nn_c)
 plt.legend(["pmo_b", "pmo_a_c", "pmo_b_c"])
 plt.title("PMO6V-a and PMO6V-b - raw, degradation corrected")
 plt.savefig(os.path.join(results_dir, ARGS.model_type + "_pmo_a_b_c.pdf"),
             bbox_inches="tight", quality=100, dpi=200)
 
-plt.figure(3, figsize=(16, 8))
+plt.figure(3, figsize=C.FIG_SIZE)
 plt.plot(t_nn, ratio_a_b, t_nn, ratio_a_b_c, t_nn, deg_a, t_nn, deg_b)
 plt.title("PMO6V-a to PMO6V-b ratio - raw, degradation corrected")
 plt.legend(["ratio_a_b_raw", "ratio_a_b_c", "deg_a_opt", "deg_b_opt"])
 plt.savefig(os.path.join(results_dir,  ARGS.model_type + "_ratio_a_b_raw_opt.pdf"),
             bbox_inches="tight", quality=100, dpi=200)
 
-plt.figure(4, figsize=(16, 8))
+plt.figure(4, figsize=C.FIG_SIZE)
 plt.scatter(t_a, x_a, marker="x", c="b")
 plt.scatter(t_b, x_b, marker="x", c="r")
 plt.plot(t_a, x_a_c)
@@ -147,12 +150,27 @@ plt.legend(["pmo_a", "pmo_b", "pmo_a_c", "pmo_b_c"], loc="lower left")
 plt.savefig(os.path.join(results_dir,  ARGS.model_type + "_pmo_a_b_c_full.pdf"),
             bbox_inches="tight", quality=100, dpi=200)
 
-plt.figure(5, figsize=(16, 8))
-plt.plot(t_a, x_a_ma, t_b, x_b_ma, t_a, x_a_c_ma, t_b, x_b_c_ma)
+plt.figure(5, figsize=C.FIG_SIZE)
+plt.plot(t_a, x_a_ma, color="tab:blue")
+plt.fill_between(t_a, x_a_ma - 1.96 * x_a_std, x_a_ma + 1.96 * x_a_std,
+                 facecolor='tab:blue', alpha=0.5, label='95% confidence interval')
+
+plt.plot(t_b, x_b_ma, color="tab:orange")
+plt.fill_between(t_b, x_b_ma - 1.96 * x_b_std, x_b_ma + 1.96 * x_b_std,
+                 facecolor='tab:orange', alpha=0.5, label='95% confidence interval')
+
+plt.plot(t_a, x_a_c_ma, color="tab:green")
+plt.fill_between(t_a, x_a_c_ma - 1.96 * x_a_c_std, x_a_c_ma + 1.96 * x_a_c_std,
+                 facecolor='tab:green', alpha=0.5, label='95% confidence interval')
+
+plt.plot(t_b, x_b_c_ma, color="tab:red")
+plt.fill_between(t_b, x_b_c_ma - 1.96 * x_b_c_std, x_b_c_ma + 1.96 * x_b_c_std,
+                 facecolor='tab:red', alpha=0.5, label='95% confidence interval')
+
 plt.title("PMO6V-a and PMO6V-b - raw, degradation corrected, moving average")
 plt.legend(["pmo_a_ma", "pmo_b_ma", "pmo_a_c_ma", "pmo_b_c_ma"], loc="lower left")
 plt.savefig(os.path.join(results_dir,  ARGS.model_type + "_pmo_a_b_c_full_ma.pdf"),
             bbox_inches="tight", quality=100, dpi=200)
 
-if ARGS.visualize or True:
+if ARGS.visualize:
     plt.show()
