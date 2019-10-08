@@ -154,5 +154,5 @@ plt.legend(["pmo_a_ma", "pmo_b_ma", "pmo_a_c_ma", "pmo_b_c_ma"], loc="lower left
 plt.savefig(os.path.join(results_dir,  ARGS.model_type + "_pmo_a_b_c_full_ma.pdf"),
             bbox_inches="tight", quality=100, dpi=200)
 
-if ARGS.visualize:
+if ARGS.visualize or True:
     plt.show()
