@@ -56,8 +56,8 @@ def moving_average_std(x, w, center=True):
         return x, np.zeros(shape=x.shape)
 
 
-def mission_day_to_year(array: np.ndarray):
-    np.array(list(map(_mission_day_to_year_one_entry, array)))
+def mission_day_to_year(array):
+    return np.array(list(map(_mission_day_to_year_one_entry, array)))
 
 
 def _mission_day_to_year_one_entry(day):

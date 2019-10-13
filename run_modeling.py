@@ -87,10 +87,10 @@ def plot_results(results: ModelFitter, data_name, results_dir_path_):
                      results.signal_a_corrected_moving_average + 1.96 * results.signal_a_corrected_std,
                      facecolor='tab:green', alpha=0.5, label='95% confidence interval')
 
-    plt.plot(results.t_b_downsample, results.signal_a_corrected_moving_average, color="tab:red")
+    plt.plot(results.t_b_downsample, results.signal_b_corrected_moving_average, color="tab:red")
     plt.fill_between(results.t_b_downsample,
-                     results.signal_a_corrected_moving_average - 1.96 * results.signal_b_corrected_std,
-                     results.signal_a_corrected_moving_average + 1.96 * results.signal_b_corrected_std,
+                     results.signal_b_corrected_moving_average - 1.96 * results.signal_b_corrected_std,
+                     results.signal_b_corrected_moving_average + 1.96 * results.signal_b_corrected_std,
                      facecolor='tab:red', alpha=0.5, label='95% confidence interval')
 
     plt.title(data_name + "-a to " + data_name + "-b ratio - raw, degradation corrected, moving average")
@@ -109,8 +109,8 @@ if __name__ == "__main__":
     # Perform modeling
     model = ModelFitter(data=data_pmo6v,
                         timestamp_field_name="timestamp",
-                        signal_a_field_name="pmo6va",
-                        signal_b_field_name="pmo6vb",
+                        signal_a_field_name="pmo6v_a",
+                        signal_b_field_name="pmo6v_b",
                         temperature_field_name="temperature",
                         exposure_mode=ExposureMode.EXPOSURE_SUM,
                         model_type=model_type_from_arg(ARGS.model_type))

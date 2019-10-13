@@ -1,5 +1,4 @@
 from enum import Enum, auto
-from typing import Sequence
 
 import numpy as np
 from scipy.optimize import curve_fit
@@ -28,8 +27,9 @@ class ModelFitter:
         self.signal_b = data[signal_b_field_name].values
 
         # Calculate exposure
-        self.exposure_a = self._compute_exposure(self.signal_a, exposure_mode, self.signal_b.mean())
-        self.exposure_b = self._compute_exposure(self.signal_b, exposure_mode, self.signal_b.mean())
+        signal_b_mean = float(np.mean(self.signal_b[~np.isnan(self.signal_b)]))
+        self.exposure_a = self._compute_exposure(self.signal_a, exposure_mode, signal_b_mean)
+        self.exposure_b = self._compute_exposure(self.signal_b, exposure_mode, signal_b_mean)
         data["exposure_a"] = self.exposure_a
         data["exposure_b"] = self.exposure_b
 
@@ -76,7 +76,7 @@ class ModelFitter:
         self.signal_a_corrected_std = None
         self.signal_b_downsample_moving_average = None
         self.signal_b_downsample_std = None
-        self.signal_a_corrected_moving_average = None
+        self.signal_b_corrected_moving_average = None
         self.signal_b_corrected_std = None
         self.get_downsampled_result()
 
@@ -113,12 +113,12 @@ class ModelFitter:
         self.signal_b_downsample_moving_average, self.signal_b_downsample_std = moving_average_std(
             self.signal_b_downsample,
             w=window_size)
-        self.signal_a_corrected_moving_average, self.signal_b_corrected_std = moving_average_std(
+        self.signal_b_corrected_moving_average, self.signal_b_corrected_std = moving_average_std(
             self.signal_b_downsample_corrected,
             w=window_size)
 
     @staticmethod
-    def _initial_fit(ratio_a_b, exposure_a) -> Sequence[float, float, float]:
+    def _initial_fit(ratio_a_b, exposure_a):
         """y(t) = gamma + exp(-lambda_ * (exposure_a - e_0))"""
         # TODO: Auto?? epsilon = 1e-5
         epsilon = 1e-5
@@ -137,7 +137,7 @@ class ModelFitter:
         return gamma, lambda_, e_0
 
     @staticmethod
-    def _compute_exposure(x: np.ndarray, mode: ExposureMode = ExposureMode.NUM_MEASUREMENTS, mean: float = 1.0):
+    def _compute_exposure(x, mode=ExposureMode.NUM_MEASUREMENTS, mean=1.0):
         if mode == ExposureMode.NUM_MEASUREMENTS:
             x = np.nan_to_num(x) > 0
             return np.cumsum(x)
@@ -176,8 +176,8 @@ class ModelFitter:
     @staticmethod
     def _get_initial_parameters_from_model_type(model_type, lambda_initial, e_0_initial):
         if model_type == ModelType.EXP_LIN:
-            return [lambda_initial, e_0_initial, 0]
-        return [lambda_initial, e_0_initial]
+            return lambda_initial, e_0_initial, 0
+        return lambda_initial, e_0_initial
 
     @staticmethod
     def _em_estimate(model_function, x_a_raw, x_b_raw, exposure_a, exposure_b, parameters_initial,
@@ -185,15 +185,14 @@ class ModelFitter:
         x_a_corrected = None
         x_b_corrected = x_b_raw
 
-        parameters_prev = np.zeros(shape=(2,))
-        parameters_opt = [parameters_initial[1], parameters_initial[2]]
+        parameters_prev = np.zeros_like(parameters_initial)
+        parameters_opt = parameters_initial
 
         convergence = True
         while convergence:
             ratio_a_b_corrected = x_a_raw / x_b_corrected
 
-            parameters_opt, _ = curve_fit(model_function, exposure_a, ratio_a_b_corrected,
-                                          p0=(parameters_initial[1], parameters_initial[2]))
+            parameters_opt, _ = curve_fit(model_function, exposure_a, ratio_a_b_corrected, p0=parameters_initial)
 
             x_a_corrected = x_a_raw / model_function(exposure_a, *parameters_opt)
             x_b_corrected = x_b_raw / model_function(exposure_b, *parameters_opt)
