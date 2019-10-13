@@ -44,14 +44,15 @@ def notnan_indices(x):
     return ~np.isnan(x)
 
 
-def moving_average(x, w, center=True):
+def moving_average_std(x, w, center=True):
     if not isinstance(x, pd.Series):
         x = pd.Series(x)
 
     if w > 1:
-        return x.rolling(w, center=center).mean()
+        x = x.rolling(w, center=center)
+        return x.mean(), x.std()
     else:
-        return x
+        return x, np.zeros(shape=x.shape)
 
 
 def mission_day_to_year(day):
