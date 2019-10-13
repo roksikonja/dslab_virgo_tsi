@@ -3,10 +3,17 @@ from scipy.interpolate import UnivariateSpline, splev, splrep
 from scipy.optimize import minimize
 
 
+
 class DegradationSpline():
-    def __init__(self, k=3, s_params=[j * 10 ** i for i in range(-14, 0) for j in range(1, 9)]):
+    def __init__(self, k=3, s_params=(-14,0)):
         self.k = k
-        self.s_params = s_params
+        self.s_params = self._s_param_generator(*s_params)
+        self.sp = None
+
+    def _s_param_generator(self, start, finish):
+        for i in range(start, finish):
+            for j in range(1, 10):
+                yield j * 10 ** i
 
     def _guess(self, x, y, k, s, w=None):
         """Do an ordinary spline fit to provide knots"""
@@ -24,7 +31,6 @@ class DegradationSpline():
     def _spline_dirichlet(self, x, y, k=3, s=0, w=None):
         t, c0, k = self._guess(x, y, k, s, w=w)
         x0 = x[0]  # point at which 1 is required
-        xl = x[-1]
         con = {'type': 'eq',
                'fun': lambda c: splev(x0, (t, c, k), der=0) - 1,
                }
