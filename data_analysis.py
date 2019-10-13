@@ -1,4 +1,4 @@
-from data_utils import load_data, notnan_indices, downsample_signal, moving_average
+from data_utils import load_data, not_nan_indices, downsample_signal, moving_average
 
 import os
 import numpy as np
@@ -19,8 +19,8 @@ temp = data["temperature"]
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # PMO6V-B
-t_b = t[notnan_indices(pmo_b)]
-x_b = pmo_b[notnan_indices(pmo_b)]
+t_b = t[not_nan_indices(pmo_b)]
+x_b = pmo_b[not_nan_indices(pmo_b)]
 
 plt.figure(1, figsize=(16, 8))
 plt.plot(t_b, x_b)
@@ -74,8 +74,8 @@ plt.show()
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Temperature
-t_t = t[notnan_indices(temp)]
-x_t = temp[notnan_indices(temp)]
+t_t = t[not_nan_indices(temp)]
+x_t = temp[not_nan_indices(temp)]
 
 plt.figure(4, figsize=(16, 8))
 plt.plot(t_t, x_t)

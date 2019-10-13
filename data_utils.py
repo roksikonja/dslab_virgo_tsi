@@ -1,7 +1,8 @@
-import pandas as pd
-import numpy as np
-import os
 import datetime
+import os
+
+import numpy as np
+import pandas as pd
 
 
 def check_data(file_dir, num_cols=4):
@@ -40,7 +41,7 @@ def downsample_signal(x, k=1):
         return x
 
 
-def notnan_indices(x):
+def not_nan_indices(x):
     return ~np.isnan(x)
 
 
@@ -55,7 +56,11 @@ def moving_average_std(x, w, center=True):
         return x, np.zeros(shape=x.shape)
 
 
-def mission_day_to_year(day):
+def mission_day_to_year(array: np.ndarray):
+    np.array(list(map(_mission_day_to_year_one_entry, array)))
+
+
+def _mission_day_to_year_one_entry(day):
     start = datetime.datetime(1996, 1, 1)
     years = start.year + day / 365.25
 
