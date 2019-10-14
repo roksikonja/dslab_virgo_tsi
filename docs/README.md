@@ -139,3 +139,16 @@ that exposure, article Frohling 2014.
 measurements during the VIRGO experiment. Moreover, it requires information on the VIRGO distance to Sun and its radial velocity.
  Where can we obtain this data? Will the convertion algorithm for both instruments be available to us? Would it be sensible
  to have it as a reliable baseline?
+
+### Meeting 9. 10. 2019
+
+* Results.
+* Drop nan, 0.17 % 
+    * Outlier correction
+    * Smoothness guarantee
+    * Monotonically d
+* Early increase
+* Ensemble of models and default
+
+
+

@@ -10,3 +10,4 @@ class Constants(object):
     FIG_SIZE = (12, 8)
     # MATPLOTLIB_STYLE = "default"
     MATPLOTLIB_STYLE = "seaborn"
+    MATPLOTLIB_STYLE_LINEWIDTH = 0.5
