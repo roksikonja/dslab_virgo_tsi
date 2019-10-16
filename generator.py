@@ -148,5 +148,4 @@ if __name__ == "__main__":
             plt.close()
 
         Generator.generate_signal()
-
     data.to_pickle(os.path.join(data_dir, "synthetic_{}_{}.pkl".format(degradation_model, signal_length)))

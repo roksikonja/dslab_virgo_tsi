@@ -43,18 +43,24 @@ def compute_exposure(x, mode="num_measurements", mean=1):
 
 
 def em_estimate_exp(x_a_raw, x_b_raw, e_a, e_b, parameters_initial, epsilon=1e-7):
-    x_a_c = None
+    x_a_c = x_a_raw
     x_b_c = x_b_raw
 
     parameters_prev = np.zeros(shape=(2,))
     parameters_opt = [parameters_initial[1], parameters_initial[2]]
 
+    history = []
+
     convergence = True
-    while convergence:
+    iteration = 0
+    while convergence and (iteration < 100):
         ratio_a_b_c = x_a_raw / x_b_c
 
+        # parameters_opt, _ = curve_fit(DegradationModels.exp_model, e_a, ratio_a_b_c,
+        #                               p0=(parameters_initial[1], parameters_initial[2]), maxfev=10000)
+
         parameters_opt, _ = curve_fit(DegradationModels.exp_model, e_a, ratio_a_b_c,
-                                      p0=(parameters_initial[1], parameters_initial[2]))
+                                      p0=(parameters_initial[1]), maxfev=10000)
 
         x_a_c = x_a_raw / DegradationModels.exp_model(e_a, *parameters_opt)
         x_b_c = x_b_raw / DegradationModels.exp_model(e_b, *parameters_opt)
@@ -66,7 +72,10 @@ def em_estimate_exp(x_a_raw, x_b_raw, e_a, e_b, parameters_initial, epsilon=1e-7
 
         convergence = delta_norm > epsilon
 
-    return parameters_opt, x_a_c, x_b_c
+        history.append((x_a_c, x_b_c, parameters_opt, ratio_a_b_c))
+        iteration = iteration + 1
+
+    return parameters_opt, x_a_c, x_b_c, history
 
 
 def em_estimate_exp_lin(x_a_raw, x_b_raw, e_a, e_b, parameters_initial, epsilon=1e-7):
@@ -77,7 +86,8 @@ def em_estimate_exp_lin(x_a_raw, x_b_raw, e_a, e_b, parameters_initial, epsilon=
     parameters_opt = [parameters_initial[1], parameters_initial[2], parameters_initial[3]]
 
     convergence = True
-    while convergence:
+    iter = 0
+    while convergence and (iter < 100):
         ratio_a_b_c = x_a_raw / x_b_c
 
         parameters_opt, _ = curve_fit(DegradationModels.exp_lin_model, e_a, ratio_a_b_c,
@@ -92,6 +102,7 @@ def em_estimate_exp_lin(x_a_raw, x_b_raw, e_a, e_b, parameters_initial, epsilon=
         parameters_prev = parameters_opt
 
         convergence = delta_norm > epsilon
+        iter = iter + 1
 
     return parameters_opt, x_a_c, x_b_c
 
@@ -112,12 +123,20 @@ class DegradationModels(object):
         """
         return np.exp(-lambda_ * (x - e_0)) + gamma
 
+    # @staticmethod
+    # def exp_model(x, lambda_, e_0):
+    #     """
+    #         Constrained exponential degradation model: y(0) = 1.
+    #     """
+    #     y = np.exp(-lambda_ * (x - e_0)) + (1 - np.exp(lambda_ * e_0))
+    #     return y
+
     @staticmethod
-    def exp_model(x, lambda_, e_0):
+    def exp_model(x, lambda_):
         """
             Constrained exponential degradation model: y(0) = 1.
         """
-        y = np.exp(-lambda_ * (x - e_0)) + (1 - np.exp(lambda_ * e_0))
+        y = np.exp(-lambda_ * x)
         return y
 
     @staticmethod
@@ -127,3 +146,5 @@ class DegradationModels(object):
         """
         y = np.exp(-lambda_ * (x - e_0)) + (1 - np.exp(lambda_ * e_0)) + linear * x
         return y
+
+

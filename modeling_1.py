@@ -151,19 +151,19 @@ plt.savefig(os.path.join(results_dir,  ARGS.model_type + "_pmo_a_b_c_full.pdf"),
             bbox_inches="tight", quality=100, dpi=200)
 
 plt.figure(5, figsize=C.FIG_SIZE)
-plt.plot(t_a, x_a_ma, color="tab:blue")
+plt.plot(t_a, x_a_ma, color="tab:blue", lw=0.5)
 plt.fill_between(t_a, x_a_ma - 1.96 * x_a_std, x_a_ma + 1.96 * x_a_std,
                  facecolor='tab:blue', alpha=0.5, label='95% confidence interval')
 
-plt.plot(t_b, x_b_ma, color="tab:orange")
+plt.plot(t_b, x_b_ma, color="tab:orange", lw=0.5)
 plt.fill_between(t_b, x_b_ma - 1.96 * x_b_std, x_b_ma + 1.96 * x_b_std,
                  facecolor='tab:orange', alpha=0.5, label='95% confidence interval')
 
-plt.plot(t_a, x_a_c_ma, color="tab:green")
+plt.plot(t_a, x_a_c_ma, color="tab:green", lw=0.5)
 plt.fill_between(t_a, x_a_c_ma - 1.96 * x_a_c_std, x_a_c_ma + 1.96 * x_a_c_std,
                  facecolor='tab:green', alpha=0.5, label='95% confidence interval')
 
-plt.plot(t_b, x_b_c_ma, color="tab:red")
+plt.plot(t_b, x_b_c_ma, color="tab:red", lw=0.5)
 plt.fill_between(t_b, x_b_c_ma - 1.96 * x_b_c_std, x_b_c_ma + 1.96 * x_b_c_std,
                  facecolor='tab:red', alpha=0.5, label='95% confidence interval')
 
