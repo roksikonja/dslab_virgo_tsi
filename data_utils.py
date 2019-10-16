@@ -1,3 +1,5 @@
+from constants import Constants as C
+
 import pandas as pd
 import numpy as np
 import os
@@ -25,10 +27,10 @@ def load_data(file_dir, data_type="virgo"):
     if data_type == "virgo":
         data = pd.read_csv(file_dir,
                            header=None,
-                           delimiter=r"\s+").rename(columns={0: "timestamp",
-                                                             1: "pmo6v_a",
-                                                             2: "pmo6v_b",
-                                                             3: "temperature"})
+                           delimiter=r"\s+").rename(columns={0: C.T,
+                                                             1: C.A,
+                                                             2: C.B,
+                                                             3: C.TEMP})
         return data
     return None
 
@@ -44,6 +46,20 @@ def notnan_indices(x):
     return ~np.isnan(x)
 
 
+def mission_day_to_year(day):
+    start = datetime.datetime(1996, 1, 1)
+    years = start.year + day / 365.25
+
+    return years
+
+
+def make_dir(directory):
+    if not os.path.exists(directory):
+        os.mkdir(directory)
+
+    return directory
+
+
 def moving_average_std(x, w, center=True):
     if not isinstance(x, pd.Series):
         x = pd.Series(x)
@@ -55,16 +71,22 @@ def moving_average_std(x, w, center=True):
         return x, np.zeros(shape=x.shape)
 
 
-def mission_day_to_year(day):
-    start = datetime.datetime(1996, 1, 1)
-    years = start.year + day / 365.25
+def get_sampling_intervals(t, x):
+    sampling_intervals = []
+    sampling = False
+    start = None
 
-    return years
+    for index in range(t.shape[0]):
+        if not np.isnan(x[index]) and not sampling:
+            sampling = True
+            start = index
 
+        elif np.isnan(x[index]) and sampling:
+            sampling = False
+            end = index
+            sampling_intervals.append((start, end))
 
-def make_dir(directory):
-    if not os.path.exists(directory):
-        os.mkdir(directory)
+    return sampling_intervals
 
 
 if __name__ == "__main__":

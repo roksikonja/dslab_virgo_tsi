@@ -1,186 +1,207 @@
-from data_utils import load_data, notnan_indices, downsample_signal, moving_average_std
+from data_utils import load_data, make_dir, notnan_indices, mission_day_to_year, get_sampling_intervals
+from constants import Constants as C
+from visualizer import Visualizer
 
 import os
+import datetime
+import argparse
+
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import ticker
 import pandas as pd
+from scipy.interpolate import interp1d
 
-data_dir = "./data"
-virgo_file = "VIRGO_Level1.txt"
-results_dir = os.path.join(data_dir, "analysis")
+
+visualizer = Visualizer()
+
+data_dir = C.DATA_DIR
+virgo_file = C.VIRGO_FILE
+results_dir = C.RESULTS_DIR
+results_dir = make_dir(os.path.join(results_dir, datetime.datetime.now().strftime("data_analysis_%Y-%m-%d")))
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--visualize", action="store_true", help="Flag for visualizing results.")
+parser.add_argument("--sampling", action="store_true", help="Flag for sampling analysis.")
+parser.add_argument("--fft", action="store_true", help="Flag for FFT analysis.")
+parser.add_argument("--t_early_increase", type=int, default=100, help="Early increase time span.")
+parser.add_argument("--sampling_window", type=int, default=5, help="Minimum size of sampling gap.")
+
+ARGS = parser.parse_args()
+
+SAMPLING_WINDOW = ARGS.sampling_window
+T_EARLY_INCREASE = ARGS.t_early_increase
 
 data = load_data(os.path.join(data_dir, virgo_file))
+t = data[C.T].values
+pmo_a = data[C.A].values
+pmo_b = data[C.B].values
+temp = data[C.TEMP].values
 
-t = data["timestamp"]  # Time in mission days
-# t = data["timestamp"].apply(mission_day_to_year)  # Uncomment for time measured in years
-pmo_a = data["pmo6v_a"]
-pmo_b = data["pmo6v_b"]
-temp = data["temperature"]
+data_nn = data[[C.T, C.A, C.B]].dropna()
+t_nn = data_nn[C.T].values
+pmo_a_nn = data_nn[C.A].values
+pmo_b_nn = data_nn[C.B].values
 
-# -------------------------------------------------------------------------------------------------------------------- #
-# PMO6V-B
-t_b = t[notnan_indices(pmo_b)]
+visualizer.set_figsize()
+
+x_a = pmo_a[notnan_indices(pmo_a)]
+t_a = np.array(list(map(mission_day_to_year, t[notnan_indices(pmo_a)])))
 x_b = pmo_b[notnan_indices(pmo_b)]
+t_b = np.array(list(map(mission_day_to_year, t[notnan_indices(pmo_b)])))
+x_t = temp[notnan_indices(temp)]
+t_t = np.array(list(map(mission_day_to_year, t[notnan_indices(temp)])))
+t_e = t[t <= T_EARLY_INCREASE]
+x_a_e = pmo_a[t <= T_EARLY_INCREASE]
+x_b_e = pmo_b[t <= T_EARLY_INCREASE]
+t_r = np.array(list(map(mission_day_to_year, t_nn)))
+ratio_a_b_nn = np.divide(pmo_a_nn, pmo_b_nn)
 
-plt.figure(1, figsize=(16, 8))
-plt.plot(t_b, x_b)
-plt.savefig(os.path.join(results_dir, "pmo6v_b_raw.pdf"), bbox_inches="tight", quality=100, dpi=200)
-plt.show()
+figs = []
+fig = visualizer.plot_signals([(t_a, x_a, C.A)], results_dir, "{}_raw".format(C.A), x_ticker=1, legend="upper right",
+                              x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
+figs.append(fig)
 
-# -------------------------------------------------------------------------------------------------------------------- #
-# PMO6V-A
-for p in range(0, 5):
-    for W in [1, 10, 100]:
-        T = 10 ** p
-        x_a, _ = downsample_signal(moving_average_std(pmo_a, W), T)
-        t_a = downsample_signal(t, T)
+fig = visualizer.plot_signals([(t_a, x_a, C.A)], results_dir, "{}_raw_closeup".format(C.A), x_ticker=1, 
+                              legend="upper right", y_lim=[1357, 1367], x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
+figs.append(fig)
 
-        plt.figure(2, figsize=(16, 6))
-        plt.plot(t_a, x_a)
-        plt.savefig(os.path.join(results_dir, "pmo6v_a_raw_W{}_T{}.png".format(W, T)), bbox_inches="tight", quality=100,
-                    dpi=200)
+fig = visualizer.plot_signals([(t_b, x_b, C.B)], results_dir, "{}_raw".format(C.B), x_ticker=1, legend="upper right",
+                              x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
+figs.append(fig)
+
+fig = visualizer.plot_signals([(t_a, x_a, C.A), (t_b, x_b, C.B)], results_dir, "{}_{}_raw".format(C.A, C.B), x_ticker=1, 
+                              legend="upper right", x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
+figs.append(fig)
+
+fig = visualizer.plot_signals([(t_a, x_a, C.A), (t_b, x_b, C.B)], results_dir, "{}_{}_raw_closeup".format(C.A, C.B),
+                              x_ticker=1, legend="upper right", y_lim=[1357, 1369],
+                              x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
+figs.append(fig)
+
+fig = visualizer.plot_signals([(t_t, x_t, C.TEMP)], results_dir, "{}_raw".format(C.TEMP), x_ticker=1,
+                              legend="lower right", x_label=C.YEAR_UNIT, y_label=C.TEMP_UNIT)
+figs.append(fig)
+
+fig = visualizer.plot_signals([(t_e, x_a_e, C.A), (t_e, x_b_e, C.B)], results_dir, 
+                              "{}_{}_raw_early_increase".format(C.A, C.B), x_ticker=5, legend="upper right", 
+                              x_label=C.DAY_UNIT, y_label=C.TSI_UNIT)
+figs.append(fig)
+
+
+fig = visualizer.plot_signals([(t_r, ratio_a_b_nn, "RATIO_{}_{}_nn".format(C.A, C.B))], results_dir,
+                              "RATIO_{}_{}_nn".format(C.A, C.B),
+                              x_ticker=1, legend="upper right", x_label=C.YEAR_UNIT, y_label=C.RATIO_UNIT)
+figs.append(fig)
+
+if ARGS.visualize:
+    for fig in figs:
+        fig.show()
+
+if ARGS.sampling:
+    sampling_intervals_a = get_sampling_intervals(t, pmo_a)
+    sampling_intervals_b = get_sampling_intervals(t, pmo_b)
+
+    counts_a = np.array([interval[1] - interval[0] for interval in sampling_intervals_a
+                         if (interval[1] - interval[0]) > SAMPLING_WINDOW])
+    counts_b = np.array([interval[1] - interval[0] for interval in sampling_intervals_b
+                         if (interval[1] - interval[0]) > SAMPLING_WINDOW])
+
+    starts_a = np.array(list(map(lambda x: x[0], sampling_intervals_a)))
+    starts_b = np.array(list(map(lambda x: x[0], sampling_intervals_b)))
+
+    diffs_a = t[starts_a[1:]] - t[starts_a[:-1]]
+    diffs_a = diffs_a[diffs_a < 1] * 24 * 60
+    diffs_b = t[starts_b[1:]] - t[starts_b[:-1]]
+
+    fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(16, 16))
+    pd.DataFrame(diffs_a).hist(bins=100, ax=ax[0], ec="black")
+    ax[0].set_title("Sampling gaps Distribution - {}".format(C.A))
+
+    pd.DataFrame(counts_a).hist(bins=100, ax=ax[1], ec="black")
+    ax[1].set_title("Sampling block lengths Distribution - {}".format(C.A))
+
+    pd.DataFrame(diffs_b).hist(bins=100, ax=ax[2], ec="black")
+    ax[2].set_title("Sampling gaps Distribution - {}".format(C.B))
+
+    pd.DataFrame(counts_b).hist(bins=100, ax=ax[3], ec="black")
+    ax[3].set_title("Sampling block lengths Distribution - {}".format(C.B))
+
+    plt.tight_layout()
+    fig.savefig(os.path.join(results_dir, "sampling_diffs_counts_raw"))
+    if ARGS.visualize:
         plt.show()
 
-T = 100
-W = 1
-x_a, _ = downsample_signal(moving_average_std(pmo_a, W), T)
-t_a = downsample_signal(t, T)
+    sampling_diffs_b = []
+    for interval in sampling_intervals_b:
+        if len(interval) > 1:
+            interval = np.arange(interval[0], interval[1])
+            interval = t[interval]
+            diffs = interval[1:] - interval[:-1]
+            sampling_diffs_b.extend(diffs)
 
-plt.figure(2, figsize=(16, 6))
-plt.scatter(t_a, x_a, marker="x")
-plt.savefig(os.path.join(results_dir, "pmo6v_a_raw_W{}_T{}_scatter.png".format(W, T)), bbox_inches="tight", quality=100,
-            dpi=200)
-plt.show()
+    sampling_diffs_a = []
+    for interval in sampling_intervals_a:
+        if len(interval) > 1:
+            interval = np.arange(interval[0], interval[1])
+            interval = t[interval]
+            diffs = interval[1:] - interval[:-1]
+            sampling_diffs_a.extend(diffs)
 
-# -------------------------------------------------------------------------------------------------------------------- #
-# PMO6V-A and PMO6V-B
-plt.figure(3, figsize=(16, 6))
-plt.plot(t_b, x_b, t_a, x_a)
-plt.savefig(os.path.join(results_dir, "pmo6v_a_b_raw.pdf"), bbox_inches="tight", quality=100, dpi=200)
-plt.ylim(1358, 1368)
-plt.savefig(os.path.join(results_dir, "pmo6v_a_b_lim_raw.pdf"), bbox_inches="tight", quality=100, dpi=200)
-plt.show()
+    sampling_diffs_a = np.array(sampling_diffs_a) * 24 * 3600
+    sampling_diffs_b = np.array(sampling_diffs_b) * 24 * 3600
 
-T_early = 200
-t_e = t[t <= T_early]
-x_a_e = pmo_a[t <= T_early]
-x_b_e = pmo_b[t <= T_early]
+    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(16, 8))
+    pd.DataFrame(sampling_diffs_a).hist(bins=100, ax=ax[0], ec="black")
+    ax[0].set_title("Sampling period Distribution - {}".format(C.A))
+    ax[0].xaxis.set_major_locator(ticker.MultipleLocator(10))
 
-plt.figure(4, figsize=(16, 6))
-plt.plot(t_e, x_b_e, t_e, x_a_e)
-plt.savefig(os.path.join(results_dir, "pmo6v_early_raw.pdf"), bbox_inches="tight", quality=100, dpi=200)
-plt.show()
-
-
-# -------------------------------------------------------------------------------------------------------------------- #
-# Temperature
-t_t = t[notnan_indices(temp)]
-x_t = temp[notnan_indices(temp)]
-
-plt.figure(4, figsize=(16, 8))
-plt.plot(t_t, x_t)
-plt.savefig(os.path.join(results_dir, "temp_raw.pdf"), bbox_inches="tight", quality=100, dpi=200)
-plt.show()
+    pd.DataFrame(sampling_diffs_b).hist(bins=100, ax=ax[1], ec="black")
+    ax[1].set_title("Sampling period Distribution - {}".format(C.B))
+    ax[1].xaxis.set_major_locator(ticker.MultipleLocator(10))
+    plt.tight_layout()
+    fig.savefig(os.path.join(results_dir, "sampling_period_distributions_raw"))
+    if ARGS.visualize:
+        plt.show()
 
 
-# -------------------------------------------------------------------------------------------------------------------- #
-# Sampling intervals PMO6V-B
-sampling_intervals = []
-sampling = False
-start = None
+if ARGS.fft:
+    # NOT FINISHED
+    SAMPLING_PERIOD_B = 1 / 24
+    INTERPOLATION = "linear"
 
-for index, row in data.iterrows():
-    if not np.isnan(row[2]) and not sampling:
-        sampling = True
-        start = index
-        # print("sampling start", start)
+    x_b = pmo_b[notnan_indices(pmo_b)]
+    t_b = t[notnan_indices(pmo_b)]
 
-    elif np.isnan(row[2]) and sampling and (index - start) > 5:
-        sampling = False
-        end = index
-        # print("sampling end", end)
-        sampling_intervals.append((start, end))
+    pmo_b_inter_func = interp1d(t_b, x_b, kind=INTERPOLATION)
+    t_b_inter = np.arange(t_b.min(), t_b.max(), SAMPLING_PERIOD_B)
+    x_b_inter = pmo_b_inter_func(t_b_inter)
 
-# print(sampling_intervals)
+    t_b = np.array(list(map(mission_day_to_year, t_b)))
+    t_b_inter = np.array(list(map(mission_day_to_year, t_b_inter)))
 
-counts = np.array([interval[1] - interval[0] for interval in sampling_intervals])
-starts = np.array([interval[0] for interval in sampling_intervals])
+    fig = visualizer.plot_signals([(t_b, x_b, C.B),
+                                   (t_b_inter, x_b_inter,
+                                    "{}_{}_interpolation".format(C.B, INTERPOLATION))],
+                                  None, "{}_raw_{}_interpolation".format(C.B, INTERPOLATION), legend="upper right",
+                                  x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
+    if  ARGS.visualize:
+        fig.show()
 
-diffs = starts[1:] - starts[:-1]
-diffs = diffs / (24 * 60)
-print(diffs.mean())
-diffs = diffs[diffs < 30]
+    N = x_b_inter.shape[0]
+    X_FFT = np.fft.fft(x_b_inter - x_b.mean()) / N
+    S = np.square(np.abs(X_FFT))
 
-fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(16, 4))
-pd.DataFrame(diffs).hist(bins=50, ax=ax[0], ec="black")
-ax[0].set_title("Distribution of index difference of sampling block starts")
+    F_0 = 1 / N
+    fs = 1 / SAMPLING_PERIOD_B
+    k = np.arange(N)
+    frq = k * F_0 * fs
+    frq_range = fs / 128
 
-pd.DataFrame(counts).hist(bins=100, ax=ax[1], ec="black")
-ax[1].set_title("Distribution of sample counts in sampling block")
+    plt.figure()
+    fig = visualizer.plot_signals([(frq[frq <= frq_range], S[frq <= frq_range], "{}_spectrum".format(C.B))],
+                                  results_dir, "{}_spectrum".format(C.B), legend="upper right",
+                                  x_label=C.FREQ_DAY_UNIT, y_label=C.SPECTRUM_UNIT)
 
-plt.show()
-fig.savefig(os.path.join(results_dir, "pmo6v_b_diffs_counts_raw.pdf"), bbox_inches="tight", quality=100, dpi=200)
-
-
-# -------------------------------------------------------------------------------------------------------------------- #
-# Sampling intervals PMO6V-B
-
-data_nn = data[["timestamp", "pmo6v_a", "pmo6v_b"]].dropna()
-t_nn = data_nn["timestamp"]
-x_a_nn = data_nn["pmo6v_a"]
-x_b_nn = data_nn["pmo6v_b"]
-ratio_a_b = x_a_nn/x_b_nn
-
-plt.figure(5, figsize=(16, 8))
-plt.plot(t_nn, ratio_a_b)
-plt.savefig(os.path.join(results_dir, "ratio_a_b_raw.pdf"), bbox_inches="tight", quality=100, dpi=200)
-plt.show()
-
-
-# -------------------------------------------------------------------------------------------------------------------- #
-# Sampling periods
-
-# PMO6V-A
-data_nn_a = data[["timestamp", "pmo6v_a"]].dropna()
-t_nn_a = data_nn_a["timestamp"].values
-
-sampling_diffs = t_nn_a[1:] - t_nn_a[:-1]
-sampling_diffs = sampling_diffs * 24 * 3600
-print("outliers", (sampling_diffs >= 150).sum())
-sampling_diffs = sampling_diffs[sampling_diffs < 150]
-
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(16, 4))
-pd.DataFrame(sampling_diffs).hist(bins=200, ax=ax, ec="black")
-ax.set_title("Distribution of sampling periods PMOV6-A")
-plt.savefig(os.path.join(results_dir, "sampling_distribution_a.pdf"), bbox_inches="tight", quality=100, dpi=200)
-plt.show()
-
-# PMO6V-B
-data_nn_b = data[["timestamp", "pmo6v_b"]].dropna()
-t_nn_b = data_nn_b["timestamp"].values
-
-sampling_diffs = t_nn_b[1:] - t_nn_b[:-1]
-sampling_diffs = sampling_diffs * 24 * 3600
-print("outliers", (sampling_diffs >= 3600).sum())
-sampling_diffs = sampling_diffs[sampling_diffs < 3600]
-
-_, ax = plt.subplots(nrows=1, ncols=1, figsize=(16, 4))
-pd.DataFrame(sampling_diffs).hist(bins=200, ax=ax, ec="black")
-ax.set_title("Distribution of sampling periods PMOV6-B")
-plt.savefig(os.path.join(results_dir, "sampling_distribution_b.pdf"), bbox_inches="tight", quality=100, dpi=200)
-plt.show()
-
-# Temperature
-data_nn_t = data[["timestamp", "temperature"]].dropna()
-t_nn_t = data_nn_t["timestamp"].values
-
-sampling_diffs = t_nn_t[1:] - t_nn_t[:-1]
-sampling_diffs = sampling_diffs * 24 * 3600
-print("outliers", (sampling_diffs >= 3600).sum())
-sampling_diffs = sampling_diffs[sampling_diffs < 3600]
-
-_, ax = plt.subplots(nrows=1, ncols=1, figsize=(16, 4))
-pd.DataFrame(sampling_diffs).hist(bins=200, ax=ax, ec="black")
-ax.set_title("Distribution of sampling periods temperature")
-plt.savefig(os.path.join(results_dir, "sampling_distribution_t.pdf"), bbox_inches="tight", quality=100, dpi=200)
-plt.show()
+    if ARGS.visualize:
+        plt.show()
