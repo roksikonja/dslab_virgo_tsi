@@ -11,6 +11,14 @@ class Constants(object):
     B = "PMO6V-B"
     T = "TIME"
     TEMP = "TEMPERATURE"
+    EA = "EXPOSURE-A"
+    EB = "EXPOSURE-B"
+
+    # MODELS
+    SPLINE = "SPLINE"
+    GP = "GP"
+    EXP = "EXP"
+    EXP_LIN = "EXP_LIN"
 
     # UNITS
     DAY_UNIT = "TIME [mission days]"
@@ -22,7 +30,7 @@ class Constants(object):
     TEMP_UNIT = "TEMPERATURE [C]"
     SPECTRUM_UNIT = "POWER SPECTRUM [1]"
 
-    # Visualization
+    # VISUALIZATION
     FIG_SIZE = (16, 8)
     MATPLOTLIB_STYLE = "seaborn"  # "default"
     MATPLOTLIB_STYLE_LINEWIDTH = 0.5

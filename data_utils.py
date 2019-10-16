@@ -60,15 +60,30 @@ def make_dir(directory):
     return directory
 
 
-def moving_average_std(x, w, center=True):
-    if not isinstance(x, pd.Series):
-        x = pd.Series(x)
+def moving_average_std(x, t, w, center=True):
+    if t.tolist():
+        w = w + 1e-10
+        x_mean = np.zeros(shape=x.shape)
+        x_std = np.zeros(shape=x.shape)
+        for i in range(x.shape[0]):
+            t_center = t[i]
+            window = np.multiply(np.greater_equal(t_center + w, t), np.less_equal(t_center - w, t))
+            slice = x[window]
 
-    if w > 1:
-        x = x.rolling(w, center=center)
-        return x.mean(), x.std()
+            indices = notnan_indices(slice)
+            slice = slice[indices]
+            x_mean[i] = slice.mean()
+            x_std[i] = slice.std()
+        return x_mean, x_std
     else:
-        return x, np.zeros(shape=x.shape)
+        if not isinstance(x, pd.Series):
+            x = pd.Series(x)
+
+        if w > 1:
+            x = x.rolling(w, center=center)
+            return x.mean(), x.std()
+        else:
+            return x, None
 
 
 def get_sampling_intervals(t, x):
