@@ -21,6 +21,16 @@ Dataset description can be found: ```https://www.pmodwrc.ch/en/research-developm
     python modeling_1.py --model_type="gpr" --window=20 --param1 ... --paramK // GP model
 
 
+### Data analysis
+
+    python data_analysis.py
+        --visualizer                                // Visualize.
+        --sampling                                  // Sampling analysis.
+        --fft                                       // FFT analysis.
+        --t_early_increase=100                      // Early increase timespan.
+        --sampling_window=55                        // Minimum sampling window.
+
+
 ### Generator
 
 Generating synthetic dataset.
