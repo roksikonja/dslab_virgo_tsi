@@ -1,10 +1,12 @@
 from data_utils import make_dir
+from constants import Constants as C
+
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import style
 import matplotlib
-from constants import Constants as C
-import pandas as pd
+
 import os
 import datetime
 import argparse
@@ -146,4 +148,5 @@ if __name__ == "__main__":
             plt.close()
 
         Generator.generate_signal()
-    # data.to_pickle(os.path.join(data_dir, "synthetic_{}_{}.pkl".format(degradation_model, signal_length)))
+
+    data.to_pickle(os.path.join(data_dir, "synthetic_{}_{}.pkl".format(degradation_model, signal_length)))

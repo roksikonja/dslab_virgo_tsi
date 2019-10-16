@@ -19,3 +19,13 @@ Dataset description can be found: ```https://www.pmodwrc.ch/en/research-developm
     python modeling_1.py --model_type="svr" --window=20 --param1 ... --paramK // SVM regressor
     python modeling_1.py --model_type="cubic_spline" --window=20 --param1 ... --paramK // Spline model
     python modeling_1.py --model_type="gpr" --window=20 --param1 ... --paramK // GP model
+
+
+### Generator
+
+Generating synthetic dataset.
+
+    python generator.py --degradation_model="exp" --degradation_rate=1.0
+    
+    model ∈ {exp, exp_lin}
+    rate ∈ (0.0, inf]

@@ -1,4 +1,4 @@
-from data_utils import load_data, notnan_indices, downsample_signal, moving_average
+from data_utils import load_data, notnan_indices, downsample_signal, moving_average_std
 
 import os
 import numpy as np
@@ -32,7 +32,7 @@ plt.show()
 for p in range(0, 5):
     for W in [1, 10, 100]:
         T = 10 ** p
-        x_a = downsample_signal(moving_average(pmo_a, W), T)
+        x_a, _ = downsample_signal(moving_average_std(pmo_a, W), T)
         t_a = downsample_signal(t, T)
 
         plt.figure(2, figsize=(16, 6))
@@ -43,7 +43,7 @@ for p in range(0, 5):
 
 T = 100
 W = 1
-x_a = downsample_signal(moving_average(pmo_a, W), T)
+x_a, _ = downsample_signal(moving_average_std(pmo_a, W), T)
 t_a = downsample_signal(t, T)
 
 plt.figure(2, figsize=(16, 6))
