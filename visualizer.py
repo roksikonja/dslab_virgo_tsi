@@ -37,10 +37,10 @@ class Visualizer(object):
             x = signal_fourplet[1]
             label = signal_fourplet[2]
 
-            if not signal_fourplet[3]:
-                plt.plot(t, x, label=label)
+            if signal_fourplet[3]:
+                plt.scatter(t, x, label=label, marker="o", color="tab:red")
             else:
-                plt.scatter(t, x, label=label)
+                plt.plot(t, x, label=label)
         
         plt.title(title)
 
@@ -63,6 +63,7 @@ class Visualizer(object):
 
         if results_dir:
             plt.savefig(os.path.join(results_dir, title))
+
         return fig
 
     @staticmethod

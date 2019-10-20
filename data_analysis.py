@@ -39,22 +39,24 @@ pmo_a = data[C.A].values
 pmo_b = data[C.B].values
 temp = data[C.TEMP].values
 
+
 # Filter outliers
 outliers_a = notnan_indices(pmo_a)
 outliers_a[outliers_a] = detect_outliers(pmo_a[notnan_indices(pmo_a)], None,
-                                         outlier_fraction=ARGS.outlier_fraction)
-pmo_a[outliers_a] = np.nan
+                                         outlier_fraction=1e-3)
 
 outliers_b = notnan_indices(pmo_b)
 outliers_b[outliers_b] = detect_outliers(pmo_b[notnan_indices(pmo_b)], None,
-                                         outlier_fraction=ARGS.outlier_fraction)
+                                         outlier_fraction=1e-3)
+
+pmo_a_outliers = pmo_a.copy()
+pmo_b_outliers = pmo_b.copy()
+
+pmo_a[outliers_a] = np.nan
 pmo_b[outliers_b] = np.nan
-
-pmo_a_outliers = pmo_a
 pmo_a_outliers[~outliers_a] = np.nan
-
-pmo_b_outliers = pmo_b
 pmo_b_outliers[~outliers_b] = np.nan
+
 data[C.A] = pmo_a
 data[C.B] = pmo_b
 
@@ -66,26 +68,26 @@ pmo_b_nn = data_nn[C.B].values
 
 visualizer.set_figsize()
 
+x_a_outliers = pmo_a_outliers[notnan_indices(pmo_a_outliers)]
+t_a_outliers = t.copy()[notnan_indices(pmo_a_outliers)]
+x_b_outliers = pmo_b_outliers[notnan_indices(pmo_b_outliers)]
+t_b_outliers = t.copy()[notnan_indices(pmo_b_outliers)]
+
 x_a = pmo_a[notnan_indices(pmo_a)]
-t_a = np.array(list(map(mission_day_to_year, t[notnan_indices(pmo_a)])))
+t_a = t[notnan_indices(pmo_a)]
 x_b = pmo_b[notnan_indices(pmo_b)]
-t_b = np.array(list(map(mission_day_to_year, t[notnan_indices(pmo_b)])))
+t_b = t[notnan_indices(pmo_b)]
 x_t = temp[notnan_indices(temp)]
-t_t = np.array(list(map(mission_day_to_year, t[notnan_indices(temp)])))
+t_t = t[notnan_indices(temp)]
 t_e = t[t <= T_EARLY_INCREASE]
 x_a_e = pmo_a[t <= T_EARLY_INCREASE]
 x_b_e = pmo_b[t <= T_EARLY_INCREASE]
-t_r = np.array(list(map(mission_day_to_year, t_nn)))
 ratio_a_b_nn = np.divide(pmo_a_nn, pmo_b_nn)
 
-x_a_outliers = pmo_a_outliers[notnan_indices(pmo_a_outliers)]
-t_a_outliers = t[notnan_indices(pmo_a_outliers)]
-x_b_outliers = pmo_b_outliers[notnan_indices(pmo_b_outliers)]
-t_b_outliers = t[notnan_indices(pmo_b_outliers)]
 
 figs = []
-fig = visualizer.plot_signals([(t_a, x_a, C.A, False)], results_dir, "{}_raw".format(C.A), x_ticker=1, legend="upper right",
-                              x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
+fig = visualizer.plot_signals([(t_a, x_a, C.A, False)], results_dir, "{}_raw".format(C.A), x_ticker=1,
+                              legend="upper right", x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
 figs.append(fig)
 
 fig = visualizer.plot_signals([(t_a, x_a, C.A, False), 
@@ -122,12 +124,12 @@ fig = visualizer.plot_signals([(t_t, x_t, C.TEMP, False)], results_dir, "{}_raw"
 figs.append(fig)
 
 fig = visualizer.plot_signals([(t_e, x_a_e, C.A, False), (t_e, x_b_e, C.B, False)], results_dir,
-                              "{}_{}_raw_early_increase".format(C.A, C.B), x_ticker=5, legend="upper right", 
+                              "{}_{}_raw_early_increase".format(C.A, C.B), x_ticker=5, legend="upper right",
                               x_label=C.DAY_UNIT, y_label=C.TSI_UNIT)
 figs.append(fig)
 
 
-fig = visualizer.plot_signals([(t_r, ratio_a_b_nn, "RATIO_{}_{}_nn".format(C.A, C.B), False)], results_dir,
+fig = visualizer.plot_signals([(t_nn, ratio_a_b_nn, "RATIO_{}_{}_nn".format(C.A, C.B), False)], results_dir,
                               "RATIO_{}_{}_nn".format(C.A, C.B),
                               x_ticker=1, legend="upper right", x_label=C.YEAR_UNIT, y_label=C.RATIO_UNIT)
 figs.append(fig)
