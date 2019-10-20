@@ -106,19 +106,19 @@ def get_sampling_intervals(t, x):
 
 
 def detect_outliers(x_fit, x=None, outlier_fraction=1e-3):
-    x_fit = np.reshape(x[notnan_indices(x_fit)], newshape=(-1, 1))
+    x_fit = np.reshape(x_fit, newshape=(-1, 1))
 
-    if x:
-        x = np.reshape(x[notnan_indices(x)], newshape=(-1, 1))
-
-    envelope = EllipticEnvelope(contamination=outlier_fraction)
-    envelope.fit(x_fit)
-
-    if x:
-        x = np.reshape(x[notnan_indices(x)], newshape=(-1, 1))
-        outliers = envelope.predict(x) == -1
+    if not x:
+        x = x_fit
     else:
-        outliers = envelope.predict(x_fit) == -1
+        x = np.reshape(x, newshape=(-1, 1))
+
+    if outlier_fraction <= 0:
+        outliers = np.zeros(shape=x.shape, dtype=np.bool)
+    else:
+        envelope = EllipticEnvelope(contamination=outlier_fraction)
+        envelope.fit(x_fit)
+        outliers = envelope.predict(x) == -1
 
     return outliers
 

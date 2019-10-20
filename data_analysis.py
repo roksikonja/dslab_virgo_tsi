@@ -1,4 +1,4 @@
-from data_utils import load_data, make_dir, notnan_indices, mission_day_to_year, get_sampling_intervals
+from data_utils import load_data, make_dir, notnan_indices, mission_day_to_year, get_sampling_intervals, detect_outliers
 from constants import Constants as C
 from visualizer import Visualizer
 
@@ -26,6 +26,7 @@ parser.add_argument("--sampling", action="store_true", help="Flag for sampling a
 parser.add_argument("--fft", action="store_true", help="Flag for FFT analysis.")
 parser.add_argument("--t_early_increase", type=int, default=100, help="Early increase time span.")
 parser.add_argument("--sampling_window", type=int, default=5, help="Minimum size of sampling gap.")
+parser.add_argument("--outlier_fraction", type=float, default=0, help="Outlier fraction.")
 
 ARGS = parser.parse_args()
 
@@ -38,6 +39,26 @@ pmo_a = data[C.A].values
 pmo_b = data[C.B].values
 temp = data[C.TEMP].values
 
+# Filter outliers
+outliers_a = notnan_indices(pmo_a)
+outliers_a[outliers_a] = detect_outliers(pmo_a[notnan_indices(pmo_a)], None,
+                                         outlier_fraction=ARGS.outlier_fraction)
+pmo_a[outliers_a] = np.nan
+
+outliers_b = notnan_indices(pmo_b)
+outliers_b[outliers_b] = detect_outliers(pmo_b[notnan_indices(pmo_b)], None,
+                                         outlier_fraction=ARGS.outlier_fraction)
+pmo_b[outliers_b] = np.nan
+
+pmo_a_outliers = pmo_a
+pmo_a_outliers[~outliers_a] = np.nan
+
+pmo_b_outliers = pmo_b
+pmo_b_outliers[~outliers_b] = np.nan
+data[C.A] = pmo_a
+data[C.B] = pmo_b
+
+# Filter nan values
 data_nn = data[[C.T, C.A, C.B]].dropna()
 t_nn = data_nn[C.T].values
 pmo_a_nn = data_nn[C.A].values
@@ -57,39 +78,56 @@ x_b_e = pmo_b[t <= T_EARLY_INCREASE]
 t_r = np.array(list(map(mission_day_to_year, t_nn)))
 ratio_a_b_nn = np.divide(pmo_a_nn, pmo_b_nn)
 
+x_a_outliers = pmo_a_outliers[notnan_indices(pmo_a_outliers)]
+t_a_outliers = t[notnan_indices(pmo_a_outliers)]
+x_b_outliers = pmo_b_outliers[notnan_indices(pmo_b_outliers)]
+t_b_outliers = t[notnan_indices(pmo_b_outliers)]
+
 figs = []
-fig = visualizer.plot_signals([(t_a, x_a, C.A)], results_dir, "{}_raw".format(C.A), x_ticker=1, legend="upper right",
+fig = visualizer.plot_signals([(t_a, x_a, C.A, False)], results_dir, "{}_raw".format(C.A), x_ticker=1, legend="upper right",
                               x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
 figs.append(fig)
 
-fig = visualizer.plot_signals([(t_a, x_a, C.A)], results_dir, "{}_raw_closeup".format(C.A), x_ticker=1, 
+fig = visualizer.plot_signals([(t_a, x_a, C.A, False), 
+                               (t_a_outliers, x_a_outliers, C.A, True)],
+                              results_dir, "{}_raw_outliers".format(C.A), x_ticker=1, legend="upper right",
+                              x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
+figs.append(fig)
+
+fig = visualizer.plot_signals([(t_a, x_a, C.A, False)], results_dir, "{}_raw_closeup".format(C.A), x_ticker=1,
                               legend="upper right", y_lim=[1357, 1367], x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
 figs.append(fig)
 
-fig = visualizer.plot_signals([(t_b, x_b, C.B)], results_dir, "{}_raw".format(C.B), x_ticker=1, legend="upper right",
+fig = visualizer.plot_signals([(t_b, x_b, C.B, False)], results_dir, "{}_raw".format(C.B), x_ticker=1, legend="upper right",
                               x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
 figs.append(fig)
 
-fig = visualizer.plot_signals([(t_a, x_a, C.A), (t_b, x_b, C.B)], results_dir, "{}_{}_raw".format(C.A, C.B), x_ticker=1, 
+fig = visualizer.plot_signals([(t_b, x_b, C.B, False),
+                               (t_b_outliers, x_b_outliers, C.B, True)],
+                              results_dir, "{}_raw_outliers".format(C.B), x_ticker=1, legend="upper right",
+                              x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
+figs.append(fig)
+
+fig = visualizer.plot_signals([(t_a, x_a, C.A, False), (t_b, x_b, C.B, False)], results_dir, "{}_{}_raw".format(C.A, C.B), x_ticker=1,
                               legend="upper right", x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
 figs.append(fig)
 
-fig = visualizer.plot_signals([(t_a, x_a, C.A), (t_b, x_b, C.B)], results_dir, "{}_{}_raw_closeup".format(C.A, C.B),
+fig = visualizer.plot_signals([(t_a, x_a, C.A, False), (t_b, x_b, C.B, False)], results_dir, "{}_{}_raw_closeup".format(C.A, C.B),
                               x_ticker=1, legend="upper right", y_lim=[1357, 1369],
                               x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
 figs.append(fig)
 
-fig = visualizer.plot_signals([(t_t, x_t, C.TEMP)], results_dir, "{}_raw".format(C.TEMP), x_ticker=1,
+fig = visualizer.plot_signals([(t_t, x_t, C.TEMP, False)], results_dir, "{}_raw".format(C.TEMP), x_ticker=1,
                               legend="lower right", x_label=C.YEAR_UNIT, y_label=C.TEMP_UNIT)
 figs.append(fig)
 
-fig = visualizer.plot_signals([(t_e, x_a_e, C.A), (t_e, x_b_e, C.B)], results_dir, 
+fig = visualizer.plot_signals([(t_e, x_a_e, C.A, False), (t_e, x_b_e, C.B, False)], results_dir,
                               "{}_{}_raw_early_increase".format(C.A, C.B), x_ticker=5, legend="upper right", 
                               x_label=C.DAY_UNIT, y_label=C.TSI_UNIT)
 figs.append(fig)
 
 
-fig = visualizer.plot_signals([(t_r, ratio_a_b_nn, "RATIO_{}_{}_nn".format(C.A, C.B))], results_dir,
+fig = visualizer.plot_signals([(t_r, ratio_a_b_nn, "RATIO_{}_{}_nn".format(C.A, C.B), False)], results_dir,
                               "RATIO_{}_{}_nn".format(C.A, C.B),
                               x_ticker=1, legend="upper right", x_label=C.YEAR_UNIT, y_label=C.RATIO_UNIT)
 figs.append(fig)
@@ -180,9 +218,9 @@ if ARGS.fft:
     t_b = np.array(list(map(mission_day_to_year, t_b)))
     t_b_inter = np.array(list(map(mission_day_to_year, t_b_inter)))
 
-    fig = visualizer.plot_signals([(t_b, x_b, C.B),
+    fig = visualizer.plot_signals([(t_b, x_b, C.B, False),
                                    (t_b_inter, x_b_inter,
-                                    "{}_{}_interpolation".format(C.B, INTERPOLATION))],
+                                    "{}_{}_interpolation".format(C.B, INTERPOLATION), False)],
                                   None, "{}_raw_{}_interpolation".format(C.B, INTERPOLATION), legend="upper right",
                                   x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
     if  ARGS.visualize:

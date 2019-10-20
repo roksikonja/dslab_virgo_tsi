@@ -1,4 +1,4 @@
-from data_utils import load_data, make_dir, downsample_signal, moving_average_std, notnan_indices, mission_day_to_year
+from data_utils import load_data, make_dir, downsample_signal, detect_outliers, notnan_indices
 from constants import Constants as C
 from modeling import compute_exposure, initial_fit, em_estimate_exp_lin, em_estimate_exp, DegradationModels
 from visualizer import Visualizer
@@ -12,6 +12,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--model_type", type=str, default="exp_lin", help="Model to train.")
 parser.add_argument("--visualize", action="store_true", help="Flag for visualizing results.")
 parser.add_argument("--window", type=int, default=81, help="Moving average window size.")
+parser.add_argument("--outlier_fraction", type=float, default=0, help="Outlier fraction.")
 
 ARGS = parser.parse_args()
 
@@ -33,6 +34,25 @@ data = load_data(os.path.join(data_dir, virgo_file))
 t = data[C.T].values
 pmo_a = data[C.A].values
 pmo_b = data[C.B].values
+
+# Filter outliers
+outliers_a = notnan_indices(pmo_a)
+outliers_a[outliers_a] = detect_outliers(pmo_a[notnan_indices(pmo_a)], None,
+                                         outlier_fraction=ARGS.outlier_fraction)
+pmo_a[outliers_a] = np.nan
+
+outliers_b = notnan_indices(pmo_b)
+outliers_b[outliers_b] = detect_outliers(pmo_b[notnan_indices(pmo_b)], None,
+                                         outlier_fraction=ARGS.outlier_fraction)
+pmo_b[outliers_b] = np.nan
+
+pmo_outliers_a = pmo_a
+pmo_outliers_a[~outliers_a] = np.nan
+
+pmo_outliers_b = pmo_b
+pmo_outliers_b[~outliers_b] = np.nan
+data[C.A] = pmo_a
+data[C.B] = pmo_b
 
 # Calculate exposure
 data[C.EA] = compute_exposure(pmo_a, "exposure_sum", pmo_b[notnan_indices(pmo_b)].mean())
@@ -113,8 +133,8 @@ elif ARGS.model_type.upper() == C.EXP:
 
 
 figs = []
-fig = visualizer.plot_signals([(t_nn, ratio_a_b, "RATIO_{}_{}_raw".format(C.A, C.B)),
-                               (t_nn, ratio_a_b_initial, "RATIO_{}_{}_initial_fit".format(C.A, C.B))],
+fig = visualizer.plot_signals([(t_nn, ratio_a_b, "RATIO_{}_{}_raw".format(C.A, C.B), False),
+                               (t_nn, ratio_a_b_initial, "RATIO_{}_{}_initial_fit".format(C.A, C.B), False)],
                               results_dir, "RATIO_{}_{}_raw_initial_fit".format(C.A, C.B), x_ticker=1,
                               legend="upper right", x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
 figs.append(fig)
