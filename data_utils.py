@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import os
 import datetime
+from sklearn.covariance import EllipticEnvelope
 
 
 def check_data(file_dir, num_cols=4):
@@ -102,6 +103,24 @@ def get_sampling_intervals(t, x):
             sampling_intervals.append((start, end))
 
     return sampling_intervals
+
+
+def detect_outliers(x_fit, x=None, outlier_fraction=1e-3):
+    x_fit = np.reshape(x[notnan_indices(x_fit)], newshape=(-1, 1))
+
+    if x:
+        x = np.reshape(x[notnan_indices(x)], newshape=(-1, 1))
+
+    envelope = EllipticEnvelope(contamination=outlier_fraction)
+    envelope.fit(x_fit)
+
+    if x:
+        x = np.reshape(x[notnan_indices(x)], newshape=(-1, 1))
+        outliers = envelope.predict(x) == -1
+    else:
+        outliers = envelope.predict(x_fit) == -1
+
+    return outliers
 
 
 if __name__ == "__main__":
