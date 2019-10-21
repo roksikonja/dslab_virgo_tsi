@@ -74,6 +74,18 @@ def plot_results(results: ModelingResult, results_dir, model_name, window_size):
         x_ticker=1, legend="lower left", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
+    fig = Visualizer.plot_signals(
+        [(results.t_hourly_out, results.signal_hourly_out, "TSI_hourly_{}".format(model_name), False)],
+        results_dir, "TSI_hourly_{}".format(model_name), x_ticker=1, legend="upper left",
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+    figs.append(fig)
+
+    fig = Visualizer.plot_signals(
+        [(results.t_daily_out, results.signal_daily_out, "TSI_daily_{}".format(model_name), False)],
+        results_dir, "TSI_daily_{}".format(model_name), x_ticker=1, legend="upper left",
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+    figs.append(fig)
+
 
 if __name__ == "__main__":
     ARGS = parse_arguments()
@@ -92,15 +104,20 @@ if __name__ == "__main__":
                             timestamp_field_name=Const.T,
                             signal_a_field_name=Const.A,
                             signal_b_field_name=Const.B,
-                            exposure_mode=ExposureMode.NUM_MEASUREMENTS)
+                            exposure_mode=ExposureMode.NUM_MEASUREMENTS,
+                            moving_average_window=ARGS.window,
+                            outlier_fraction=ARGS.outlier_fraction)
     elif ARGS.model_type == "exp":
         model = ExpModel(data=data_pmo6v,
                          timestamp_field_name=Const.T,
                          signal_a_field_name=Const.A,
                          signal_b_field_name=Const.B,
-                         exposure_mode=ExposureMode.EXPOSURE_SUM)
+                         exposure_mode=ExposureMode.EXPOSURE_SUM,
+                         moving_average_window=ARGS.window,
+                         outlier_fraction=ARGS.outlier_fraction)
 
     result = model.get_result()
+    result.downsample_signals(k_a=1000, k_b=10)
     plot_results(result, results_dir_path, ARGS.model_type, ARGS.window)
 
     if ARGS.visualize:

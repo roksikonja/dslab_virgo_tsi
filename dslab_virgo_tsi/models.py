@@ -5,7 +5,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 from sklearn.linear_model import LinearRegression
 
-from dslab_virgo_tsi.data_utils import mission_day_to_year, moving_average_std
+from dslab_virgo_tsi.data_utils import resampling_average_std, downsample_signal
 
 
 class ExposureMode(Enum):
@@ -26,7 +26,16 @@ class ModelingResult:
         self.signal_b_nn = None
         self.signal_a_nn_corrected = None
         self.signal_b_nn_corrected = None
-        self.signal_out = None
+        self.t_hourly_out = None
+        self.signal_hourly_out = None
+        self.t_daily_out = None
+        self.signal_daily_out = None
+
+    def downsample_signals(self, k_a, k_b):
+        self.t_a_nn = downsample_signal(self.t_a_nn, k_a)
+        self.t_b_nn = downsample_signal(self.t_b_nn, k_b)
+        self.signal_a_nn = downsample_signal(self.signal_a_nn, k_b)
+        self.signal_b_nn = downsample_signal(self.signal_b_nn, k_b)
 
 
 class IterationResult:
@@ -72,7 +81,7 @@ class BaseModel(ABC):
 
         # Extract mutual not nan rows
         data_mutual_nn = data[[timestamp_field_name, signal_a_field_name, signal_b_field_name, "e_a", "e_b"]].dropna()
-        t_mutual_nn = mission_day_to_year(data_mutual_nn[timestamp_field_name].values)
+        t_mutual_nn = data_mutual_nn[timestamp_field_name].values
         exposure_a_mutual_nn = data_mutual_nn["e_a"].values
         exposure_b_mutual_nn = data_mutual_nn["e_b"].values
         signal_a_mutual_nn = data_mutual_nn[signal_a_field_name].values
@@ -95,6 +104,10 @@ class BaseModel(ABC):
         self.exposure_b_nn = exposure_b_nn
         self.degradation_a = None
         self.degradation_b = None
+        self.t_hourly_out = None
+        self.signal_hourly_out = None
+        self.t_daily_out = None
+        self.signal_daily_out = None
 
     def _compute_corrections(self):
         print("Compute corrections")
@@ -106,13 +119,35 @@ class BaseModel(ABC):
         print(self.parameters_opt)
 
     def _compute_output(self):
-        x_a_mean, x_a_std = moving_average_std(self.signal_a_nn, self.t_a_nn, w=self.moving_average_window)
-        x_b_mean, x_b_std = moving_average_std(self.signal_b_nn, self.t_b_nn, w=self.moving_average_window)
+        min_time = np.floor(self.t_a_nn.min())
+        max_time = np.ceil(self.t_a_nn.max())
 
-        x_a_gain = np.multiply(x_a_mean, np.divide(np.square(x_b_std), np.square(x_a_std) + np.square(x_b_std)))
-        x_b_gain = np.multiply(x_b_mean, np.divide(np.square(x_a_std), np.square(x_a_std) + np.square(x_b_std)))
+        self.t_hourly_out = np.arange(min_time, max_time, 1.0/24.0)
+        self.t_daily_out = np.arange(min_time, max_time, 1.0)
+        self.signal_hourly_out = np.zeros(shape=self.t_hourly_out.shape)
+        self.signal_daily_out = np.zeros(shape=self.t_daily_out.shape)
 
-        return x_a_gain + x_b_gain
+        x_a_hourly_mean, x_a_hourly_std = resampling_average_std(self.signal_a_nn, self.t_a_nn, self.t_hourly_out,
+                                                                 w=self.moving_average_window)
+        x_b_hourly_mean, x_b_hourly_std = resampling_average_std(self.signal_b_nn, self.t_b_nn, self.t_hourly_out,
+                                                                 w=self.moving_average_window)
+
+        x_a_hourly_gain = np.multiply(x_a_hourly_mean, np.divide(np.square(x_b_hourly_std),
+                                                                 np.square(x_a_hourly_std) + np.square(x_b_hourly_std)))
+        x_b_hourly_gain = np.multiply(x_b_hourly_mean, np.divide(np.square(x_a_hourly_std),
+                                                                 np.square(x_a_hourly_std) + np.square(x_b_hourly_std)))
+        self.signal_hourly_out = x_a_hourly_gain + x_b_hourly_gain
+
+        x_a_daily_mean, x_a_daily_std = resampling_average_std(self.signal_a_nn, self.t_a_nn, self.t_daily_out,
+                                                               w=self.moving_average_window)
+        x_b_daily_mean, x_b_daily_std = resampling_average_std(self.signal_b_nn, self.t_b_nn, self.t_daily_out,
+                                                               w=self.moving_average_window)
+
+        x_a_daily_gain = np.multiply(x_a_daily_mean, np.divide(np.square(x_b_daily_std),
+                                                               np.square(x_a_daily_std) + np.square(x_b_daily_std)))
+        x_b_daily_gain = np.multiply(x_b_daily_mean, np.divide(np.square(x_a_daily_std),
+                                                               np.square(x_a_daily_std) + np.square(x_b_daily_std)))
+        self.signal_daily_out = x_a_daily_gain + x_b_daily_gain
 
     def get_result(self):
         signal_a_nn_corrected = self.signal_a_nn / self.degradation_a
@@ -128,7 +163,10 @@ class BaseModel(ABC):
         result.signal_b_nn = self.signal_b_nn
         result.signal_a_nn_corrected = signal_a_nn_corrected
         result.signal_b_nn_corrected = signal_b_nn_corrected
-        result.signal_out = self._compute_output()
+        result.t_hourly_out = self.t_hourly_out
+        result.signal_hourly_out = self.signal_hourly_out
+        result.t_daily_out = self.t_daily_out
+        result.signal_daily_out = self.signal_daily_out
 
         return result
 
@@ -186,9 +224,11 @@ class BaseModel(ABC):
 
 
 class ExpFamilyModel(BaseModel):
-    def __init__(self, data, timestamp_field_name, signal_a_field_name, signal_b_field_name, exposure_mode):
+    def __init__(self, data, timestamp_field_name, signal_a_field_name, signal_b_field_name, exposure_mode,
+                 moving_average_window, outlier_fraction):
         # Prepare needed data
-        super().__init__(data, timestamp_field_name, signal_a_field_name, signal_b_field_name, exposure_mode)
+        super().__init__(data, timestamp_field_name, signal_a_field_name, signal_b_field_name, exposure_mode,
+                         moving_average_window, outlier_fraction)
 
     @staticmethod
     def _exp_unc(x, gamma, lambda_, e_0):
@@ -220,9 +260,11 @@ class ExpFamilyModel(BaseModel):
 
 
 class ExpModel(ExpFamilyModel):
-    def __init__(self, data, timestamp_field_name, signal_a_field_name, signal_b_field_name, exposure_mode):
+    def __init__(self, data, timestamp_field_name, signal_a_field_name, signal_b_field_name, exposure_mode,
+                 moving_average_window, outlier_fraction):
         # Prepare needed data
-        super().__init__(data, timestamp_field_name, signal_a_field_name, signal_b_field_name, exposure_mode)
+        super().__init__(data, timestamp_field_name, signal_a_field_name, signal_b_field_name, exposure_mode,
+                         moving_average_window, outlier_fraction)
 
         # Prepare initial parameters
         lambda_initial, e_0_initial = self._initial_fit(self.ratio_a_b_mutual_nn, self.exposure_a_mutual_nn)
@@ -230,6 +272,7 @@ class ExpModel(ExpFamilyModel):
 
         # Run optimization
         self._compute_corrections()
+        self._compute_output()
 
         # Compute final signal result for all not-nan values (non-mutual)
         self.degradation_a = self._exp(self.exposure_a_nn, *self.parameters_opt)
@@ -250,9 +293,11 @@ class ExpModel(ExpFamilyModel):
 
 
 class ExpLinModel(ExpFamilyModel):
-    def __init__(self, data, timestamp_field_name, signal_a_field_name, signal_b_field_name, exposure_mode):
+    def __init__(self, data, timestamp_field_name, signal_a_field_name, signal_b_field_name, exposure_mode,
+                 moving_average_window, outlier_fraction):
         # Prepare needed data
-        super().__init__(data, timestamp_field_name, signal_a_field_name, signal_b_field_name, exposure_mode)
+        super().__init__(data, timestamp_field_name, signal_a_field_name, signal_b_field_name, exposure_mode,
+                         moving_average_window, outlier_fraction)
 
         # Prepare initial parameters
         lambda_initial, e_0_initial = self._initial_fit(self.ratio_a_b_mutual_nn, self.exposure_a_mutual_nn)
@@ -260,6 +305,7 @@ class ExpLinModel(ExpFamilyModel):
 
         # Run optimization
         self._compute_corrections()
+        self._compute_output()
 
         # Compute final signal result for all not-nan values (non-mutual)
         self.degradation_a = self._exp_lin(self.exposure_a_nn, *self.parameters_opt)

@@ -39,7 +39,7 @@ class Visualizer(object):
                 t = np.array(list(map(mission_day_to_year, t)))
 
             if x.shape[0] > max_points:
-                downsampling_factor = np.ceil(x.shape[0] / max_points)
+                downsampling_factor = int(np.floor(float(x.shape[0]) / float(max_points)))
                 t = downsample_signal(t, downsampling_factor)
                 x = downsample_signal(x, downsampling_factor)
 
