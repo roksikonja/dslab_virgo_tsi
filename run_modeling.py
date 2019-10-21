@@ -112,7 +112,7 @@ if __name__ == "__main__":
     results_dir_path = create_results_dir()
 
     # Load data
-    data_pmo6v = load_data(os.path.join(Const.DATA_DIR, Const.VIRGO_FILE))
+    data_pmo6v = load_data(Const.DATA_DIR, Const.VIRGO_FILE)
 
     visualizer = Visualizer()
     visualizer.set_figsize()

@@ -35,7 +35,7 @@ T_EARLY_INCREASE = ARGS.t_early_increase
 OUTLIER_FRACTION = ARGS.outlier_fraction
 
 
-data = load_data(os.path.join(data_dir, virgo_file))
+data = load_data(data_dir, virgo_file)
 t = data[Const.T].values
 pmo_a = data[Const.A].values
 pmo_b = data[Const.B].values
