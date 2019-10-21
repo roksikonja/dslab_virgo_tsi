@@ -19,5 +19,6 @@ setup(
                 "jupyter",
                 "scipy",
                 "sklearn",
+                "csaps"
         ],
 )

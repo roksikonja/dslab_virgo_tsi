@@ -1,23 +1,23 @@
-from data_utils import load_data, make_dir, notnan_indices, mission_day_to_year, get_sampling_intervals, detect_outliers
-from constants import Constants as C
-from visualizer import Visualizer
-
-import os
-import datetime
 import argparse
+import datetime
+import os
 
-import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import ticker
+import numpy as np
 import pandas as pd
+from matplotlib import ticker
 from scipy.interpolate import interp1d
 
+from dslab_virgo_tsi.constants import Constants as Const
+from dslab_virgo_tsi.data_utils import load_data, make_dir, notnan_indices, mission_day_to_year, \
+    get_sampling_intervals, detect_outliers
+from dslab_virgo_tsi.visualizer import Visualizer
 
 visualizer = Visualizer()
 
-data_dir = C.DATA_DIR
-virgo_file = C.VIRGO_FILE
-results_dir = C.RESULTS_DIR
+data_dir = Const.DATA_DIR
+virgo_file = Const.VIRGO_FILE
+results_dir = Const.RESULTS_DIR
 results_dir = make_dir(os.path.join(results_dir, datetime.datetime.now().strftime("data_analysis_%Y-%m-%d")))
 
 parser = argparse.ArgumentParser()
@@ -34,11 +34,10 @@ SAMPLING_WINDOW = ARGS.sampling_window
 T_EARLY_INCREASE = ARGS.t_early_increase
 
 data = load_data(os.path.join(data_dir, virgo_file))
-t = data[C.T].values
-pmo_a = data[C.A].values
-pmo_b = data[C.B].values
-temp = data[C.TEMP].values
-
+t = data[Const.T].values
+pmo_a = data[Const.A].values
+pmo_b = data[Const.B].values
+temp = data[Const.TEMP].values
 
 # Filter outliers
 outliers_a = notnan_indices(pmo_a)
@@ -57,14 +56,14 @@ pmo_b[outliers_b] = np.nan
 pmo_a_outliers[~outliers_a] = np.nan
 pmo_b_outliers[~outliers_b] = np.nan
 
-data[C.A] = pmo_a
-data[C.B] = pmo_b
+data[Const.A] = pmo_a
+data[Const.B] = pmo_b
 
 # Filter nan values
-data_nn = data[[C.T, C.A, C.B]].dropna()
-t_nn = data_nn[C.T].values
-pmo_a_nn = data_nn[C.A].values
-pmo_b_nn = data_nn[C.B].values
+data_nn = data[[Const.T, Const.A, Const.B]].dropna()
+t_nn = data_nn[Const.T].values
+pmo_a_nn = data_nn[Const.A].values
+pmo_b_nn = data_nn[Const.B].values
 
 visualizer.set_figsize()
 
@@ -84,54 +83,55 @@ x_a_e = pmo_a[t <= T_EARLY_INCREASE]
 x_b_e = pmo_b[t <= T_EARLY_INCREASE]
 ratio_a_b_nn = np.divide(pmo_a_nn, pmo_b_nn)
 
-
 figs = []
-fig = visualizer.plot_signals([(t_a, x_a, C.A, False)], results_dir, "{}_raw".format(C.A), x_ticker=1,
-                              legend="upper right", x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
+fig = visualizer.plot_signals([(t_a, x_a, Const.A, False)], results_dir, "{}_raw".format(Const.A), x_ticker=1,
+                              legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 figs.append(fig)
 
-fig = visualizer.plot_signals([(t_a, x_a, C.A, False), 
-                               (t_a_outliers, x_a_outliers, C.A, True)],
-                              results_dir, "{}_raw_outliers".format(C.A), x_ticker=1, legend="upper right",
-                              x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
+fig = visualizer.plot_signals([(t_a, x_a, Const.A, False),
+                               (t_a_outliers, x_a_outliers, Const.A, True)],
+                              results_dir, "{}_raw_outliers".format(Const.A), x_ticker=1, legend="upper right",
+                              x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 figs.append(fig)
 
-fig = visualizer.plot_signals([(t_a, x_a, C.A, False)], results_dir, "{}_raw_closeup".format(C.A), x_ticker=1,
-                              legend="upper right", y_lim=[1357, 1367], x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
+fig = visualizer.plot_signals([(t_a, x_a, Const.A, False)], results_dir, "{}_raw_closeup".format(Const.A), x_ticker=1,
+                              legend="upper right", y_lim=[1357, 1367], x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 figs.append(fig)
 
-fig = visualizer.plot_signals([(t_b, x_b, C.B, False)], results_dir, "{}_raw".format(C.B), x_ticker=1, legend="upper right",
-                              x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
+fig = visualizer.plot_signals([(t_b, x_b, Const.B, False)], results_dir, "{}_raw".format(Const.B), x_ticker=1,
+                              legend="upper right",
+                              x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 figs.append(fig)
 
-fig = visualizer.plot_signals([(t_b, x_b, C.B, False),
-                               (t_b_outliers, x_b_outliers, C.B, True)],
-                              results_dir, "{}_raw_outliers".format(C.B), x_ticker=1, legend="upper right",
-                              x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
+fig = visualizer.plot_signals([(t_b, x_b, Const.B, False),
+                               (t_b_outliers, x_b_outliers, Const.B, True)],
+                              results_dir, "{}_raw_outliers".format(Const.B), x_ticker=1, legend="upper right",
+                              x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 figs.append(fig)
 
-fig = visualizer.plot_signals([(t_a, x_a, C.A, False), (t_b, x_b, C.B, False)], results_dir, "{}_{}_raw".format(C.A, C.B), x_ticker=1,
-                              legend="upper right", x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
+fig = visualizer.plot_signals([(t_a, x_a, Const.A, False), (t_b, x_b, Const.B, False)], results_dir,
+                              "{}_{}_raw".format(Const.A, Const.B), x_ticker=1,
+                              legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 figs.append(fig)
 
-fig = visualizer.plot_signals([(t_a, x_a, C.A, False), (t_b, x_b, C.B, False)], results_dir, "{}_{}_raw_closeup".format(C.A, C.B),
+fig = visualizer.plot_signals([(t_a, x_a, Const.A, False), (t_b, x_b, Const.B, False)], results_dir,
+                              "{}_{}_raw_closeup".format(Const.A, Const.B),
                               x_ticker=1, legend="upper right", y_lim=[1357, 1369],
-                              x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
+                              x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 figs.append(fig)
 
-fig = visualizer.plot_signals([(t_t, x_t, C.TEMP, False)], results_dir, "{}_raw".format(C.TEMP), x_ticker=1,
-                              legend="lower right", x_label=C.YEAR_UNIT, y_label=C.TEMP_UNIT)
+fig = visualizer.plot_signals([(t_t, x_t, Const.TEMP, False)], results_dir, "{}_raw".format(Const.TEMP), x_ticker=1,
+                              legend="lower right", x_label=Const.YEAR_UNIT, y_label=Const.TEMP_UNIT)
 figs.append(fig)
 
-fig = visualizer.plot_signals([(t_e, x_a_e, C.A, False), (t_e, x_b_e, C.B, False)], results_dir,
-                              "{}_{}_raw_early_increase".format(C.A, C.B), x_ticker=5, legend="upper right",
-                              x_label=C.DAY_UNIT, y_label=C.TSI_UNIT)
+fig = visualizer.plot_signals([(t_e, x_a_e, Const.A, False), (t_e, x_b_e, Const.B, False)], results_dir,
+                              "{}_{}_raw_early_increase".format(Const.A, Const.B), x_ticker=5, legend="upper right",
+                              x_label=Const.DAY_UNIT, y_label=Const.TSI_UNIT)
 figs.append(fig)
 
-
-fig = visualizer.plot_signals([(t_nn, ratio_a_b_nn, "RATIO_{}_{}_nn".format(C.A, C.B), False)], results_dir,
-                              "RATIO_{}_{}_nn".format(C.A, C.B),
-                              x_ticker=1, legend="upper right", x_label=C.YEAR_UNIT, y_label=C.RATIO_UNIT)
+fig = visualizer.plot_signals([(t_nn, ratio_a_b_nn, "RATIO_{}_{}_nn".format(Const.A, Const.B), False)], results_dir,
+                              "RATIO_{}_{}_nn".format(Const.A, Const.B),
+                              x_ticker=1, legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.RATIO_UNIT)
 figs.append(fig)
 
 if ARGS.visualize:
@@ -156,16 +156,16 @@ if ARGS.sampling:
 
     fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(16, 16))
     pd.DataFrame(diffs_a).hist(bins=100, ax=ax[0], ec="black")
-    ax[0].set_title("Sampling gaps Distribution - {}".format(C.A))
+    ax[0].set_title("Sampling gaps Distribution - {}".format(Const.A))
 
     pd.DataFrame(counts_a).hist(bins=100, ax=ax[1], ec="black")
-    ax[1].set_title("Sampling block lengths Distribution - {}".format(C.A))
+    ax[1].set_title("Sampling block lengths Distribution - {}".format(Const.A))
 
     pd.DataFrame(diffs_b).hist(bins=100, ax=ax[2], ec="black")
-    ax[2].set_title("Sampling gaps Distribution - {}".format(C.B))
+    ax[2].set_title("Sampling gaps Distribution - {}".format(Const.B))
 
     pd.DataFrame(counts_b).hist(bins=100, ax=ax[3], ec="black")
-    ax[3].set_title("Sampling block lengths Distribution - {}".format(C.B))
+    ax[3].set_title("Sampling block lengths Distribution - {}".format(Const.B))
 
     plt.tight_layout()
     fig.savefig(os.path.join(results_dir, "sampling_diffs_counts_raw"))
@@ -193,17 +193,16 @@ if ARGS.sampling:
 
     fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(16, 8))
     pd.DataFrame(sampling_diffs_a).hist(bins=100, ax=ax[0], ec="black")
-    ax[0].set_title("Sampling period Distribution - {}".format(C.A))
+    ax[0].set_title("Sampling period Distribution - {}".format(Const.A))
     ax[0].xaxis.set_major_locator(ticker.MultipleLocator(10))
 
     pd.DataFrame(sampling_diffs_b).hist(bins=100, ax=ax[1], ec="black")
-    ax[1].set_title("Sampling period Distribution - {}".format(C.B))
+    ax[1].set_title("Sampling period Distribution - {}".format(Const.B))
     ax[1].xaxis.set_major_locator(ticker.MultipleLocator(10))
     plt.tight_layout()
     fig.savefig(os.path.join(results_dir, "sampling_period_distributions_raw"))
     if ARGS.visualize:
         plt.show()
-
 
 if ARGS.fft:
     # NOT FINISHED
@@ -220,12 +219,12 @@ if ARGS.fft:
     t_b = np.array(list(map(mission_day_to_year, t_b)))
     t_b_inter = np.array(list(map(mission_day_to_year, t_b_inter)))
 
-    fig = visualizer.plot_signals([(t_b, x_b, C.B, False),
+    fig = visualizer.plot_signals([(t_b, x_b, Const.B, False),
                                    (t_b_inter, x_b_inter,
-                                    "{}_{}_interpolation".format(C.B, INTERPOLATION), False)],
-                                  None, "{}_raw_{}_interpolation".format(C.B, INTERPOLATION), legend="upper right",
-                                  x_label=C.YEAR_UNIT, y_label=C.TSI_UNIT)
-    if  ARGS.visualize:
+                                    "{}_{}_interpolation".format(Const.B, INTERPOLATION), False)],
+                                  None, "{}_raw_{}_interpolation".format(Const.B, INTERPOLATION), legend="upper right",
+                                  x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+    if ARGS.visualize:
         fig.show()
 
     N = x_b_inter.shape[0]
@@ -239,9 +238,9 @@ if ARGS.fft:
     frq_range = fs / 128
 
     plt.figure()
-    fig = visualizer.plot_signals([(frq[frq <= frq_range], S[frq <= frq_range], "{}_spectrum".format(C.B))],
-                                  results_dir, "{}_spectrum".format(C.B), legend="upper right",
-                                  x_label=C.FREQ_DAY_UNIT, y_label=C.SPECTRUM_UNIT)
+    fig = visualizer.plot_signals([(frq[frq <= frq_range], S[frq <= frq_range], "{}_spectrum".format(Const.B))],
+                                  results_dir, "{}_spectrum".format(Const.B), legend="upper right",
+                                  x_label=Const.FREQ_DAY_UNIT, y_label=Const.SPECTRUM_UNIT)
 
     if ARGS.visualize:
         plt.show()

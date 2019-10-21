@@ -1,27 +1,27 @@
-from constants import Constants as C
-from data_utils import moving_average_std, mission_day_to_year
-
-import matplotlib.pyplot as plt
-from matplotlib import style
-import matplotlib as mpl
-import matplotlib.ticker as ticker
-from scipy.stats import norm
-import numpy as np
-
 import os
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+import numpy as np
+from matplotlib import style
+from scipy.stats import norm
+
+from dslab_virgo_tsi.constants import Constants as Const
+from dslab_virgo_tsi.data_utils import moving_average_std, mission_day_to_year
 
 
 class Visualizer(object):
 
     def __init__(self):
-        style.use(C.MATPLOTLIB_STYLE)
-        mpl.rcParams['lines.linewidth'] = C.MATPLOTLIB_STYLE_LINEWIDTH
-        mpl.rcParams["savefig.format"] = C.OUT_FORMAT
-        mpl.rcParams["savefig.bbox"] = C.OUT_BBOX
-        mpl.rcParams["savefig.dpi"] = C.OUT_DPI
+        style.use(Const.MATPLOTLIB_STYLE)
+        mpl.rcParams['lines.linewidth'] = Const.MATPLOTLIB_STYLE_LINEWIDTH
+        mpl.rcParams["savefig.format"] = Const.OUT_FORMAT
+        mpl.rcParams["savefig.bbox"] = Const.OUT_BBOX
+        mpl.rcParams["savefig.dpi"] = Const.OUT_DPI
 
     @staticmethod
-    def set_figsize(size=C.FIG_SIZE):
+    def set_figsize(size=Const.FIG_SIZE):
         mpl.rcParams['figure.figsize'] = list(size)
 
     @staticmethod
@@ -31,7 +31,7 @@ class Visualizer(object):
         fig = plt.figure()
         for signal_fourplet in signal_fourplets:
             t = signal_fourplet[0]
-            if x_label == C.YEAR_UNIT:
+            if x_label == Const.YEAR_UNIT:
                 t = np.array(list(map(mission_day_to_year, t)))
 
             x = signal_fourplet[1]
@@ -41,7 +41,8 @@ class Visualizer(object):
                 plt.scatter(t, x, label=label, marker="o", color="tab:red")
             else:
                 plt.plot(t, x, label=label)
-        
+
+
         plt.title(title)
 
         if x_ticker:
@@ -81,14 +82,14 @@ class Visualizer(object):
             if signal_fourplet[3]:
                 x_ma, x_std = moving_average_std(x, t, w=signal_fourplet[3], center=True)
 
-                if x_label == C.YEAR_UNIT:
+                if x_label == Const.YEAR_UNIT:
                     t = np.array(list(map(mission_day_to_year, t)))
 
                 plt.plot(t, x_ma, label=label)
                 plt.fill_between(t, x_ma - factor * x_std, x_ma + factor * x_std, alpha=alpha,
                                  label='{}_{}_conf_interval'.format(label, confidence))
             else:
-                if x_label == C.YEAR_UNIT:
+                if x_label == Const.YEAR_UNIT:
                     t = np.array(list(map(mission_day_to_year, t)))
 
                 plt.plot(t, x, label=label)

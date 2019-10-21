@@ -1,10 +1,11 @@
-from constants import Constants as C
-
-import pandas as pd
-import numpy as np
-import os
 import datetime
+import os
+
+import numpy as np
+import pandas as pd
 from sklearn.covariance import EllipticEnvelope
+
+from dslab_virgo_tsi.constants import Constants as Const
 
 
 def check_data(file_dir, num_cols=4):
@@ -28,10 +29,10 @@ def load_data(file_dir, data_type="virgo"):
     if data_type == "virgo":
         data = pd.read_csv(file_dir,
                            header=None,
-                           delimiter=r"\s+").rename(columns={0: C.T,
-                                                             1: C.A,
-                                                             2: C.B,
-                                                             3: C.TEMP})
+                           delimiter=r"\s+").rename(columns={0: Const.T,
+                                                             1: Const.A,
+                                                             2: Const.B,
+                                                             3: Const.TEMP})
         return data
     return None
 
@@ -69,12 +70,12 @@ def moving_average_std(x, t, w, center=True):
         for i in range(x.shape[0]):
             t_center = t[i]
             window = np.multiply(np.greater_equal(t_center + w, t), np.less_equal(t_center - w, t))
-            slice = x[window]
+            slice_ = x[window]
 
-            indices = notnan_indices(slice)
-            slice = slice[indices]
-            x_mean[i] = slice.mean()
-            x_std[i] = slice.std()
+            indices = notnan_indices(slice_)
+            slice_ = slice_[indices]
+            x_mean[i] = slice_.mean()
+            x_std[i] = slice_.std()
         return x_mean, x_std
     else:
         if not isinstance(x, pd.Series):
