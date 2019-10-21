@@ -25,14 +25,27 @@ def check_data(file_dir, num_cols=4):
         return True
 
 
-def load_data(file_dir, data_type="virgo"):
+def load_data(data_dir_path, file_name, data_type="virgo"):
+    file_name_no_extension, extension = os.path.splitext(file_name)
+
+    h5_file_path = os.path.join(data_dir_path, file_name_no_extension + ".h5")
+    # If HDF5 file exists, load from it
+    if os.path.isfile(h5_file_path):
+        data = pd.read_hdf(h5_file_path, "table")
+        return data
+
+    # HDF5 file does not exist, load from regular format
+    raw_file_path = os.path.join(data_dir_path, file_name)
     if data_type == "virgo":
-        data = pd.read_csv(file_dir,
+        data = pd.read_csv(raw_file_path,
                            header=None,
                            delimiter=r"\s+").rename(columns={0: Const.T,
                                                              1: Const.A,
                                                              2: Const.B,
                                                              3: Const.TEMP})
+
+        # Store to HDF5
+        data.to_hdf(h5_file_path, "table")
         return data
     return None
 
@@ -150,4 +163,4 @@ if __name__ == "__main__":
     check_data(os.path.join(data_dir, virgo_file), num_cols=4)
 
     # Load data
-    virgo_data = load_data(os.path.join(data_dir, virgo_file))
+    virgo_data = load_data(data_dir, virgo_file)
