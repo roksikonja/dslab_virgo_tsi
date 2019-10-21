@@ -311,7 +311,7 @@ class ExpModel(ExpFamilyModel):
 
         # Run optimization
         self._compute_corrections()
-        # self._compute_output()
+        self._compute_output()
 
         # Compute final signal result for all not-nan values (non-mutual)
         self.degradation_a = self._exp(self.exposure_a_nn, *self.parameters_opt)
@@ -344,7 +344,7 @@ class ExpLinModel(ExpFamilyModel):
 
         # Run optimization
         self._compute_corrections()
-        # self._compute_output()
+        self._compute_output()
 
         # Compute final signal result for all not-nan values (non-mutual)
         self.degradation_a = self._exp_lin(self.exposure_a_nn, *self.parameters_opt)
