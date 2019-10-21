@@ -85,7 +85,7 @@ class Visualizer(object):
             label = signal_fourplet[2]
 
             if signal_fourplet[3]:
-                x_ma, x_std = moving_average_std(x, t, w=signal_fourplet[3], center=True)
+                x_ma, x_std = moving_average_std(x, t, w=signal_fourplet[3])
 
                 if x_label == Const.YEAR_UNIT:
                     t = np.array(list(map(mission_day_to_year, t)))

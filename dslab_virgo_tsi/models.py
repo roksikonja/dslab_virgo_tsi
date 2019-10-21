@@ -5,7 +5,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 from sklearn.linear_model import LinearRegression
 
-from dslab_virgo_tsi.data_utils import resampling_average_std, downsample_signal
+from dslab_virgo_tsi.data_utils import resampling_average_std, downsample_signal, notnan_indices, detect_outliers
 
 
 class ExposureMode(Enum):
@@ -16,6 +16,7 @@ class ExposureMode(Enum):
 # TODO: ratio_a_b = history[0].iteration_ratio_a_b
 # TODO: signal_a_mutual_nn_corrected = history[-1].iteration_signal_a
 # TODO: signal_a_mutual_nn = history[0].iteration_signal_a
+# TODO: filter outliers
 class ModelingResult:
     def __init__(self):
         self.t_mutual_nn = None
@@ -34,8 +35,10 @@ class ModelingResult:
     def downsample_signals(self, k_a, k_b):
         self.t_a_nn = downsample_signal(self.t_a_nn, k_a)
         self.t_b_nn = downsample_signal(self.t_b_nn, k_b)
-        self.signal_a_nn = downsample_signal(self.signal_a_nn, k_b)
+        self.signal_a_nn = downsample_signal(self.signal_a_nn, k_a)
         self.signal_b_nn = downsample_signal(self.signal_b_nn, k_b)
+        self.signal_a_nn_corrected = downsample_signal(self.signal_a_nn_corrected, k_a)
+        self.signal_b_nn_corrected = downsample_signal(self.signal_b_nn_corrected, k_b)
 
 
 class IterationResult:
@@ -54,6 +57,7 @@ class BaseModel(ABC):
     def __init__(self, data, timestamp_field_name, signal_a_field_name, signal_b_field_name, exposure_mode,
                  moving_average_window, outlier_fraction):
         self.result = ModelingResult()
+
         signal_a = data[signal_a_field_name].values
         signal_b = data[signal_b_field_name].values
         t = data[timestamp_field_name].values
@@ -61,6 +65,9 @@ class BaseModel(ABC):
         # Parameters
         self.moving_average_window = moving_average_window
         self.outlier_fraction = outlier_fraction
+
+        if self.outlier_fraction > 0:
+            data = self._filter_outliers(data, signal_a_field_name, signal_b_field_name)
 
         # Calculate exposure
         signal_b_mean = float(np.mean(signal_b[~np.isnan(signal_b)]))
@@ -73,7 +80,7 @@ class BaseModel(ABC):
         index_a_nn = ~np.isnan(signal_a)
         index_b_nn = ~np.isnan(signal_b)
         signal_a_nn = signal_a[index_a_nn]
-        signal_b_nn = signal_a[index_b_nn]
+        signal_b_nn = signal_b[index_b_nn]
         t_a_nn = t[index_a_nn]
         t_b_nn = t[index_b_nn]
         exposure_a_nn = exposure_a[index_a_nn]
@@ -122,7 +129,7 @@ class BaseModel(ABC):
         min_time = np.floor(self.t_a_nn.min())
         max_time = np.ceil(self.t_a_nn.max())
 
-        self.t_hourly_out = np.arange(min_time, max_time, 1.0/24.0)
+        self.t_hourly_out = np.arange(min_time, max_time, 1.0 / 24.0)
         self.t_daily_out = np.arange(min_time, max_time, 1.0)
         self.signal_hourly_out = np.zeros(shape=self.t_hourly_out.shape)
         self.signal_daily_out = np.zeros(shape=self.t_daily_out.shape)
@@ -170,14 +177,46 @@ class BaseModel(ABC):
 
         return result
 
+    def _filter_outliers(self, data, signal_a_field_name, signal_b_field_name):
+        data = data.copy()
+
+        x_a = data[signal_a_field_name].values
+        x_b = data[signal_b_field_name].values
+
+        outliers_a = notnan_indices(x_a)
+        outliers_a[outliers_a] = detect_outliers(x_a[notnan_indices(x_a)], None,
+                                                 outlier_fraction=self.outlier_fraction)
+
+        outliers_b = notnan_indices(x_b)
+        outliers_b[outliers_b] = detect_outliers(x_b[notnan_indices(x_b)], None,
+                                                 outlier_fraction=self.outlier_fraction)
+
+        print("{}: {} outliers".format(signal_a_field_name, outliers_a.sum()))
+        print("{}: {} outliers".format(signal_b_field_name, outliers_b.sum()))
+
+        x_a_outliers = x_a.copy()
+        x_b_outliers = x_b.copy()
+
+        x_a[outliers_a] = np.nan
+        x_b[outliers_b] = np.nan
+        x_a_outliers[~outliers_a] = np.nan
+        x_b_outliers[~outliers_b] = np.nan
+
+        data[signal_a_field_name] = x_a
+        data[signal_b_field_name] = x_b
+
+        return data
+
     @staticmethod
     def _compute_exposure(x, mode=ExposureMode.NUM_MEASUREMENTS, mean=1.0):
         if mode == ExposureMode.NUM_MEASUREMENTS:
             x = np.nan_to_num(x) > 0
+            x = x / x.shape[0]
             return np.cumsum(x)
         elif mode == ExposureMode.EXPOSURE_SUM:
             x = np.nan_to_num(x)
             x = x / mean
+            x = x / x.shape[0]
             return np.cumsum(x)
 
     def _iterative_correction(self, signal_a, signal_b, exposure_a, exposure_b, eps=1e-5, max_iter=100):
@@ -272,7 +311,7 @@ class ExpModel(ExpFamilyModel):
 
         # Run optimization
         self._compute_corrections()
-        self._compute_output()
+        # self._compute_output()
 
         # Compute final signal result for all not-nan values (non-mutual)
         self.degradation_a = self._exp(self.exposure_a_nn, *self.parameters_opt)
@@ -305,7 +344,7 @@ class ExpLinModel(ExpFamilyModel):
 
         # Run optimization
         self._compute_corrections()
-        self._compute_output()
+        # self._compute_output()
 
         # Compute final signal result for all not-nan values (non-mutual)
         self.degradation_a = self._exp_lin(self.exposure_a_nn, *self.parameters_opt)
