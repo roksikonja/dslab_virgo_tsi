@@ -5,7 +5,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 from sklearn.linear_model import LinearRegression
 
-from dslab_virgo_tsi.data_utils import mission_day_to_year
+from dslab_virgo_tsi.data_utils import mission_day_to_year, moving_average_std
 
 
 class ExposureMode(Enum):
@@ -26,6 +26,7 @@ class ModelingResult:
         self.signal_b_nn = None
         self.signal_a_nn_corrected = None
         self.signal_b_nn_corrected = None
+        self.signal_out = None
 
 
 class IterationResult:
@@ -41,11 +42,16 @@ class BaseModel(ABC):
     nn -> values taken at times when specific signal is not nan
     """
 
-    def __init__(self, data, timestamp_field_name, signal_a_field_name, signal_b_field_name, exposure_mode):
+    def __init__(self, data, timestamp_field_name, signal_a_field_name, signal_b_field_name, exposure_mode,
+                 moving_average_window, outlier_fraction):
         self.result = ModelingResult()
         signal_a = data[signal_a_field_name].values
         signal_b = data[signal_b_field_name].values
         t = data[timestamp_field_name].values
+
+        # Parameters
+        self.moving_average_window = moving_average_window
+        self.outlier_fraction = outlier_fraction
 
         # Calculate exposure
         signal_b_mean = float(np.mean(signal_b[~np.isnan(signal_b)]))
@@ -99,6 +105,15 @@ class BaseModel(ABC):
                                                                                  self.exposure_b_mutual_nn)
         print(self.parameters_opt)
 
+    def _compute_output(self):
+        x_a_mean, x_a_std = moving_average_std(self.signal_a_nn, self.t_a_nn, w=self.moving_average_window)
+        x_b_mean, x_b_std = moving_average_std(self.signal_b_nn, self.t_b_nn, w=self.moving_average_window)
+
+        x_a_gain = np.multiply(x_a_mean, np.divide(np.square(x_b_std), np.square(x_a_std) + np.square(x_b_std)))
+        x_b_gain = np.multiply(x_b_mean, np.divide(np.square(x_a_std), np.square(x_a_std) + np.square(x_b_std)))
+
+        return x_a_gain + x_b_gain
+
     def get_result(self):
         signal_a_nn_corrected = self.signal_a_nn / self.degradation_a
         signal_b_nn_corrected = self.signal_b_nn / self.degradation_b
@@ -113,6 +128,7 @@ class BaseModel(ABC):
         result.signal_b_nn = self.signal_b_nn
         result.signal_a_nn_corrected = signal_a_nn_corrected
         result.signal_b_nn_corrected = signal_b_nn_corrected
+        result.signal_out = self._compute_output()
 
         return result
 

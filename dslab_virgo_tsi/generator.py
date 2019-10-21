@@ -1,5 +1,5 @@
-from data_utils import make_dir
-from constants import Constants as C
+from dslab_virgo_tsi.data_utils import make_dir
+from dslab_virgo_tsi.constants import Constants as Const
 
 import pandas as pd
 import numpy as np
@@ -104,48 +104,45 @@ if __name__ == "__main__":
     ARGS = parser.parse_args()
 
     # Constants
-    data_dir = C.DATA_DIR
-    results_dir = C.RESULTS_DIR
-    results_dir = os.path.join(results_dir, datetime.datetime.now().strftime("modeling_%Y-%m-%d"))
-    make_dir(results_dir)
-
-    style.use(C.MATPLOTLIB_STYLE)
-    matplotlib.rcParams['lines.linewidth'] = C.MATPLOTLIB_STYLE_LINEWIDTH
-    signal_length = int(1e5)
-
-    # Parameters
-    degradation_model = ARGS.degradation_model
-    degradation_rate = ARGS.degradation_rate
-
-    # Generator
-    Generator = SignalGenerator(signal_length)
-    t = Generator.time
-    data = pd.DataFrame()
-    data["t"] = t
-
-    for s_idx in range(5):
-        x = Generator.x
-        data["x-{}".format(s_idx)] = x
-
-        for i in range(5):
-            x_a_raw, x_b_raw, exposure_a, exposure_b, params = Generator.generate_raw_signal(x, 13 * i + s_idx * 17,
-                                                                                             rate=degradation_rate)
-
-            data["x_a-{}-{}".format(s_idx, i)] = x_a_raw
-            data["x_b-{}-{}".format(s_idx, i)] = x_b_raw
-            data["exposure_a-{}-{}".format(s_idx, i)] = exposure_a
-            data["exposure_b-{}-{}".format(s_idx, i)] = exposure_b
-
-            plt.figure(i+1, figsize=(12, 6))
-            plt.plot(t, x, color="black", label="x")
-            plt.plot(t, x_a_raw, label="x_a-{}".format(i+1))
-            plt.plot(t, x_b_raw, label="x_b-{}".format(i+1))
-            plt.legend(loc="lower left")
-            plt.savefig(os.path.join(results_dir,  "synthetic_{}_{}_s{}-{}.png".format(degradation_model,
-                                                                                       signal_length, s_idx, i)),
-                        bbox_inches="tight", quality=100, dpi=200)
-            plt.clf()
-            plt.close()
-
-        Generator.generate_signal()
-    data.to_pickle(os.path.join(data_dir, "synthetic_{}_{}.pkl".format(degradation_model, signal_length)))
+    data_dir = Const.DATA_DIR
+    results_dir = Const.RESULTS_DIR
+    results_dir = make_dir(os.path.join(results_dir, datetime.datetime.now().strftime("modeling_%Y-%m-%d")))
+    #
+    # signal_length = int(1e5)
+    #
+    # # Parameters
+    # degradation_model = ARGS.degradation_model
+    # degradation_rate = ARGS.degradation_rate
+    #
+    # # Generator
+    # Generator = SignalGenerator(signal_length)
+    # t = Generator.time
+    # data = pd.DataFrame()
+    # data["t"] = t
+    #
+    # for s_idx in range(5):
+    #     x = Generator.x
+    #     data["x-{}".format(s_idx)] = x
+    #
+    #     for i in range(5):
+    #         x_a_raw, x_b_raw, exposure_a, exposure_b, params = Generator.generate_raw_signal(x, 13 * i + s_idx * 17,
+    #                                                                                          rate=degradation_rate)
+    #
+    #         data["x_a-{}-{}".format(s_idx, i)] = x_a_raw
+    #         data["x_b-{}-{}".format(s_idx, i)] = x_b_raw
+    #         data["exposure_a-{}-{}".format(s_idx, i)] = exposure_a
+    #         data["exposure_b-{}-{}".format(s_idx, i)] = exposure_b
+    #
+    #         plt.figure(i+1, figsize=(12, 6))
+    #         plt.plot(t, x, color="black", label="x")
+    #         plt.plot(t, x_a_raw, label="x_a-{}".format(i+1))
+    #         plt.plot(t, x_b_raw, label="x_b-{}".format(i+1))
+    #         plt.legend(loc="lower left")
+    #         plt.savefig(os.path.join(results_dir,  "synthetic_{}_{}_s{}-{}.png".format(degradation_model,
+    #                                                                                    signal_length, s_idx, i)),
+    #                     bbox_inches="tight", quality=100, dpi=200)
+    #         plt.clf()
+    #         plt.close()
+    #
+    #     Generator.generate_signal()
+    # data.to_pickle(os.path.join(data_dir, "synthetic_{}_{}.pkl".format(degradation_model, signal_length)))

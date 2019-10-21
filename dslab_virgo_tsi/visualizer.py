@@ -8,7 +8,7 @@ from matplotlib import style
 from scipy.stats import norm
 
 from dslab_virgo_tsi.constants import Constants as Const
-from dslab_virgo_tsi.data_utils import moving_average_std, mission_day_to_year
+from dslab_virgo_tsi.data_utils import moving_average_std, mission_day_to_year, downsample_signal
 
 
 class Visualizer(object):
@@ -26,18 +26,24 @@ class Visualizer(object):
 
     @staticmethod
     def plot_signals(signal_fourplets, results_dir, title, x_ticker=None, legend=None, y_lim=None,
-                     x_label=None, y_label=None):
+                     x_label=None, y_label=None, max_points=1e4):
 
         fig = plt.figure()
         for signal_fourplet in signal_fourplets:
             t = signal_fourplet[0]
+            x = signal_fourplet[1]
+            label = signal_fourplet[2]
+            scatter = signal_fourplet[3]
+
             if x_label == Const.YEAR_UNIT:
                 t = np.array(list(map(mission_day_to_year, t)))
 
-            x = signal_fourplet[1]
-            label = signal_fourplet[2]
+            if x.shape[0] > max_points:
+                downsampling_factor = np.ceil(x.shape[0] / max_points)
+                t = downsample_signal(t, downsampling_factor)
+                x = downsample_signal(x, downsampling_factor)
 
-            if signal_fourplet[3]:
+            if scatter:
                 plt.scatter(t, x, label=label, marker="x", color="tab:red")
             else:
                 plt.plot(t, x, label=label)

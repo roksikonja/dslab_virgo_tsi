@@ -21,8 +21,7 @@ def parse_arguments():
 
 
 def create_results_dir():
-    results_dir = os.path.join(Const.RESULTS_DIR, datetime.datetime.now().strftime("modeling_%Y-%m-%d"))
-    make_dir(results_dir)
+    results_dir = make_dir(os.path.join(Const.RESULTS_DIR, datetime.datetime.now().strftime("modeling_%Y-%m-%d")))
     return results_dir
 
 
@@ -82,6 +81,9 @@ if __name__ == "__main__":
 
     # Load data
     data_pmo6v = load_data(os.path.join(Const.DATA_DIR, Const.VIRGO_FILE))
+
+    Visualizer = Visualizer()
+    Visualizer.set_figsize()
 
     # Perform modeling
     model = None
