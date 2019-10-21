@@ -38,10 +38,9 @@ class Visualizer(object):
             label = signal_fourplet[2]
 
             if signal_fourplet[3]:
-                plt.scatter(t, x, label=label, marker="o", color="tab:red")
+                plt.scatter(t, x, label=label, marker="x", color="tab:red")
             else:
                 plt.plot(t, x, label=label)
-
 
         plt.title(title)
 

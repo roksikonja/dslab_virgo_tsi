@@ -32,6 +32,8 @@ ARGS = parser.parse_args()
 
 SAMPLING_WINDOW = ARGS.sampling_window
 T_EARLY_INCREASE = ARGS.t_early_increase
+OUTLIER_FRACTION = ARGS.outlier_fraction
+
 
 data = load_data(os.path.join(data_dir, virgo_file))
 t = data[Const.T].values
@@ -42,11 +44,11 @@ temp = data[Const.TEMP].values
 # Filter outliers
 outliers_a = notnan_indices(pmo_a)
 outliers_a[outliers_a] = detect_outliers(pmo_a[notnan_indices(pmo_a)], None,
-                                         outlier_fraction=1e-3)
+                                         outlier_fraction=OUTLIER_FRACTION)
 
 outliers_b = notnan_indices(pmo_b)
 outliers_b[outliers_b] = detect_outliers(pmo_b[notnan_indices(pmo_b)], None,
-                                         outlier_fraction=1e-3)
+                                         outlier_fraction=OUTLIER_FRACTION)
 
 pmo_a_outliers = pmo_a.copy()
 pmo_b_outliers = pmo_b.copy()
