@@ -101,21 +101,19 @@ def moving_average_std(x, t, w):
             return x, None
 
 
-def resampling_average_std(x, t_x, t_resampling, w):
-    w = w + 1e-12
-    x_resampled_mean = np.zeros(shape=t_resampling.shape)
-    x_resampled_std = np.zeros(shape=t_resampling.shape)
+def resampling_average_std(x, w):
+    w = int(w)
+    x_resampled_mean = None
+    x_resampled_std = None
 
-    for i in range(t_resampling.shape[0]):
-        t_center = t_resampling[i]
+    if not isinstance(x, pd.Series):
+        x = pd.Series(x)
 
-        window = np.multiply(np.greater_equal(t_center + w, t_x), np.less_equal(t_center - w, t_x))
-        slice_ = x[window]
+    if w > 1:
+        x = x.rolling(w, center=True)
+        x_resampled_mean = x.mean()
+        x_resampled_std = x.std()
 
-        indices = notnan_indices(slice_)
-        slice_ = slice_[indices]
-        x_resampled_mean[i] = slice_.mean()
-        x_resampled_std[i] = slice_.std()
     return x_resampled_mean, x_resampled_std
 
 

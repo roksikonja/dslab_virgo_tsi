@@ -3,6 +3,7 @@ from enum import Enum, auto
 
 import numpy as np
 from scipy.optimize import curve_fit
+from scipy.interpolate import interp1d
 from sklearn.linear_model import LinearRegression
 
 from dslab_virgo_tsi.data_utils import resampling_average_std, downsample_signal, notnan_indices, detect_outliers
@@ -118,21 +119,30 @@ class BaseModel(ABC):
                                                                                  self.exposure_b_mutual_nn)
 
     def _compute_output(self):
-        min_time = np.floor(self.t_a_nn.min())
-        max_time = np.ceil(self.t_a_nn.max())
+        print("Compute output")
+        min_time = max(np.ceil(self.t_a_nn.min()), np.ceil(self.t_b_nn.min()))
+        max_time = min(np.floor(self.t_a_nn.max()), np.floor(self.t_b_nn.max()))
 
         self.t_hourly_out = np.arange(min_time, max_time, 1.0 / 24.0)
         self.t_daily_out = np.arange(min_time, max_time, 1.0)
 
-        self.signal_hourly_out = self._compute_gain(self.a_nn, self.b_nn, self.t_a_nn, self.t_b_nn,
-                                                    self.t_hourly_out, self.moving_average_window)
-        self.signal_daily_out = self._compute_gain(self.a_nn, self.b_nn, self.t_a_nn, self.t_b_nn,
-                                                   self.t_daily_out, self.moving_average_window)
+        a_nn_interpolation_func = interp1d(self.t_a_nn, self.a_nn, kind="linear")
+        a_nn_hourly_resampled = a_nn_interpolation_func(self.t_hourly_out)
+        a_nn_daily_resampled = a_nn_interpolation_func(self.t_daily_out)
+
+        b_nn_interpolation_func = interp1d(self.t_b_nn, self.b_nn, kind="linear")
+        b_nn_hourly_resampled = b_nn_interpolation_func(self.t_hourly_out)
+        b_nn_daily_resampled = b_nn_interpolation_func(self.t_daily_out)
+
+        self.signal_hourly_out = self._resample_and_compute_gain(a_nn_hourly_resampled, b_nn_hourly_resampled,
+                                                    self.moving_average_window * 24)
+        self.signal_daily_out = self._resample_and_compute_gain(a_nn_daily_resampled, b_nn_daily_resampled,
+                                                   self.moving_average_window)
 
     @staticmethod
-    def _compute_gain(a, b, t_a, t_b, t_out, moving_average_window):
-        a_out_mean, a_out_std = resampling_average_std(a, t_a, t_out, w=moving_average_window)
-        b_out_mean, b_out_std = resampling_average_std(b, t_b, t_out, w=moving_average_window)
+    def _resample_and_compute_gain(a, b, moving_average_window):
+        a_out_mean, a_out_std = resampling_average_std(a, w=moving_average_window)
+        b_out_mean, b_out_std = resampling_average_std(b, w=moving_average_window)
 
         a_out_std_squared = np.square(a_out_std)
         b_out_std_squared = np.square(b_out_std)
@@ -156,10 +166,10 @@ class BaseModel(ABC):
         result.b_nn = self.b_nn
         result.a_nn_corrected = a_nn_corrected
         result.b_nn_corrected = b_nn_corrected
-        # result.t_hourly_out = self.t_hourly_out
-        # result.signal_hourly_out = self.signal_hourly_out
-        # result.t_daily_out = self.t_daily_out
-        # result.signal_daily_out = self.signal_daily_out
+        result.t_hourly_out = self.t_hourly_out
+        result.signal_hourly_out = self.signal_hourly_out
+        result.t_daily_out = self.t_daily_out
+        result.signal_daily_out = self.signal_daily_out
 
         return result
 

@@ -74,18 +74,24 @@ class Visualizer(object):
 
     @staticmethod
     def plot_signals_mean_std(signal_fourplets, results_dir, title, x_ticker=None, legend=None, y_lim=None,
-                              x_label=None, y_label=None, confidence=0.95, alpha=0.5):
+                              x_label=None, y_label=None, confidence=0.95, alpha=0.5, max_points=1e4):
 
         fig = plt.figure()
         for signal_fourplet in signal_fourplets:
             factor = norm.ppf(confidence) - norm.ppf(1 - confidence)
-            t = signal_fourplet[0]
 
+            t = signal_fourplet[0]
             x = signal_fourplet[1]
             label = signal_fourplet[2]
+            window = signal_fourplet[3]
 
-            if signal_fourplet[3]:
-                x_ma, x_std = moving_average_std(x, t, w=signal_fourplet[3])
+            if x.shape[0] > max_points:
+                downsampling_factor = int(np.floor(float(x.shape[0]) / float(max_points)))
+                t = downsample_signal(t, downsampling_factor)
+                x = downsample_signal(x, downsampling_factor)
+
+            if window:
+                x_ma, x_std = moving_average_std(x, t, w=window)
 
                 if x_label == Const.YEAR_UNIT:
                     t = np.array(list(map(mission_day_to_year, t)))

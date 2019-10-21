@@ -75,6 +75,27 @@ def plot_results(results: ModelingResult, results_dir, model_name, window_size):
         legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
+    fig = visualizer.plot_signals(
+        [(results.t_hourly_out, results.signal_hourly_out, f"TSI_hourly_{model_name}", False)],
+        results_dir, "TSI_hourly_{}".format(model_name), x_ticker=1, legend="upper left", y_lim=[1357, 1369],
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+    figs.append(fig)
+
+    fig = visualizer.plot_signals(
+        [(results.t_daily_out, results.signal_daily_out, f"TSI_daily_{model_name}", False)],
+        results_dir, "TSI_daily_{}".format(model_name), x_ticker=1, legend="upper left", y_lim=[1357, 1369],
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+    figs.append(fig)
+
+    fig = visualizer.plot_signals_mean_std(
+        [(results.t_a_nn, results.a_nn, f"{Const.A}_conf_int", window_size),
+         (results.t_b_nn, results.b_nn, f"{Const.B}_conf_int", window_size),
+         (results.t_a_nn, results.a_nn_corrected, f"{Const.A}_corrected_conf_int", window_size),
+         (results.t_b_nn, results.b_nn_corrected, f"{Const.B}_corrected_conf_int", window_size)],
+        results_dir, f"{model_name}_{Const.A}_{Const.B}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
+    figs.append(fig)
+
     """
     fig = Visualizer.plot_signals_mean_std(
         [(results.t_a_nn, results.a_nn, f"{Const.A}_conf_int", window_size),
@@ -83,18 +104,6 @@ def plot_results(results: ModelingResult, results_dir, model_name, window_size):
          (results.t_b_nn, results.b_nn_corrected, f"{Const.B}_corrected_conf_int", window_size)],
         results_dir, f"{model_name}_{Const.A}_{Const.B}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left", 
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
-    figs.append(fig)
-
-    fig = Visualizer.plot_signals(
-        [(results.t_hourly_out, results.signal_hourly_out, f"TSI_hourly_{model_name}", False)],
-        results_dir, "TSI_hourly_{}".format(model_name), x_ticker=1, legend="upper left", y_lim=[1357, 1369],
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
-    figs.append(fig)
-
-    fig = Visualizer.plot_signals(
-        [(results.t_daily_out, results.signal_daily_out, f"TSI_daily_{model_name}", False)],
-        results_dir, "TSI_daily_{}".format(model_name), x_ticker=1, legend="upper left", y_lim=[1357, 1369],
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
     fig = Visualizer.plot_signals(
