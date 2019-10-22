@@ -19,6 +19,7 @@ setup(
                 "jupyter",
                 "scipy",
                 "sklearn",
-                "tables"
+                "tables",
+                "pytables>=3.2"
         ],
 )
