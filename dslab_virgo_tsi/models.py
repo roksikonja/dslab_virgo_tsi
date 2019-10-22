@@ -27,8 +27,12 @@ class ModelingResult:
         self.b_nn_corrected = None
         self.t_hourly_out = None
         self.signal_hourly_out = None
+        self.signal_std_hourly_out = None
         self.t_daily_out = None
         self.signal_daily_out = None
+        self.signal_std_daily_out = None
+        self.degradation_a = None
+        self.degradation_b = None
 
     def downsample_signals(self, k_a, k_b):
         self.t_a_nn = downsample_signal(self.t_a_nn, k_a)
@@ -134,10 +138,10 @@ class BaseModel(ABC):
         b_nn_hourly_resampled = b_nn_interpolation_func(self.t_hourly_out)
         b_nn_daily_resampled = b_nn_interpolation_func(self.t_daily_out)
 
-        self.signal_hourly_out = self._resample_and_compute_gain(a_nn_hourly_resampled, b_nn_hourly_resampled,
-                                                    self.moving_average_window * 24)
-        self.signal_daily_out = self._resample_and_compute_gain(a_nn_daily_resampled, b_nn_daily_resampled,
-                                                   self.moving_average_window)
+        self.signal_hourly_out, self.signal_std_hourly_out = self._resample_and_compute_gain(
+            a_nn_hourly_resampled, b_nn_hourly_resampled, self.moving_average_window * 24)
+        self.signal_daily_out, self.signal_std_daily_out = self._resample_and_compute_gain(
+            a_nn_daily_resampled, b_nn_daily_resampled, self.moving_average_window)
 
     @staticmethod
     def _resample_and_compute_gain(a, b, moving_average_window):
@@ -150,11 +154,12 @@ class BaseModel(ABC):
         a_out_gain = np.multiply(a_out_mean, np.divide(b_out_std_squared, a_out_std_squared + b_out_std_squared))
         b_out_gain = np.multiply(b_out_mean, np.divide(a_out_std_squared, a_out_std_squared + b_out_std_squared))
 
-        return a_out_gain + b_out_gain
+        return a_out_gain + b_out_gain, np.sqrt(np.divide(np.multiply(a_out_std_squared, b_out_std_squared),
+                                                          a_out_std_squared + b_out_std_squared))
 
     def get_result(self):
-        a_nn_corrected = self.a_nn / self.degradation_a
-        b_nn_corrected = self.b_nn / self.degradation_b
+        a_nn_corrected = np.divide(self.a_nn, self.degradation_a)
+        b_nn_corrected = np.divide(self.b_nn, self.degradation_b)
 
         # Store all values in ModelingResult object
         result = ModelingResult()
@@ -170,6 +175,10 @@ class BaseModel(ABC):
         result.signal_hourly_out = self.signal_hourly_out
         result.t_daily_out = self.t_daily_out
         result.signal_daily_out = self.signal_daily_out
+        result.signal_std_hourly_out = self.signal_std_hourly_out
+        result.signal_std_daily_out = self.signal_std_daily_out
+        result.degradation_a = self.degradation_a
+        result.degradation_b = self.degradation_b
 
         return result
 
@@ -215,7 +224,7 @@ class BaseModel(ABC):
             x = x / x.shape[0]
             return np.cumsum(x)
 
-    def _iterative_correction(self, a, b, exposure_a, exposure_b, eps=1e-2, max_iter=100):
+    def _iterative_correction(self, a, b, exposure_a, exposure_b, eps=1e-12, max_iter=100):
         a_corrected = a
         b_corrected = b
 
@@ -235,8 +244,8 @@ class BaseModel(ABC):
 
             history.append(IterationResult(a_corrected, b_corrected, np.divide(a_corrected, b_corrected)))
 
-            delta_norm_a = np.linalg.norm(a_corrected - a_previous) / np.linalg.norm(a_previous)
-            delta_norm_b = np.linalg.norm(b_corrected - b_previous) / np.linalg.norm(b_previous)
+            delta_norm_a = np.linalg.norm(a_corrected - a_previous)  # / np.linalg.norm(a_previous)
+            delta_norm_b = np.linalg.norm(b_corrected - b_previous)  # / np.linalg.norm(b_previous)
             delta_norm = delta_norm_a + delta_norm_b
 
             print("\nstep:\t" + str(step) + "\nnorm:\t", delta_norm, "\nparameters:\t", parameters_opt)
@@ -320,8 +329,8 @@ class ExpModel(ExpFamilyModel):
 
     def _fit_and_correct(self, a, b, exposure_a, exposure_b, ratio_a_b):
         parameters_opt, _ = curve_fit(self._exp, exposure_a, ratio_a_b, p0=self.parameters_initial, maxfev=100000)
-        a_corrected = a / self._exp(exposure_a, *parameters_opt)
-        b_corrected = b / self._exp(exposure_b, *parameters_opt)
+        a_corrected = np.divide(a, self._exp(exposure_a, *parameters_opt))
+        b_corrected = np.divide(b, self._exp(exposure_b, *parameters_opt))
 
         return a_corrected, b_corrected, parameters_opt
 
@@ -353,7 +362,7 @@ class ExpLinModel(ExpFamilyModel):
 
     def _fit_and_correct(self, a, b, exposure_a, exposure_b, ratio_a_b):
         parameters_opt, _ = curve_fit(self._exp_lin, exposure_a, ratio_a_b, p0=self.parameters_initial, maxfev=100000)
-        a_corrected = a / self._exp_lin(exposure_a, *parameters_opt)
-        b_corrected = b / self._exp_lin(exposure_b, *parameters_opt)
+        a_corrected = np.divide(a, self._exp_lin(exposure_a, *parameters_opt))
+        b_corrected = np.divide(b, self._exp_lin(exposure_b, *parameters_opt))
 
         return a_corrected, b_corrected, parameters_opt
