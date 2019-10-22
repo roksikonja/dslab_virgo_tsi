@@ -94,6 +94,7 @@ def plot_results(results: ModelingResult, results_dir, model_name, window_size):
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
+    """
     fig = visualizer.plot_signals_mean_std(
         [(results.t_a_nn, results.a_nn, f"{Const.A}_conf_int", window_size),
          (results.t_b_nn, results.b_nn, f"{Const.B}_conf_int", window_size),
@@ -103,8 +104,6 @@ def plot_results(results: ModelingResult, results_dir, model_name, window_size):
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
     figs.append(fig)
 
-
-    """
     fig = Visualizer.plot_signals_mean_std(
         [(results.t_a_nn, results.a_nn, f"{Const.A}_conf_int", window_size),
          (results.t_b_nn, results.b_nn, f"{Const.B}_conf_int", window_size),

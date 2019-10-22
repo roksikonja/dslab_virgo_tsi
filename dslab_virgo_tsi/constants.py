@@ -34,6 +34,6 @@ class Constants(object):
     FIG_SIZE = (16, 8)
     MATPLOTLIB_STYLE = "seaborn"  # "default"
     MATPLOTLIB_STYLE_LINEWIDTH = 0.5
-    OUT_FORMAT = "png"
+    OUT_FORMAT = "pdf"
     OUT_BBOX = "tight"
     OUT_DPI = 400

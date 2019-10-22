@@ -73,8 +73,10 @@ class BaseModel(ABC):
 
         # Calculate exposure
         b_mean = float(np.mean(b[~np.isnan(b)]))
-        exposure_a = self._compute_exposure(a, exposure_mode, b_mean)
-        exposure_b = self._compute_exposure(b, exposure_mode, b_mean)
+        a_length = a.shape[0]
+
+        exposure_a = self._compute_exposure(a, exposure_mode, b_mean, a_length)
+        exposure_b = self._compute_exposure(b, exposure_mode, b_mean, a_length)
         data["e_a"] = exposure_a
         data["e_b"] = exposure_b
 
@@ -213,18 +215,18 @@ class BaseModel(ABC):
         return data
 
     @staticmethod
-    def _compute_exposure(x, mode=ExposureMode.NUM_MEASUREMENTS, mean=1.0):
+    def _compute_exposure(x, mode=ExposureMode.NUM_MEASUREMENTS, mean=1.0, length=None):
         if mode == ExposureMode.NUM_MEASUREMENTS:
             x = np.nan_to_num(x) > 0
-            x = x / x.shape[0]
-            return np.cumsum(x)
         elif mode == ExposureMode.EXPOSURE_SUM:
             x = np.nan_to_num(x)
             x = x / mean
-            x = x / x.shape[0]
-            return np.cumsum(x)
 
-    def _iterative_correction(self, a, b, exposure_a, exposure_b, eps=1e-12, max_iter=100):
+        if length:
+            x = x / length
+        return np.cumsum(x)
+
+    def _iterative_correction(self, a, b, exposure_a, exposure_b, eps=1e-7, max_iter=100):
         a_corrected = a
         b_corrected = b
 
@@ -244,8 +246,8 @@ class BaseModel(ABC):
 
             history.append(IterationResult(a_corrected, b_corrected, np.divide(a_corrected, b_corrected)))
 
-            delta_norm_a = np.linalg.norm(a_corrected - a_previous)  # / np.linalg.norm(a_previous)
-            delta_norm_b = np.linalg.norm(b_corrected - b_previous)  # / np.linalg.norm(b_previous)
+            delta_norm_a = np.linalg.norm(a_corrected - a_previous) / np.linalg.norm(a_previous)
+            delta_norm_b = np.linalg.norm(b_corrected - b_previous) / np.linalg.norm(b_previous)
             delta_norm = delta_norm_a + delta_norm_b
 
             print("\nstep:\t" + str(step) + "\nnorm:\t", delta_norm, "\nparameters:\t", parameters_opt)
