@@ -156,8 +156,10 @@ class BaseModel(ABC):
         a_out_gain = np.multiply(a_out_mean, np.divide(b_out_std_squared, a_out_std_squared + b_out_std_squared))
         b_out_gain = np.multiply(b_out_mean, np.divide(a_out_std_squared, a_out_std_squared + b_out_std_squared))
 
-        return a_out_gain + b_out_gain, np.sqrt(np.divide(np.multiply(a_out_std_squared, b_out_std_squared),
-                                                          a_out_std_squared + b_out_std_squared))
+        # return a_out_gain + b_out_gain, np.sqrt(np.divide(np.multiply(a_out_std_squared, b_out_std_squared),
+        #                                                   a_out_std_squared + b_out_std_squared))
+        # return a_out_mean, a_out_std
+        return b_out_mean, b_out_std
 
     def get_result(self):
         a_nn_corrected = np.divide(self.a_nn, self.degradation_a)
