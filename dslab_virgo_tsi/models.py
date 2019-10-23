@@ -2,8 +2,9 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 
 import numpy as np
-from scipy.optimize import curve_fit
-from scipy.interpolate import interp1d
+import warnings
+from scipy.optimize import curve_fit, minimize
+from scipy.interpolate import interp1d, UnivariateSpline, splev, splrep
 from sklearn.linear_model import LinearRegression
 
 from dslab_virgo_tsi.data_utils import resampling_average_std, downsample_signal, notnan_indices, detect_outliers
@@ -368,3 +369,99 @@ class ExpLinModel(ExpFamilyModel):
         b_corrected = np.divide(b, self._exp_lin(exposure_b, *parameters_opt))
 
         return a_corrected, b_corrected, parameters_opt
+
+
+class SplineModel(BaseModel):
+    def __init__(self, data, t_field_name, a_field_name, b_field_name, exposure_mode,
+                 moving_average_window, outlier_fraction, k=3, steps=30, thinning=100):
+        # Prepare needed data
+        super().__init__(data, t_field_name, a_field_name, b_field_name, exposure_mode,
+                         moving_average_window, outlier_fraction)
+        self.k = k
+        self.steps = steps
+        self.thinning = thinning
+
+        self._compute_corrections()
+        self._compute_output()
+
+        self.degradation_a = self.sp(self.exposure_a_nn)
+        self.degradation_b = self.sp(self.exposure_b_nn)
+
+    @staticmethod
+    def _guess(x, y, k, s, w=None):
+        """Do an ordinary spline fit to provide knots"""
+        return splrep(x, y, w, k=k, s=s)
+
+    @staticmethod
+    def _err(c, x, y, t, k, w=None):
+        """The error function to minimize"""
+        diff = y - splev(x, (t, c, k))
+        if w is None:
+            diff = np.einsum('...i,...i', diff, diff)
+        else:
+            diff = np.dot(diff * diff, w)
+        return np.abs(diff)
+
+    def _spline_dirichlet(self, x, y, k=3, s=0.0, w=None):
+        t, c0, k = self._guess(x, y, k, s, w=w)
+        x0 = x[0]  # point at which 1 is required
+        con = {'type': 'eq',
+               'fun': lambda c: splev(x0, (t, c, k), der=0) - 1,
+               }
+        opt = minimize(self._err, c0, (x, y, t, k, w), constraints=con)
+        copt = opt.x
+        return UnivariateSpline._from_tck((t, copt, k))
+
+    @staticmethod
+    def _is_decreasing(spline, x):
+        spline_derivative = spline.derivative()
+        return np.all(spline_derivative(x.ravel()) < 0)
+
+    @staticmethod
+    def _is_convex(spline, x):
+        spline_derivative_2 = spline.derivative().derivative()
+        return np.all(spline_derivative_2(x.ravel()) > 0)
+
+    def _find_convex_decreasing_spline_binary_search(self, x, y):
+        """
+        for start it should be weird
+        for end it should be decreasing
+        """
+        start = 0
+        end = 1
+        mid = (end - start) / 2
+        spline = self._spline_dirichlet(x.ravel(), y.ravel(), k=self.k, s=mid)
+        step = 1
+        while step <= self.steps:
+            if self._is_decreasing(spline, x):
+                end = mid
+                mid = (end - start) / 2
+                spline = self._spline_dirichlet(x.ravel(), y.ravel(), k=self.k, s=mid)
+            else:
+                start = mid
+                mid = (end - start) / 2
+                spline = self._spline_dirichlet(x.ravel(), y.ravel(), k=self.k, s=mid)
+            step += 1
+        spline = self._spline_dirichlet(x.ravel(), y.ravel(), k=self.k, s=end)
+        if not self._is_convex(spline, x):
+            warnings.warn("Spline is decrasing but not convex.")
+        return spline
+
+    def _test(self, x, y, s):
+        spline = self._spline_dirichlet(x.ravel(), y.ravel(), k=self.k, s=s)
+        print(self._is_decreasing(spline, x))
+        print(self._is_convex(spline, x))
+        return spline(x)
+
+    def _fit(self, x, y):
+        self.sp = self._find_convex_decreasing_spline_binary_search(x, y)
+
+    def predict(self, x):
+        return self.sp(x)
+
+    def _fit_and_correct(self, a, b, exposure_a, exposure_b, ratio_a_b):
+        self._fit(exposure_a[::self.thinning], ratio_a_b[::self.thinning])
+        a_corrected = np.divide(a, self.predict(exposure_a))
+        b_corrected = np.divide(b, self.predict(exposure_b))
+
+        return a_corrected, b_corrected, self.sp
