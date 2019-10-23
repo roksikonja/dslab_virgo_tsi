@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 import pandas as pd
+from numba import jit, jitclass, int32, float64
 from sklearn.covariance import EllipticEnvelope
 
 from dslab_virgo_tsi.constants import Constants as Const
@@ -57,6 +58,7 @@ def downsample_signal(x, k=1):
         return x
 
 
+@jit(nopython=True, cache=True)
 def notnan_indices(x):
     return ~np.isnan(x)
 
@@ -75,30 +77,73 @@ def make_dir(directory):
     return directory
 
 
+@jit(nopython=True, cache=True)
 def moving_average_std(x, t, w):
-    if t.tolist():
-        w = w + 1e-10
-        x_mean = np.zeros(shape=x.shape)
-        x_std = np.zeros(shape=x.shape)
-        for i in range(x.shape[0]):
-            t_center = t[i]
-            window = np.multiply(np.greater_equal(t_center + w, t), np.less_equal(t_center - w, t))
-            slice_ = x[window]
+    """
 
-            indices = notnan_indices(slice_)
-            slice_ = slice_[indices]
-            x_mean[i] = slice_.mean()
-            x_std[i] = slice_.std()
-        return x_mean, x_std
-    else:
-        if not isinstance(x, pd.Series):
-            x = pd.Series(x)
+    :param x: Signal.
+    :param t: Time.
+    :param w: Window size.
+    :return:
+    """
+    num_elements = x.shape[0]
+    w = w + 1e-10
+    nn_indices = notnan_indices(x)
+    x_mean = np.empty(shape=x.shape)
+    x_std = np.empty(shape=x.shape)
 
-        if w > 1:
-            x = x.rolling(w, center=True)
-            return x.mean(), x.std()
-        else:
-            return x, None
+    slice_ = NumpyQueue(num_elements)
+    start_index = 0
+    end_index = 0
+    for i in range(num_elements):
+        while end_index < x.shape[0] and t[end_index] < t[i] + w:
+            if nn_indices[end_index]:
+                slice_.append(x[end_index])
+            end_index += 1
+
+        while t[start_index] < t[i] - w:
+            if nn_indices[start_index]:
+                slice_.pop_left()
+            start_index += 1
+
+        x_mean[i] = np.mean(slice_.get())
+        x_std[i] = np.std(slice_.get())
+
+    return x_mean, x_std
+
+
+spec = [
+    ('size', int32),  # a simple scalar field
+    ('array', float64[:]),  # an array field
+    ('beginning', int32),
+    ('end', int32)
+]
+
+
+@jitclass(spec)
+class NumpyQueue:
+    def __init__(self, size):
+        self.size = size
+        self.array = np.empty((size,))
+        self.beginning = 0
+        self.end = 0
+
+    def is_empty(self):
+        return self.beginning == self.end
+
+    def append(self, element):
+        if self.end >= self.size:
+            raise Exception("Capacity exceeded")
+        self.array[self.end] = element
+        self.end += 1
+
+    def pop_left(self):
+        if self.is_empty():
+            raise Exception("Cannot pop from empty queue")
+        self.beginning += 1
+
+    def get(self):
+        return self.array[self.beginning:self.end]
 
 
 def resampling_average_std(x, w):
