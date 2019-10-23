@@ -20,6 +20,7 @@ setup(
                 "scipy",
                 "sklearn",
                 "tables",
+                "numba",
                 "pytables>=3.2"
         ],
 )
