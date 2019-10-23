@@ -422,7 +422,7 @@ class SplineModel(BaseModel):
         spline_derivative_2 = spline.derivative().derivative()
         return np.all(spline_derivative_2(x.ravel()) > 0)
 
-    def _find_convex_decreasing_spline_binary_seach(self, x, y):
+    def _find_convex_decreasing_spline_binary_search(self, x, y):
         """
         for start it should be weird
         for end it should be decreasing
@@ -454,7 +454,7 @@ class SplineModel(BaseModel):
         return spline(x)
 
     def _fit(self, x, y):
-        self.sp = self._find_convex_decreasing_spline_binary_seach(x, y)
+        self.sp = self._find_convex_decreasing_spline_binary_search(x, y)
 
     def predict(self, x):
         return self.sp(x)
