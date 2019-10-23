@@ -99,7 +99,7 @@ class BaseModel(ABC):
         b_mutual_nn = data_mutual_nn[b_field_name].values
 
         # Variable needed for initial fit
-        self.ratio_a_b_mutual_nn = np.divide(exposure_a_mutual_nn, exposure_b_mutual_nn)
+        self.ratio_a_b_mutual_nn = np.divide(a_mutual_nn, b_mutual_nn)
 
         # Variables needed later
         self.t_mutual_nn = t_mutual_nn
@@ -227,8 +227,8 @@ class BaseModel(ABC):
         return np.cumsum(x)
 
     def _iterative_correction(self, a, b, exposure_a, exposure_b, eps=1e-7, max_iter=100):
-        a_corrected = a
-        b_corrected = b
+        a_corrected = np.copy(a)
+        b_corrected = np.copy(b)
 
         delta_norm = None
         parameters_opt = None
@@ -237,10 +237,10 @@ class BaseModel(ABC):
         step = 0
         while (not delta_norm or delta_norm > eps) and step < max_iter:
             step += 1
-            ratio_a_b_corrected = a / b_corrected
+            ratio_a_b_corrected = np.divide(a, b_corrected)
 
-            a_previous = a_corrected
-            b_previous = b_corrected
+            a_previous = np.copy(a_corrected)
+            b_previous = np.copy(b_corrected)
             a_corrected, b_corrected, parameters_opt = self._fit_and_correct(a, b, exposure_a, exposure_b,
                                                                              ratio_a_b_corrected)
 
@@ -330,7 +330,7 @@ class ExpModel(ExpFamilyModel):
         return y
 
     def _fit_and_correct(self, a, b, exposure_a, exposure_b, ratio_a_b):
-        parameters_opt, _ = curve_fit(self._exp, exposure_a, ratio_a_b, p0=self.parameters_initial, maxfev=100000)
+        parameters_opt, _ = curve_fit(self._exp, exposure_a, ratio_a_b, p0=self.parameters_initial)
         a_corrected = np.divide(a, self._exp(exposure_a, *parameters_opt))
         b_corrected = np.divide(b, self._exp(exposure_b, *parameters_opt))
 
@@ -363,7 +363,7 @@ class ExpLinModel(ExpFamilyModel):
         return y
 
     def _fit_and_correct(self, a, b, exposure_a, exposure_b, ratio_a_b):
-        parameters_opt, _ = curve_fit(self._exp_lin, exposure_a, ratio_a_b, p0=self.parameters_initial, maxfev=100000)
+        parameters_opt, _ = curve_fit(self._exp_lin, exposure_a, ratio_a_b, p0=self.parameters_initial)
         a_corrected = np.divide(a, self._exp_lin(exposure_a, *parameters_opt))
         b_corrected = np.divide(b, self._exp_lin(exposure_b, *parameters_opt))
 
