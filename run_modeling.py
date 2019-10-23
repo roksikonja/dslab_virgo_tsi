@@ -94,15 +94,6 @@ def plot_results(results: ModelingResult, results_dir, model_name, window_size):
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
-    # fig = visualizer.plot_signals_mean_std(
-    #     [(results.t_a_nn, results.a_nn, f"{Const.A}_conf_int", window_size),
-    #      (results.t_b_nn, results.b_nn, f"{Const.B}_conf_int", window_size),
-    #      (results.t_a_nn, results.a_nn_corrected, f"{Const.A}_corrected_conf_int", window_size),
-    #      (results.t_b_nn, results.b_nn_corrected, f"{Const.B}_corrected_conf_int", window_size)],
-    #     results_dir, f"{model_name}_{Const.A}_{Const.B}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
-    #     x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
-    # figs.append(fig)
-
     """
     fig = visualizer.plot_signals_mean_std(
         [(results.t_a_nn, results.a_nn, f"{Const.A}_conf_int", window_size),
@@ -113,42 +104,26 @@ def plot_results(results: ModelingResult, results_dir, model_name, window_size):
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
     figs.append(fig)
 
+    fig = visualizer.plot_signals(
 
     fig = Visualizer.plot_signals(
         [(results.t_hourly_out, results.signal_hourly_out, f"TSI_hourly_{model_name}", False),
          (results.t_a_nn, results.a_nn_corrected, f"{Const.A}_raw_corrected", False),
          (results.t_b_nn, results.b_nn_corrected, f"{Const.B}_raw_corrected", False)],
-        results_dir, "TSI_{}_{}_hourly_{}".format(model_name, Const.A, Const.B), x_ticker=1, legend="upper left",
+        results_dir, f"TSI_{model_name}_{Const.A}_hourly_{Const.B}", x_ticker=1, legend="upper left",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
     figs.append(fig)
 
-    fig = Visualizer.plot_signals_mean_std(
-        [(results.t_a_nn, results.signal_a_nn, "{}_conf_int".format(Const.A), window_size),
-         (results.t_b_nn, results.signal_b_nn, "{}_conf_int".format(Const.B), window_size),
-         (results.t_a_nn, results.signal_a_nn_corrected, "{}_corrected_conf_int".format(Const.A), window_size),
-         (results.t_b_nn, results.signal_b_nn_corrected, "{}_corrected_conf_int".format(Const.B), window_size)],
-        results_dir, "{}_{}_{}_raw_corrected_full_conf_int".format(model_name, Const.A, Const.B),
-        x_ticker=1, legend="lower left", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
-    figs.append(fig)
-
-    fig = Visualizer.plot_signals(
-        [(results.t_hourly_out, results.signal_hourly_out, "TSI_hourly_{}".format(model_name), False)],
-        results_dir, "TSI_hourly_{}".format(model_name), x_ticker=1, legend="upper left", y_lim=[1357, 1369],
+    fig = visualizer.plot_signals(
+        [(results.t_hourly_out, results.signal_hourly_out, f"TSI_hourly_{model_name}", False)],
+        results_dir, f"TSI_hourly_{model_name}", x_ticker=1, legend="upper left", y_lim=[1357, 1369],
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
-    fig = Visualizer.plot_signals(
+    fig = visualizer.plot_signals(
         [(results.t_daily_out, results.signal_daily_out, "TSI_daily_{}".format(model_name), False)],
-        results_dir, "TSI_daily_{}".format(model_name), x_ticker=1, legend="upper left", y_lim=[1357, 1369],
+        results_dir, f"TSI_daily_{model_name}", x_ticker=1, legend="upper left", y_lim=[1357, 1369],
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
-    figs.append(fig)
-
-    fig = Visualizer.plot_signals(
-        [(results.t_hourly_out, results.signal_hourly_out, "TSI_hourly_{}".format(model_name), False),
-         (results.t_a_nn, results.signal_a_nn_corrected, "{}_raw_corrected".format(Const.A), False),
-         (results.t_b_nn, results.signal_b_nn_corrected, "{}_raw_corrected".format(Const.B), False)],
-        results_dir, "TSI_{}_{}_hourly_{}".format(model_name, Const.A, Const.B), x_ticker=1, legend="upper left",
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
     figs.append(fig)
     """
 
