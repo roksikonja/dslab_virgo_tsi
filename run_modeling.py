@@ -90,7 +90,7 @@ def plot_results(results: ModelingResult, results_dir, model_name, window_size):
 
     fig = visualizer.plot_signals_mean_std_precompute(
         [(results.t_hourly_out, results.signal_hourly_out, results.signal_std_hourly_out, f"TSI_hourly_{model_name}")],
-        results_dir, f"TSI_hourly_{model_name}", x_ticker=1, legend="upper left", y_lim=[1357, 1369],
+        results_dir, f"TSI_hourly_{model_name}", x_ticker=1, legend="upper left",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
