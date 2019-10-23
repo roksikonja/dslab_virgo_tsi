@@ -7,13 +7,13 @@ import matplotlib.pyplot as plt
 
 from dslab_virgo_tsi.constants import Constants as Const
 from dslab_virgo_tsi.data_utils import load_data, make_dir
-from dslab_virgo_tsi.models import ExposureMode, ExpModel, ExpLinModel, ModelingResult, IterationResult
+from dslab_virgo_tsi.models import ExposureMode, ExpModel, ExpLinModel, ModelingResult, IterationResult, SplineModel
 from dslab_virgo_tsi.visualizer import Visualizer
 
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_type", type=str, default="exp_lin", help="Model to train.")
+    parser.add_argument("--model_type", type=str, default="spline", help="Model to train.")
     parser.add_argument("--reuse", action="store_true", help="Flag for reusing previous results.")
     parser.add_argument("--visualize", action="store_true", help="Flag for visualizing results.")
     parser.add_argument("--window", type=int, default=81, help="Moving average window size.")
@@ -182,6 +182,14 @@ if __name__ == "__main__":
                              exposure_mode=ExposureMode.EXPOSURE_SUM,
                              moving_average_window=ARGS.window,
                              outlier_fraction=ARGS.outlier_fraction)
+        elif ARGS.model_type == "spline":
+            model = SplineModel(data=data_pmo6v,
+                                t_field_name=Const.T,
+                                a_field_name=Const.A,
+                                b_field_name=Const.B,
+                                exposure_mode=ExposureMode.EXPOSURE_SUM,
+                                moving_average_window=ARGS.window,
+                                outlier_fraction=ARGS.outlier_fraction)
 
         result = model.get_result()
         save_modeling_result(results_dir_path, result, ARGS.model_type)
