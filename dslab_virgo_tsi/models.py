@@ -403,13 +403,9 @@ class SplineModel(BaseModel):
         return np.abs(diff)
 
     def _spline_dirichlet(self, x, y, k=3, s=0.0, w=None):
-        if x[0] != 0:
-            x = np.concatenate((np.array([0]), x), axis=0)
-            y = np.concatenate((np.array([1]), y), axis=0)
         t, c0, k = self._guess(x, y, k, s, w=w)
-        x0 = x[0]  # point at which 1 is required
         con = {'type': 'eq',
-               'fun': lambda c: splev(x0, (t, c, k), der=0) - 1,
+               'fun': lambda c: splev(0, (t, c, k), der=0) - 1,
                }
         opt = minimize(self._err, c0, (x, y, t, k, w), constraints=con)
         copt = opt.x
