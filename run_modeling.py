@@ -5,9 +5,10 @@ import pickle
 
 import matplotlib.pyplot as plt
 
+from dslab_virgo_tsi.base import ExposureMode, Result, FitResult, ModelFitter, BaseSignals, OutResult, FinalResult
 from dslab_virgo_tsi.constants import Constants as Const
 from dslab_virgo_tsi.data_utils import load_data, make_dir
-from dslab_virgo_tsi.models import ExposureMode, ExpModel, ExpLinModel, ModelingResult, IterationResult, SplineModel
+from dslab_virgo_tsi.models import ExpModel, ExpLinModel, SplineModel
 from dslab_virgo_tsi.visualizer import Visualizer
 
 
@@ -28,103 +29,130 @@ def create_results_dir():
 
 
 def save_modeling_result(results_dir, model_results, model_name):
-    with open(os.path.join(results_dir, "{}_modeling_result.pkl".format(model_name)), 'wb') as f:
+    with open(os.path.join(results_dir, f"{model_name}_modeling_result.pkl"), 'wb') as f:
         pickle.dump(model_results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def load_modeling_result(results_dir, model_name):
-    with open(os.path.join(results_dir, "{}_modeling_result.pkl".format(model_name)), 'rb') as f:
+    with open(os.path.join(results_dir, f"{model_name}_modeling_result.pkl"), 'rb') as f:
         model_results = pickle.load(f)
     return model_results
 
 
-def plot_results(results: ModelingResult, results_dir, model_name, window_size):
-    first_iteration: IterationResult = results.history_mutual_nn[0]
-    last_iteration: IterationResult = results.history_mutual_nn[-1]
+def plot_results(result_: Result, results_dir, model_name, window_size):
+    before_fit: FitResult = result_.history_mutual_nn[0]
+    last_iter: FitResult = result_.history_mutual_nn[-1]
+
+    base_sig: BaseSignals = result_.base_signals
+    out_res: OutResult = result_.out
+    final_res: FinalResult = result_.final
 
     print("plotting results ...")
     figs = []
 
     fig = visualizer.plot_signals(
-        [(results.t_mutual_nn, first_iteration.ratio_a_b, f"RATIO_{Const.A}_{Const.B}_raw", False)],
+        [
+            (base_sig.t_mutual_nn, before_fit.ratio_a_b_mutual_nn_corrected, f"RATIO_{Const.A}_{Const.B}_raw", False)
+        ],
         results_dir, f"RATIO_{Const.A}_{Const.B}_raw_initial_fit", x_ticker=1, legend="upper right",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
     fig = visualizer.plot_signals(
-        [(results.t_a_nn, results.degradation_a, f"DEGRADATION_{Const.A}", False),
-         (results.t_b_nn, results.degradation_b, f"DEGRADATION_{Const.B}", False)],
+        [
+            (base_sig.t_a_nn, final_res.degradation_a_nn, f"DEGRADATION_{Const.A}", False),
+            (base_sig.t_b_nn, final_res.degradation_b_nn, f"DEGRADATION_{Const.B}", False)
+        ],
         results_dir, f"DEGRADATION_{Const.A}_{Const.B}_{model_name}", x_ticker=1, legend="upper right",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
     fig = visualizer.plot_signals(
-        [(results.t_mutual_nn, first_iteration.a, f"{Const.A}_raw_nn", False),
-         (results.t_mutual_nn, first_iteration.b, f"{Const.B}_raw_nn", False),
-         (results.t_mutual_nn, last_iteration.a, f"{Const.A}_raw_nn_corrected", False),
-         (results.t_mutual_nn, last_iteration.b, f"{Const.B}_raw_nn_corrected", False)],
+        [
+            (base_sig.t_mutual_nn, before_fit.a_mutual_nn_corrected, f"{Const.A}_raw_nn", False),
+            (base_sig.t_mutual_nn, before_fit.b_mutual_nn_corrected, f"{Const.B}_raw_nn", False),
+            (base_sig.t_mutual_nn, last_iter.a_mutual_nn_corrected, f"{Const.A}_raw_nn_corrected", False),
+            (base_sig.t_mutual_nn, last_iter.b_mutual_nn_corrected, f"{Const.B}_raw_nn_corrected", False)
+        ],
         results_dir, f"{model_name}_{Const.A}_{Const.B}_raw_corrected", x_ticker=1, legend="upper right",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
     fig = visualizer.plot_signals(
-        [(results.t_mutual_nn, first_iteration.ratio_a_b, f"RATIO_{Const.A}_{Const.B}_raw", False),
-         (results.t_mutual_nn, last_iteration.ratio_a_b, f"RATIO_{Const.A}_{Const.B}_corrected", False)],
+        [
+            (base_sig.t_mutual_nn, before_fit.ratio_a_b_mutual_nn_corrected, f"RATIO_{Const.A}_{Const.B}_raw", False),
+            (base_sig.t_mutual_nn, last_iter.ratio_a_b_mutual_nn_corrected, f"RATIO_{Const.A}_{Const.B}_corrected",
+             False)
+        ],
         results_dir, f"{model_name}_RATIO_DEGRADATION_{Const.A}_{Const.B}_raw_corrected", x_ticker=1,
         legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
     fig = visualizer.plot_signals(
-        [(results.t_a_nn, results.a_nn, f"{Const.A}_raw", False),
-         (results.t_b_nn, results.b_nn, f"{Const.B}_raw", False),
-         (results.t_a_nn, results.a_nn_corrected, f"{Const.A}_raw_corrected", False),
-         (results.t_b_nn, results.b_nn_corrected, f"{Const.B}_raw_corrected", False)],
+        [
+            (base_sig.t_a_nn, base_sig.a_nn, f"{Const.A}_raw", False),
+            (base_sig.t_b_nn, base_sig.b_nn, f"{Const.B}_raw", False),
+            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_raw_corrected", False),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_raw_corrected", False)
+        ],
         results_dir, f"{model_name}_{Const.A}_{Const.B}_raw_corrected_full", x_ticker=1, y_lim=[1357, 1369],
         legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
     fig = visualizer.plot_signals_mean_std_precompute(
-        [(results.t_daily_out, results.signal_daily_out, results.signal_std_daily_out, f"TSI_daily_{model_name}")],
+        [
+            (out_res.t_daily_out, out_res.signal_daily_out, out_res.signal_std_daily_out, f"TSI_daily_{model_name}")
+        ],
         results_dir, f"TSI_daily_{model_name}", x_ticker=1, legend="upper left", y_lim=[1357, 1369],
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
     fig = visualizer.plot_signals_mean_std_precompute(
-        [(results.t_hourly_out, results.signal_hourly_out, results.signal_std_hourly_out, f"TSI_hourly_{model_name}")],
+        [
+            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
+        ],
         results_dir, f"TSI_hourly_{model_name}", x_ticker=1, legend="upper left", y_lim=[1357, 1369],
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
     fig = visualizer.plot_signals_mean_std(
-        [(results.t_a_nn, results.a_nn, f"{Const.A}_conf_int", window_size),
-         (results.t_b_nn, results.b_nn, f"{Const.B}_conf_int", window_size),
-         (results.t_a_nn, results.a_nn_corrected, f"{Const.A}_corrected_conf_int", window_size),
-         (results.t_b_nn, results.b_nn_corrected, f"{Const.B}_corrected_conf_int", window_size)],
+        [
+            (base_sig.t_a_nn, base_sig.a_nn, f"{Const.A}_conf_int", window_size),
+            (base_sig.t_b_nn, base_sig.b_nn, f"{Const.B}_conf_int", window_size),
+            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_corrected_conf_int", window_size),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_corrected_conf_int", window_size)
+        ],
         results_dir, f"{model_name}_{Const.A}_{Const.B}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
     figs.append(fig)
 
-    """
+    # """
     fig = visualizer.plot_signals(
-        [(results.t_hourly_out, results.signal_hourly_out, f"TSI_hourly_{model_name}", False),
-         (results.t_a_nn, results.a_nn_corrected, f"{Const.A}_raw_corrected", False),
-         (results.t_b_nn, results.b_nn_corrected, f"{Const.B}_raw_corrected", False)],
+        [
+            (out_res.t_hourly_out, out_res.signal_hourly_out, f"TSI_hourly_{model_name}", False),
+            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_raw_corrected", False),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_raw_corrected", False)
+        ],
         results_dir, f"TSI_{model_name}_{Const.A}_hourly_{Const.B}", x_ticker=1, legend="upper left",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
     figs.append(fig)
 
     fig = visualizer.plot_signals(
-        [(results.t_hourly_out, results.signal_hourly_out, f"TSI_hourly_{model_name}", False)],
+        [
+            (out_res.t_hourly_out, out_res.signal_hourly_out, f"TSI_hourly_{model_name}", False)
+        ],
         results_dir, f"TSI_hourly_{model_name}", x_ticker=1, legend="upper left", y_lim=[1357, 1369],
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
     fig = visualizer.plot_signals(
-        [(results.t_daily_out, results.signal_daily_out, "TSI_daily_{}".format(model_name), False)],
+        [
+            (out_res.t_daily_out, out_res.signal_daily_out, f"TSI_daily_{model_name}", False)
+        ],
         results_dir, f"TSI_daily_{model_name}", x_ticker=1, legend="upper left", y_lim=[1357, 1369],
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
-    """
+    # """
 
 
 if __name__ == "__main__":
@@ -141,36 +169,24 @@ if __name__ == "__main__":
     model = None
     if not ARGS.reuse:
         if ARGS.model_type == "exp_lin":
-            model = ExpLinModel(data=data_pmo6v,
-                                t_field_name=Const.T,
-                                a_field_name=Const.A,
-                                b_field_name=Const.B,
-                                exposure_mode=ExposureMode.NUM_MEASUREMENTS,
-                                moving_average_window=ARGS.window,
-                                outlier_fraction=ARGS.outlier_fraction)
+            model = ExpLinModel()
         elif ARGS.model_type == "exp":
-            model = ExpModel(data=data_pmo6v,
+            model = ExpModel()
+        elif ARGS.model_type == "spline":
+            model = SplineModel()
+
+        fitter = ModelFitter(data=data_pmo6v,
                              t_field_name=Const.T,
                              a_field_name=Const.A,
                              b_field_name=Const.B,
-                             exposure_mode=ExposureMode.EXPOSURE_SUM,
-                             moving_average_window=ARGS.window,
+                             exposure_mode=ExposureMode.NUM_MEASUREMENTS,
                              outlier_fraction=ARGS.outlier_fraction)
-        elif ARGS.model_type == "spline":
-            model = SplineModel(data=data_pmo6v,
-                                t_field_name=Const.T,
-                                a_field_name=Const.A,
-                                b_field_name=Const.B,
-                                exposure_mode=ExposureMode.EXPOSURE_SUM,
-                                moving_average_window=ARGS.window,
-                                outlier_fraction=ARGS.outlier_fraction)
-
-        result = model.get_result()
+        result: Result = fitter(model=model, moving_average_window=ARGS.window)
         save_modeling_result(results_dir_path, result, ARGS.model_type)
     else:
         result = load_modeling_result(results_dir_path, ARGS.model_type)
 
-    # result.downsample_signals(k_a=1000, k_b=10)
+    result.downsample_nn_signals(k_a=1, k_b=1)
     plot_results(result, results_dir_path, ARGS.model_type, ARGS.window)
 
     if ARGS.visualize:
