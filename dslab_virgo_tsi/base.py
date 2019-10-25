@@ -195,8 +195,6 @@ class ModelFitter:
 
     def _compute_output(self, base_signals: BaseSignals, moving_average_window) -> OutResult:
         print("Compute output")
-        a = np.ceil(base_signals.t_a_nn.min())
-        b = np.ceil(base_signals.t_b_nn.min())
         min_time = np.maximum(np.ceil(base_signals.t_a_nn.min()), np.ceil(base_signals.t_b_nn.min()))
         max_time = np.minimum(np.floor(base_signals.t_a_nn.max()), np.floor(base_signals.t_b_nn.max()))
 
