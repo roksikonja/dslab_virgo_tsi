@@ -17,7 +17,7 @@ def parse_arguments():
     parser.add_argument("--save", action="store_true", help="Flag for saving results.")
     parser.add_argument("--visualize", action="store_true", help="Flag for visualizing results.")
 
-    parser.add_argument("--model_type", type=str, default="isotonic", help="Model to train.")
+    parser.add_argument("--model_type", type=str, default="ensemble", help="Model to train.")
     parser.add_argument("--model_smoothing", action="store_true", help="Only for isotonic model.")
 
     parser.add_argument("--iterative_correction", type=int, default=2, help="Iterative correction method.")
@@ -125,7 +125,7 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
     fig = visualizer.plot_signal_history(base_sig.t_mutual_nn, result_.history_mutual_nn,
                                          results_dir, f"{model_name}_history",
                                          ground_truth_triplet=None,
-                                         legend="upper right", x_label="t", y_label="x(t)")
+                                         legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
     """
@@ -200,15 +200,12 @@ if __name__ == "__main__":
         model1, model2, model3, model4 = ExpLinModel(), ExpModel(), SplineModel(), IsotonicModel()
         model = EnsembleModel([model1, model2, model3, model4], [0.1, 0.3, 0.3, 0.3])
 
-
-
     fitter = ModelFitter(data=data_pmo6v,
                          t_field_name=Const.T,
                          a_field_name=Const.A,
                          b_field_name=Const.B,
                          exposure_mode=ExposureMode.NUM_MEASUREMENTS,
                          outlier_fraction=ARGS.outlier_fraction)
-
 
     result: Result = fitter(model=model,
                             iterative_correction_model=ARGS.iterative_correction,

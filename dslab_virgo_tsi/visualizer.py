@@ -241,7 +241,9 @@ class Visualizer(object):
 
                 if y_lim:
                     axs[selected_step, 0].ylim(y_lim)
-                axs[selected_step, 1].set_ylim([0, 1.2])
+
+                if y_label != Const.TSI_UNIT:
+                    axs[selected_step, 1].set_ylim([0, 1.2])
 
                 if legend:
                     axs[selected_step, 0].legend(loc=legend)
