@@ -116,7 +116,7 @@ class ModelFitter:
     nn -> values taken at times when specific signal is not nan
     """
 
-    def __init__(self, data, a_field_name, b_field_name, t_field_name, exposure_mode, outlier_fraction=0.01):
+    def __init__(self, data, a_field_name, b_field_name, t_field_name, exposure_mode, outlier_fraction=0):
         # Compute all signals and store all relevant to BaseSignals object
         a, b, t = data[a_field_name].values, data[b_field_name].values, data[t_field_name].values
 
@@ -147,12 +147,13 @@ class ModelFitter:
         self.base_signals = BaseSignals(a_nn, b_nn, t_a_nn, t_b_nn, exposure_a_nn, exposure_b_nn, a_mutual_nn,
                                         b_mutual_nn, t_mutual_nn, exposure_a_mutual_nn, exposure_b_mutual_nn)
 
-    def __call__(self, model: BaseModel, moving_average_window=81) -> Result:
+    def __call__(self, model: BaseModel, iterative_correction_model, moving_average_window=81) -> Result:
         # Perform initial fit if needed
         initial_params: Params = model.get_initial_params(self.base_signals)
 
         # Compute iterative corrections
-        history_mutual_nn = self._iterative_correction(model, self.base_signals, initial_params)
+        history_mutual_nn = self._iterative_correction(model, self.base_signals, initial_params,
+                                                       iterative_correction_model)
 
         # Compute final result
         optimal_params = history_mutual_nn[-1].current_params
@@ -243,8 +244,8 @@ class ModelFitter:
         return np.cumsum(x)
 
     @staticmethod
-    def _iterative_correction(model: BaseModel, base_signals: BaseSignals, initial_params: Params, eps=1e-7,
-                              max_iter=100) -> List[FitResult]:
+    def _iterative_correction(model: BaseModel, base_signals: BaseSignals, initial_params: Params,
+                              iterative_correction_model, eps=1e-7, max_iter=100) -> List[FitResult]:
         """Note that we here deal only with mutual_nn data."""
         a, b = base_signals.a_mutual_nn, base_signals.b_mutual_nn
         a_corrected, b_corrected = np.copy(a), np.copy(b)
@@ -256,7 +257,12 @@ class ModelFitter:
         while (not delta_norm or delta_norm > eps) and step < max_iter:
             step += 1
             a_previous, b_previous = np.copy(a_corrected), np.copy(b_corrected)
-            ratio = np.divide(a, b_corrected)
+
+            ratio = None
+            if iterative_correction_model == 1:
+                ratio = np.divide(a_corrected, b_corrected)
+            elif iterative_correction_model == 2:
+                ratio = np.divide(a, b_corrected)
 
             # Use model for fitting and extract results
             fit_result: FitResult = model.fit_and_correct(base_signals, initial_params, ratio)
@@ -273,5 +279,11 @@ class ModelFitter:
             delta_norm = delta_norm_a + delta_norm_b
 
             print("\nstep:\t" + str(step) + "\nnorm:\t", delta_norm, "\nparams:\t", params)
+
+        if iterative_correction_model == 1:
+            print("final fit")
+            ratio = np.divide(a, b_corrected)
+            fit_result: FitResult = model.fit_and_correct(base_signals, initial_params, ratio)
+            history.append(fit_result)
 
         return history

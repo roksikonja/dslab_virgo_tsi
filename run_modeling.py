@@ -15,16 +15,19 @@ from dslab_virgo_tsi.visualizer import Visualizer
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_type", type=str, default="spline", help="Model to train.")
-    parser.add_argument("--reuse", action="store_true", help="Flag for reusing previous results.")
+    parser.add_argument("--save", action="store_true", help="Flag for saving results.")
     parser.add_argument("--visualize", action="store_true", help="Flag for visualizing results.")
+
+    parser.add_argument("--iterative_correction", type=int, default=2, help="Iterative correction method.")
     parser.add_argument("--window", type=int, default=81, help="Moving average window size.")
     parser.add_argument("--outlier_fraction", type=float, default=0, help="Outlier fraction.")
 
     return parser.parse_args()
 
 
-def create_results_dir():
-    results_dir = make_dir(os.path.join(Const.RESULTS_DIR, datetime.datetime.now().strftime("modeling_%Y-%m-%d")))
+def create_results_dir(model_type):
+    results_dir = make_dir(os.path.join(Const.RESULTS_DIR,
+                                        datetime.datetime.now().strftime(f"%Y-%m-%d_%H-%M-%S_{model_type}")))
     return results_dir
 
 
@@ -133,7 +136,7 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
             (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_corrected_conf_int", window_size)
         ],
         results_dir, f"{model_name}_{Const.A}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
     fig = visualizer.plot_signals_mean_std(
@@ -141,7 +144,7 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
             (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_corrected_conf_int", window_size)
         ],
         results_dir, f"{model_name}_{Const.B}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
     fig = visualizer.plot_signals(
@@ -158,7 +161,7 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
         [
             (out_res.t_hourly_out, out_res.signal_hourly_out, f"TSI_hourly_{model_name}", False)
         ],
-        results_dir, f"TSI_hourly_{model_name}", x_ticker=1, legend="upper left", y_lim=[1357, 1369],
+        results_dir, f"TSI_hourly_{model_name}", x_ticker=1, legend="upper left",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
@@ -166,14 +169,14 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
         [
             (out_res.t_daily_out, out_res.signal_daily_out, f"TSI_daily_{model_name}", False)
         ],
-        results_dir, f"TSI_daily_{model_name}", x_ticker=1, legend="upper left", y_lim=[1357, 1369],
+        results_dir, f"TSI_daily_{model_name}", x_ticker=1, legend="upper left",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
 
 if __name__ == "__main__":
     ARGS = parse_arguments()
-    results_dir_path = create_results_dir()
+    results_dir_path = create_results_dir(ARGS.model_type)
 
     # Load data
     data_pmo6v = load_data(Const.DATA_DIR, Const.VIRGO_FILE)
@@ -183,24 +186,27 @@ if __name__ == "__main__":
 
     # Perform modeling
     model = None
-    if not ARGS.reuse:
-        if ARGS.model_type == "exp_lin":
-            model = ExpLinModel()
-        elif ARGS.model_type == "exp":
-            model = ExpModel()
-        elif ARGS.model_type == "spline":
-            model = SplineModel()
 
-        fitter = ModelFitter(data=data_pmo6v,
-                             t_field_name=Const.T,
-                             a_field_name=Const.A,
-                             b_field_name=Const.B,
-                             exposure_mode=ExposureMode.NUM_MEASUREMENTS,
-                             outlier_fraction=ARGS.outlier_fraction)
-        result: Result = fitter(model=model, moving_average_window=ARGS.window)
+    if ARGS.model_type == "exp_lin":
+        model = ExpLinModel()
+    elif ARGS.model_type == "exp":
+        model = ExpModel()
+    elif ARGS.model_type == "spline":
+        model = SplineModel()
+
+    fitter = ModelFitter(data=data_pmo6v,
+                         t_field_name=Const.T,
+                         a_field_name=Const.A,
+                         b_field_name=Const.B,
+                         exposure_mode=ExposureMode.NUM_MEASUREMENTS,
+                         outlier_fraction=ARGS.outlier_fraction)
+
+    result: Result = fitter(model=model,
+                            iterative_correction_model=ARGS.iterative_correction,
+                            moving_average_window=ARGS.window)
+
+    if ARGS.save:
         save_modeling_result(results_dir_path, result, ARGS.model_type)
-    else:
-        result = load_modeling_result(results_dir_path, ARGS.model_type)
 
     result.downsample_nn_signals(k_a=1, k_b=1)
     plot_results(result, results_dir_path, ARGS.model_type, ARGS.window)
