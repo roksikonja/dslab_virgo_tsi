@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from dslab_virgo_tsi.base import ExposureMode, Result, FitResult, ModelFitter, BaseSignals, OutResult, FinalResult
 from dslab_virgo_tsi.constants import Constants as Const
 from dslab_virgo_tsi.data_utils import load_data, make_dir
-from dslab_virgo_tsi.models import ExpModel, ExpLinModel, SplineModel, IsotonicModel
+from dslab_virgo_tsi.models import ExpModel, ExpLinModel, SplineModel, IsotonicModel, EnsembleModel
 from dslab_virgo_tsi.visualizer import Visualizer
 
 
@@ -196,6 +196,11 @@ if __name__ == "__main__":
         model = SplineModel()
     elif ARGS.model_type == "isotonic":
         model = IsotonicModel(smoothing=ARGS.model_smoothing)
+    elif ARGS.model_type == "ensemble":
+        model1, model2, model3, model4 = ExpLinModel(), ExpModel(), SplineModel(), IsotonicModel()
+        model = EnsembleModel([model1, model2, model3, model4], [0.1, 0.3, 0.3, 0.3])
+
+
 
     fitter = ModelFitter(data=data_pmo6v,
                          t_field_name=Const.T,
@@ -203,6 +208,7 @@ if __name__ == "__main__":
                          b_field_name=Const.B,
                          exposure_mode=ExposureMode.NUM_MEASUREMENTS,
                          outlier_fraction=ARGS.outlier_fraction)
+
 
     result: Result = fitter(model=model,
                             iterative_correction_model=ARGS.iterative_correction,
