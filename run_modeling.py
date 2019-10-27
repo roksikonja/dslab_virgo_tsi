@@ -106,6 +106,28 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
+    fig = visualizer.plot_signals_mean_std(
+        [
+            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_corrected_conf_int", window_size)
+        ],
+        results_dir, f"{model_name}_{Const.A}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1362, 1369])
+    figs.append(fig)
+
+    fig = visualizer.plot_signals_mean_std(
+        [
+            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_corrected_conf_int", window_size)
+        ],
+        results_dir, f"{model_name}_{Const.B}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1362, 1369])
+    figs.append(fig)
+
+    fig = visualizer.plot_signal_history(base_sig.t_mutual_nn, result_.history_mutual_nn,
+                                         results_dir, f"{model_name}_history",
+                                         ground_truth_triplet=None,
+                                         legend="upper right", x_label="t", y_label="x(t)")
+    figs.append(fig)
+
     """
     fig = visualizer.plot_signals(
         [
@@ -152,22 +174,6 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
     figs.append(fig)
     """
-
-    fig = visualizer.plot_signals_mean_std(
-        [
-            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_corrected_conf_int", window_size)
-        ],
-        results_dir, f"{model_name}_{Const.A}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1362, 1369])
-    figs.append(fig)
-
-    fig = visualizer.plot_signals_mean_std(
-        [
-            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_corrected_conf_int", window_size)
-        ],
-        results_dir, f"{model_name}_{Const.B}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1362, 1369])
-    figs.append(fig)
 
 
 if __name__ == "__main__":

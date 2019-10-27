@@ -180,3 +180,79 @@ class Visualizer(object):
             plt.savefig(os.path.join(results_dir, "{}_{}_conf_interval".format(title, int(confidence * 100))))
 
         return fig
+
+    @staticmethod
+    def plot_signal_history(t_mutual, history_fitresults, results_dir, title, ground_truth_triplet=None, x_ticker=None,
+                            legend=None, y_lim=None, x_label=None, y_label=None):
+
+        t_ground_truth = None
+        signal_ground_truth = None
+        label_ground_truth = None
+
+        if ground_truth_triplet:
+            t_ground_truth = ground_truth_triplet[0]
+            if x_label == Const.YEAR_UNIT:
+                t_ground_truth = np.array(list(map(mission_day_to_year, t_ground_truth)))
+
+            signal_ground_truth = ground_truth_triplet[1]
+            label_ground_truth = ground_truth_triplet[2]
+
+        max_plots = 10
+
+        if len(history_fitresults) > max_plots:
+            selected_triplet_indices = np.arange(1, len(history_fitresults)-1,
+                                                 np.ceil((len(history_fitresults)-1) / max_plots))
+        else:
+            selected_triplet_indices = np.arange(1, len(history_fitresults)-1, 1)
+
+        max_plots = len(selected_triplet_indices) + 2
+
+        if x_label == Const.YEAR_UNIT:
+            t_mutual = np.array(list(map(mission_day_to_year, t_mutual)))
+
+        fig, axs = plt.subplots(max_plots, 2, figsize=(16, 4*max_plots))
+
+        selected_step = 0
+        for step, fitresult in enumerate(history_fitresults):
+            if step in selected_triplet_indices or step in [0, len(history_fitresults)-1]:
+                a = fitresult.a_mutual_nn_corrected
+                b = fitresult.b_mutual_nn_corrected
+                r = fitresult.ratio_a_b_mutual_nn_corrected
+
+                axs[selected_step, 0].plot(t_mutual, a, label=f"step_{step}_A")
+                axs[selected_step, 0].plot(t_mutual, b, label=f"step_{step}_B")
+
+                if ground_truth_triplet:
+                    axs[selected_step, 0].plot(t_ground_truth, signal_ground_truth, label=label_ground_truth)
+
+                axs[selected_step, 1].plot(t_mutual, r, label=f"step_{step}_RATIO")
+
+                if x_label:
+                    axs[selected_step, 0].set_xlabel(x_label)
+                    axs[selected_step, 1].set_xlabel(x_label)
+
+                if y_label:
+                    axs[selected_step, 0].set_ylabel(y_label)
+                    axs[selected_step, 1].set_ylabel("RATIO")
+
+                if x_ticker:
+                    axs[selected_step, 0].xaxis.set_major_locator(ticker.MultipleLocator(x_ticker))
+                    axs[selected_step, 1].xaxis.set_major_locator(ticker.MultipleLocator(x_ticker))
+
+                if y_lim:
+                    axs[selected_step, 0].ylim(y_lim)
+                axs[selected_step, 1].set_ylim([0, 1.2])
+
+                if legend:
+                    axs[selected_step, 0].legend(loc=legend)
+                    axs[selected_step, 1].legend(loc=legend)
+                else:
+                    axs[selected_step, 0].legend()
+                    axs[selected_step, 1].legend()
+
+                selected_step = selected_step + 1
+
+        if results_dir:
+            plt.savefig(os.path.join(results_dir, title))
+
+        return fig
