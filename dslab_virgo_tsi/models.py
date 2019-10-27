@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 from scipy.interpolate import UnivariateSpline, splev, splrep
 from scipy.optimize import curve_fit, minimize
@@ -185,7 +187,7 @@ class SplineModel(BaseModel):
 
 class IsotonicModel(BaseModel):
     def __init__(self, smoothing=False, y_max=1, y_min=0, increasing=False, out_of_bounds='clip', k=3, steps=30,
-                 number_of_points=250):
+                 number_of_points=201):
         self.k = k
         self.steps = steps
         self.smoothing = smoothing
@@ -213,3 +215,37 @@ class IsotonicModel(BaseModel):
         model = optimal_params.kwargs.get('model')
         return FinalResult(base_signals, model.predict(base_signals.exposure_a_nn),
                            model.predict(base_signals.exposure_b_nn))
+
+
+class EnsembleModel(BaseModel):
+    def __init__(self, models: List[BaseModel], weights):
+        self.models = models
+        self.weights = weights
+
+    def get_initial_params(self, base_signals: BaseSignals) -> Params:
+        params: List[Params] = []
+        for model in self.models:
+            params.append(model.get_initial_params(base_signals))
+        return Params(all=params)
+
+    def fit_and_correct(self, base_signals: BaseSignals, initial_params: Params, ratio) -> FitResult:
+        initial_params_list: List[Params] = initial_params.kwargs.get("all")
+        # Placeholder for empty NumPy array of adequate size (size can be obtained 5 lines below)
+        a_corrected, b_corrected = 0, 0
+        params = []
+        for index, (model, weight) in enumerate(zip(self.models, self.weights)):
+            partial_results: FitResult = model.fit_and_correct(base_signals, initial_params_list[index], ratio)
+            a_corrected += weight * partial_results.a_mutual_nn_corrected
+            b_corrected += weight * partial_results.b_mutual_nn_corrected
+            params.append(partial_results.current_params)
+        return FitResult(a_corrected, b_corrected, Params(params=params))
+
+    def compute_final_result(self, base_signals: BaseSignals, optimal_params: Params) -> FinalResult:
+        optimal_params_list: List[Params] = optimal_params.kwargs.get('params')
+        degradation_a_nn, degradation_b_nn = 0, 0
+        for index, (model, weight) in enumerate(zip(optimal_params_list, self.weights)):
+            partial_results: FinalResult = self.models[index].compute_final_result(base_signals,
+                                                                                   optimal_params_list[index])
+            degradation_a_nn += weight * partial_results.degradation_a_nn
+            degradation_b_nn += weight * partial_results.degradation_b_nn
+        return FinalResult(base_signals, degradation_a_nn, degradation_b_nn)
