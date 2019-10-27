@@ -184,8 +184,8 @@ class SplineModel(BaseModel):
 
 
 class IsotonicModel(BaseModel):
-    def __init__(self, y_max=1, y_min=0, increasing=False, out_of_bounds='clip',
-                 smoothing=False, k=3, steps=30, number_of_points=999):
+    def __init__(self, smoothing=False, y_max=1, y_min=0, increasing=False, out_of_bounds='clip', k=3, steps=30,
+                 number_of_points=250):
         self.k = k
         self.steps = steps
         self.smoothing = smoothing
@@ -198,11 +198,12 @@ class IsotonicModel(BaseModel):
     def fit_and_correct(self, base_signals: BaseSignals, initial_params: Params, ratio) -> FitResult:
         self.model.fit(base_signals.exposure_a_mutual_nn, ratio)
         if self.smoothing:
-            max_time = base_signals.exposure_a_mutual_nn[-1]
-            time = np.linspace(0, max_time, self.number_of_points)
-            ratio = self.model.predict(time)
+            max_exposure = base_signals.exposure_a_mutual_nn[-1]
+            exposure = np.linspace(0, max_exposure, self.number_of_points)
+            ratio = self.model.predict(exposure)
             self.model = DegradationSpline(self.k, steps=self.steps)
-            self.model.fit(time, ratio)
+            self.model.fit(exposure, ratio)
+
         a_corrected = np.divide(base_signals.a_mutual_nn, self.model.predict(base_signals.exposure_a_mutual_nn))
         b_corrected = np.divide(base_signals.b_mutual_nn, self.model.predict(base_signals.exposure_b_mutual_nn))
 

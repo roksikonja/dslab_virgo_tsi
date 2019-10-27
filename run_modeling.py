@@ -14,9 +14,11 @@ from dslab_virgo_tsi.visualizer import Visualizer
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_type", type=str, default="isotonic", help="Model to train.")
     parser.add_argument("--save", action="store_true", help="Flag for saving results.")
     parser.add_argument("--visualize", action="store_true", help="Flag for visualizing results.")
+
+    parser.add_argument("--model_type", type=str, default="isotonic", help="Model to train.")
+    parser.add_argument("--model_smoothing", action="store_true", help="Only for isotonic model.")
 
     parser.add_argument("--iterative_correction", type=int, default=2, help="Iterative correction method.")
     parser.add_argument("--window", type=int, default=81, help="Moving average window size.")
@@ -36,12 +38,6 @@ def save_modeling_result(results_dir, model_results, model_name):
         pickle.dump(model_results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-def load_modeling_result(results_dir, model_name):
-    with open(os.path.join(results_dir, f"{model_name}_modeling_result.pkl"), 'rb') as f:
-        model_results = pickle.load(f)
-    return model_results
-
-
 def plot_results(result_: Result, results_dir, model_name, window_size):
     before_fit: FitResult = result_.history_mutual_nn[0]
     last_iter: FitResult = result_.history_mutual_nn[-1]
@@ -55,14 +51,6 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
 
     fig = visualizer.plot_signals(
         [
-            (base_sig.t_mutual_nn, before_fit.ratio_a_b_mutual_nn_corrected, f"RATIO_{Const.A}_{Const.B}_raw", False)
-        ],
-        results_dir, f"RATIO_{Const.A}_{Const.B}_raw_initial_fit", x_ticker=1, legend="upper right",
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
-    figs.append(fig)
-
-    fig = visualizer.plot_signals(
-        [
             (base_sig.t_a_nn, final_res.degradation_a_nn, f"DEGRADATION_{Const.A}", False),
             (base_sig.t_b_nn, final_res.degradation_b_nn, f"DEGRADATION_{Const.B}", False)
         ],
@@ -72,12 +60,12 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
 
     fig = visualizer.plot_signals(
         [
-            (base_sig.t_mutual_nn, before_fit.a_mutual_nn_corrected, f"{Const.A}_raw_nn", False),
-            (base_sig.t_mutual_nn, before_fit.b_mutual_nn_corrected, f"{Const.B}_raw_nn", False),
-            (base_sig.t_mutual_nn, last_iter.a_mutual_nn_corrected, f"{Const.A}_raw_nn_corrected", False),
-            (base_sig.t_mutual_nn, last_iter.b_mutual_nn_corrected, f"{Const.B}_raw_nn_corrected", False)
+            (base_sig.t_mutual_nn, before_fit.a_mutual_nn_corrected, f"{Const.A}_mutual_nn", False),
+            (base_sig.t_mutual_nn, before_fit.b_mutual_nn_corrected, f"{Const.B}_mutual_nn", False),
+            (base_sig.t_mutual_nn, last_iter.a_mutual_nn_corrected, f"{Const.A}_mutual_nn_corrected", False),
+            (base_sig.t_mutual_nn, last_iter.b_mutual_nn_corrected, f"{Const.B}_mutual_nn_corrected", False)
         ],
-        results_dir, f"{model_name}_{Const.A}_{Const.B}_raw_corrected", x_ticker=1, legend="upper right",
+        results_dir, f"{model_name}_{Const.A}_{Const.B}_mutual_corrected", x_ticker=1, legend="upper right",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
@@ -106,7 +94,7 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
         [
             (out_res.t_daily_out, out_res.signal_daily_out, out_res.signal_std_daily_out, f"TSI_daily_{model_name}")
         ],
-        results_dir, f"TSI_daily_{model_name}", x_ticker=1, legend="upper left", y_lim=[1357, 1369],
+        results_dir, f"TSI_daily_{model_name}", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
@@ -114,11 +102,19 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
         [
             (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
         ],
-        results_dir, f"TSI_hourly_{model_name}", x_ticker=1, legend="upper left", y_lim=[1357, 1369],
+        results_dir, f"TSI_hourly_{model_name}", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
     """
+    fig = visualizer.plot_signals(
+        [
+            (base_sig.t_mutual_nn, before_fit.ratio_a_b_mutual_nn_corrected, f"RATIO_{Const.A}_{Const.B}_raw", False)
+        ],
+        results_dir, f"RATIO_{Const.A}_{Const.B}_raw_initial_fit", x_ticker=1, legend="upper right",
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+    figs.append(fig)
+    
     fig = visualizer.plot_signals_mean_std(
         [
             (base_sig.t_a_nn, base_sig.a_nn, f"{Const.A}_conf_int", window_size),
@@ -129,35 +125,8 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
         results_dir, f"{model_name}_{Const.A}_{Const.B}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
     figs.append(fig)
-    """
-
-    fig = visualizer.plot_signals_mean_std(
-        [
-            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_corrected_conf_int", window_size)
-        ],
-        results_dir, f"{model_name}_{Const.A}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
-    figs.append(fig)
-
-    fig = visualizer.plot_signals_mean_std(
-        [
-            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_corrected_conf_int", window_size)
-        ],
-        results_dir, f"{model_name}_{Const.B}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
-    figs.append(fig)
-
-    fig = visualizer.plot_signals(
-        [
-            (out_res.t_hourly_out, out_res.signal_hourly_out, f"TSI_hourly_{model_name}", False),
-            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_raw_corrected", False),
-            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_raw_corrected", False)
-        ],
-        results_dir, f"TSI_{model_name}_{Const.A}_hourly_{Const.B}", x_ticker=1, legend="upper left",
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
-    figs.append(fig)
-
-    fig = visualizer.plot_signals(
+    
+        fig = visualizer.plot_signals(
         [
             (out_res.t_hourly_out, out_res.signal_hourly_out, f"TSI_hourly_{model_name}", False)
         ],
@@ -171,6 +140,33 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
         ],
         results_dir, f"TSI_daily_{model_name}", x_ticker=1, legend="upper left",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+    figs.append(fig)
+    
+    fig = visualizer.plot_signals(
+        [
+            (out_res.t_hourly_out, out_res.signal_hourly_out, f"TSI_hourly_{model_name}", False),
+            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_raw_corrected", False),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_raw_corrected", False)
+        ],
+        results_dir, f"TSI_{model_name}_{Const.A}_hourly_{Const.B}", x_ticker=1, legend="upper left",
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
+    figs.append(fig)
+    """
+
+    fig = visualizer.plot_signals_mean_std(
+        [
+            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_corrected_conf_int", window_size)
+        ],
+        results_dir, f"{model_name}_{Const.A}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1362, 1369])
+    figs.append(fig)
+
+    fig = visualizer.plot_signals_mean_std(
+        [
+            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_corrected_conf_int", window_size)
+        ],
+        results_dir, f"{model_name}_{Const.B}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1362, 1369])
     figs.append(fig)
 
 
@@ -193,7 +189,7 @@ if __name__ == "__main__":
     elif ARGS.model_type == "spline":
         model = SplineModel()
     elif ARGS.model_type == "isotonic":
-        model = IsotonicModel()
+        model = IsotonicModel(smoothing=ARGS.model_smoothing)
 
     fitter = ModelFitter(data=data_pmo6v,
                          t_field_name=Const.T,

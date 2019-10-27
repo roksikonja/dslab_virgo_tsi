@@ -250,11 +250,11 @@ class ModelFitter:
         a, b = base_signals.a_mutual_nn, base_signals.b_mutual_nn
         a_corrected, b_corrected = np.copy(a), np.copy(b)
 
-        delta_norm = None
         history = [FitResult(a_corrected, b_corrected, initial_params)]
 
         step = 0
-        while (not delta_norm or delta_norm > eps) and step < max_iter:
+        conv_cond = True
+        while conv_cond and step < max_iter:
             step += 1
             a_previous, b_previous = np.copy(a_corrected), np.copy(b_corrected)
 
@@ -277,6 +277,8 @@ class ModelFitter:
             delta_norm_a = np.linalg.norm(a_corrected - a_previous) / np.linalg.norm(a_previous)
             delta_norm_b = np.linalg.norm(b_corrected - b_previous) / np.linalg.norm(b_previous)
             delta_norm = delta_norm_a + delta_norm_b
+
+            conv_cond = delta_norm > eps
 
             print("\nstep:\t" + str(step) + "\nnorm:\t", delta_norm, "\nparams:\t", params)
 
