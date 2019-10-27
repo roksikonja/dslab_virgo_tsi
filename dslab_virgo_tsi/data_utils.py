@@ -51,7 +51,13 @@ def load_data(data_dir_path, file_name, data_type="virgo"):
     return None
 
 
+def is_integer(num):
+    return isinstance(num, (int, np.int, np.int32, np.int64))
+
+
 def downsample_signal(x, k=1):
+    if not is_integer(k):
+        raise Exception("Downsampling factor must be an integer.")
     if k > 1:
         return x[::k]
     else:
