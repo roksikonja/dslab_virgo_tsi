@@ -21,6 +21,7 @@ setup(
                 "sklearn",
                 "tables",
                 "numba",
-                "pytables>=3.2"
+                "pytables>=3.2",
+                "flask"
         ],
 )
