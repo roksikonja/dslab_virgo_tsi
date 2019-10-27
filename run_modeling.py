@@ -8,13 +8,13 @@ import matplotlib.pyplot as plt
 from dslab_virgo_tsi.base import ExposureMode, Result, FitResult, ModelFitter, BaseSignals, OutResult, FinalResult
 from dslab_virgo_tsi.constants import Constants as Const
 from dslab_virgo_tsi.data_utils import load_data, make_dir
-from dslab_virgo_tsi.models import ExpModel, ExpLinModel, SplineModel
+from dslab_virgo_tsi.models import ExpModel, ExpLinModel, SplineModel, IsotonicModel
 from dslab_virgo_tsi.visualizer import Visualizer
 
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_type", type=str, default="spline", help="Model to train.")
+    parser.add_argument("--model_type", type=str, default="isotonic", help="Model to train.")
     parser.add_argument("--save", action="store_true", help="Flag for saving results.")
     parser.add_argument("--visualize", action="store_true", help="Flag for visualizing results.")
 
@@ -186,13 +186,14 @@ if __name__ == "__main__":
 
     # Perform modeling
     model = None
-
     if ARGS.model_type == "exp_lin":
         model = ExpLinModel()
     elif ARGS.model_type == "exp":
         model = ExpModel()
     elif ARGS.model_type == "spline":
         model = SplineModel()
+    elif ARGS.model_type == "isotonic":
+        model = IsotonicModel()
 
     fitter = ModelFitter(data=data_pmo6v,
                          t_field_name=Const.T,
