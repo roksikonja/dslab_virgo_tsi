@@ -154,12 +154,12 @@ class ModelFitter:
         # Compute iterative corrections
         history_mutual_nn = self._iterative_correction(model, self.base_signals, initial_params)
 
-        # Compute output signals
-        out_result = self._compute_output(self.base_signals, moving_average_window)
-
         # Compute final result
         optimal_params = history_mutual_nn[-1].current_params
         final_result = model.compute_final_result(self.base_signals, optimal_params)
+
+        # Compute output signals
+        out_result = self._compute_output(self.base_signals, final_result, moving_average_window)
 
         # Return all together
         return Result(self.base_signals, history_mutual_nn, final_result, out_result)
@@ -193,7 +193,7 @@ class ModelFitter:
 
         return data
 
-    def _compute_output(self, base_signals: BaseSignals, moving_average_window) -> OutResult:
+    def _compute_output(self, base_signals: BaseSignals, final_result: FinalResult, moving_average_window) -> OutResult:
         print("Compute output")
         min_time = np.maximum(np.ceil(base_signals.t_a_nn.min()), np.ceil(base_signals.t_b_nn.min()))
         max_time = np.minimum(np.floor(base_signals.t_a_nn.max()), np.floor(base_signals.t_b_nn.max()))
@@ -201,11 +201,11 @@ class ModelFitter:
         t_hourly_out = np.arange(min_time, max_time, 1.0 / 24.0)
         t_daily_out = np.arange(min_time, max_time, 1.0)
 
-        a_nn_interpolation_func = interp1d(base_signals.t_a_nn, base_signals.a_nn, kind="linear")
+        a_nn_interpolation_func = interp1d(base_signals.t_a_nn, final_result.a_nn_corrected, kind="linear")
         a_nn_hourly_resampled = a_nn_interpolation_func(t_hourly_out)
         a_nn_daily_resampled = a_nn_interpolation_func(t_daily_out)
 
-        b_nn_interpolation_func = interp1d(base_signals.t_b_nn, base_signals.b_nn, kind="linear")
+        b_nn_interpolation_func = interp1d(base_signals.t_b_nn, final_result.b_nn_corrected, kind="linear")
         b_nn_hourly_resampled = b_nn_interpolation_func(t_hourly_out)
         b_nn_daily_resampled = b_nn_interpolation_func(t_daily_out)
 

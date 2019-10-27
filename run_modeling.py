@@ -115,6 +115,7 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
 
+    """
     fig = visualizer.plot_signals_mean_std(
         [
             (base_sig.t_a_nn, base_sig.a_nn, f"{Const.A}_conf_int", window_size),
@@ -125,8 +126,24 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
         results_dir, f"{model_name}_{Const.A}_{Const.B}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
     figs.append(fig)
+    """
 
-    # """
+    fig = visualizer.plot_signals_mean_std(
+        [
+            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_corrected_conf_int", window_size)
+        ],
+        results_dir, f"{model_name}_{Const.A}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
+    figs.append(fig)
+
+    fig = visualizer.plot_signals_mean_std(
+        [
+            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_corrected_conf_int", window_size)
+        ],
+        results_dir, f"{model_name}_{Const.B}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
+    figs.append(fig)
+
     fig = visualizer.plot_signals(
         [
             (out_res.t_hourly_out, out_res.signal_hourly_out, f"TSI_hourly_{model_name}", False),
@@ -152,7 +169,6 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
         results_dir, f"TSI_daily_{model_name}", x_ticker=1, legend="upper left", y_lim=[1357, 1369],
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
     figs.append(fig)
-    # """
 
 
 if __name__ == "__main__":
