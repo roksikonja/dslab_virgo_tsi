@@ -242,6 +242,7 @@ class EnsembleModel(BaseModel):
 
     def compute_final_result(self, base_signals: BaseSignals, optimal_params: Params) -> FinalResult:
         optimal_params_list: List[Params] = optimal_params.kwargs.get('params')
+        # Placeholder for empty NumPy array of adequate size (size can be obtained 4 lines below)
         degradation_a_nn, degradation_b_nn = 0, 0
         for index, (model, weight) in enumerate(zip(optimal_params_list, self.weights)):
             partial_results: FinalResult = self.models[index].compute_final_result(base_signals,
