@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 from scipy.interpolate import interp1d
@@ -11,6 +11,11 @@ from dslab_virgo_tsi.data_utils import resampling_average_std, notnan_indices, d
 class ExposureMode(Enum):
     NUM_MEASUREMENTS = auto()
     EXPOSURE_SUM = auto()
+
+
+class CorrectionMethod(Enum):
+    CORRECT_BOTH = auto()
+    CORRECT_ONE = auto()
 
 
 class BaseSignals:
@@ -50,11 +55,16 @@ class Params:
         return str(self.args) + "\t" + str(self.kwargs)
 
 
+class Corrections:
+    def __init__(self, a_correction, b_correction):
+        self.a_correction = a_correction
+        self.b_correction = b_correction
+
+
 class FitResult:
-    def __init__(self, a_mutual_nn_corrected, b_mutual_nn_corrected, current_params: Params = None):
+    def __init__(self, a_mutual_nn_corrected, b_mutual_nn_corrected, ratio_a_b_mutual_nn_corrected):
         self.a_mutual_nn_corrected, self.b_mutual_nn_corrected = a_mutual_nn_corrected, b_mutual_nn_corrected
-        self.ratio_a_b_mutual_nn_corrected = np.divide(a_mutual_nn_corrected, b_mutual_nn_corrected)
-        self.current_params = current_params
+        self.ratio_a_b_mutual_nn_corrected = ratio_a_b_mutual_nn_corrected
 
 
 class FinalResult:
@@ -89,15 +99,15 @@ class BaseModel(ABC):
         pass
 
     @abstractmethod
-    def fit_and_correct(self, base_signals: BaseSignals, initial_params: Params, ratio) -> FitResult:
+    def fit_and_correct(self, base_signals: BaseSignals, fit_result: FitResult,
+                        initial_params: Params) -> Tuple[Corrections, Params]:
         """
 
         Parameters
         ----------
         base_signals
+        fit_result
         initial_params
-        ratio
-            Interpretation depends on the chosen iterative algorithm
 
         Returns
         -------
@@ -147,16 +157,15 @@ class ModelFitter:
         self.base_signals = BaseSignals(a_nn, b_nn, t_a_nn, t_b_nn, exposure_a_nn, exposure_b_nn, a_mutual_nn,
                                         b_mutual_nn, t_mutual_nn, exposure_a_mutual_nn, exposure_b_mutual_nn)
 
-    def __call__(self, model: BaseModel, iterative_correction_model, moving_average_window=81) -> Result:
+    def __call__(self, model: BaseModel, correction_method: CorrectionMethod, moving_average_window=81) -> Result:
         # Perform initial fit if needed
         initial_params: Params = model.get_initial_params(self.base_signals)
 
         # Compute iterative corrections
-        history_mutual_nn = self._iterative_correction(model, self.base_signals, initial_params,
-                                                       iterative_correction_model)
+        history_mutual_nn, optimal_params = self._iterative_correction(model, self.base_signals, initial_params,
+                                                                       correction_method)
 
         # Compute final result
-        optimal_params = history_mutual_nn[-1].current_params
         final_result = model.compute_final_result(self.base_signals, optimal_params)
 
         # Compute output signals
@@ -245,47 +254,51 @@ class ModelFitter:
 
     @staticmethod
     def _iterative_correction(model: BaseModel, base_signals: BaseSignals, initial_params: Params,
-                              iterative_correction_model, eps=1e-7, max_iter=100) -> List[FitResult]:
-        """Note that we here deal only with mutual_nn data."""
-        a, b = base_signals.a_mutual_nn, base_signals.b_mutual_nn
-        a_corrected, b_corrected = np.copy(a), np.copy(b)
+                              method: CorrectionMethod, eps=1e-7, max_iter=100) -> Tuple[List[FitResult], Params]:
+        """Note that we here deal only with mutual_nn data. Variable ratio_a_b_mutual_nn_corrected has different
+        definitions based on the correction method used."""
+        fit_result = FitResult(np.copy(base_signals.a_mutual_nn), np.copy(base_signals.b_mutual_nn),
+                               np.divide(base_signals.a_mutual_nn, base_signals.b_mutual_nn))
 
-        history = [FitResult(a_corrected, b_corrected, initial_params)]
+        history = [fit_result]
 
         step = 0
-        conv_cond = True
-        while conv_cond and step < max_iter:
+        has_converged = False
+        current_params = initial_params
+        while not has_converged and step < max_iter:
             step += 1
-            a_previous, b_previous = np.copy(a_corrected), np.copy(b_corrected)
+            fit_result_previous = fit_result
 
-            ratio = None
-            if iterative_correction_model == 1:
-                ratio = np.divide(a_corrected, b_corrected)
-            elif iterative_correction_model == 2:
-                ratio = np.divide(a, b_corrected)
+            # Use model for fitting
+            corrections, current_params = model.fit_and_correct(base_signals, fit_result_previous, initial_params)
 
-            # Use model for fitting and extract results
-            fit_result: FitResult = model.fit_and_correct(base_signals, initial_params, ratio)
-            a_corrected = fit_result.a_mutual_nn_corrected
-            b_corrected = fit_result.b_mutual_nn_corrected
-            params = fit_result.current_params
+            if method == CorrectionMethod.CORRECT_BOTH:
+                a_mutual_nn_corrected = np.divide(fit_result_previous.a_mutual_nn_corrected, corrections.a_correction)
+                b_mutual_nn_corrected = np.divide(fit_result_previous.b_mutual_nn_corrected, corrections.b_correction)
+                ratio_a_b_mutual_nn_corrected = np.divide(a_mutual_nn_corrected, b_mutual_nn_corrected)
+            else:
+                a_mutual_nn_corrected = np.divide(base_signals.a_mutual_nn, corrections.a_correction)
+                b_mutual_nn_corrected = np.divide(base_signals.b_mutual_nn, corrections.b_correction)
+                ratio_a_b_mutual_nn_corrected = np.divide(base_signals.a_mutual_nn, b_mutual_nn_corrected)
 
             # Store current state to history
+            fit_result = FitResult(a_mutual_nn_corrected, b_mutual_nn_corrected, ratio_a_b_mutual_nn_corrected)
             history.append(fit_result)
 
             # Compute delta
-            delta_norm_a = np.linalg.norm(a_corrected - a_previous) / np.linalg.norm(a_previous)
-            delta_norm_b = np.linalg.norm(b_corrected - b_previous) / np.linalg.norm(b_previous)
+            a_previous = fit_result_previous.a_mutual_nn_corrected
+            b_previous = fit_result_previous.b_mutual_nn_corrected
+            delta_norm_a = np.linalg.norm(a_mutual_nn_corrected - a_previous) / np.linalg.norm(a_previous)
+            delta_norm_b = np.linalg.norm(b_mutual_nn_corrected - b_previous) / np.linalg.norm(b_previous)
             delta_norm = delta_norm_a + delta_norm_b
 
-            conv_cond = delta_norm > eps
+            has_converged = delta_norm < eps
 
-            print("\nstep:\t" + str(step) + "\nnorm:\t", delta_norm, "\nparams:\t", params)
+            print("\nstep:\t" + str(step) + "\nnorm:\t", delta_norm, "\nparams:\t", current_params)
 
-        if iterative_correction_model == 1:
-            print("final fit")
-            ratio = np.divide(a, b_corrected)
-            fit_result: FitResult = model.fit_and_correct(base_signals, initial_params, ratio)
-            history.append(fit_result)
+        if method == CorrectionMethod.CORRECT_BOTH:
+            ratio_final = np.divide(base_signals.a_mutual_nn, fit_result.b_mutual_nn_corrected)
+            fit_result_final = FitResult(base_signals.a_mutual_nn, fit_result.b_mutual_nn_corrected, ratio_final)
+            _, current_params = model.fit_and_correct(base_signals, fit_result_final, initial_params)
 
-        return history
+        return history, current_params

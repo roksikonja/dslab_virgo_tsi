@@ -5,7 +5,8 @@ import pickle
 
 import matplotlib.pyplot as plt
 
-from dslab_virgo_tsi.base import ExposureMode, Result, FitResult, ModelFitter, BaseSignals, OutResult, FinalResult
+from dslab_virgo_tsi.base import ExposureMode, Result, FitResult, ModelFitter, BaseSignals, OutResult, FinalResult, \
+    CorrectionMethod
 from dslab_virgo_tsi.constants import Constants as Const
 from dslab_virgo_tsi.data_utils import load_data, make_dir
 from dslab_virgo_tsi.models import ExpModel, ExpLinModel, SplineModel, IsotonicModel, EnsembleModel
@@ -17,7 +18,7 @@ def parse_arguments():
     parser.add_argument("--save", action="store_true", help="Flag for saving results.")
     parser.add_argument("--visualize", action="store_true", help="Flag for visualizing results.")
 
-    parser.add_argument("--model_type", type=str, default="ensemble", help="Model to train.")
+    parser.add_argument("--model_type", type=str, default="isotonic", help="Model to train.")
     parser.add_argument("--model_smoothing", action="store_true", help="Only for isotonic model.")
 
     parser.add_argument("--iterative_correction", type=int, default=2, help="Iterative correction method.")
@@ -200,6 +201,14 @@ if __name__ == "__main__":
         model1, model2, model3, model4 = ExpLinModel(), ExpModel(), SplineModel(), IsotonicModel()
         model = EnsembleModel([model1, model2, model3, model4], [0.1, 0.3, 0.3, 0.3])
 
+    # Get correction method
+    if ARGS.correction_method == 1:
+        correction_method = CorrectionMethod.CORRECT_BOTH
+    else:
+        correction_method = CorrectionMethod.CORRECT_ONE
+
+    print(correction_method)
+
     fitter = ModelFitter(data=data_pmo6v,
                          t_field_name=Const.T,
                          a_field_name=Const.A,
@@ -208,7 +217,7 @@ if __name__ == "__main__":
                          outlier_fraction=ARGS.outlier_fraction)
 
     result: Result = fitter(model=model,
-                            iterative_correction_model=ARGS.iterative_correction,
+                            correction_method=correction_method,
                             moving_average_window=ARGS.window)
 
     if ARGS.save:
