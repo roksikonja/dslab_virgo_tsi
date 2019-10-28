@@ -1,12 +1,12 @@
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 from scipy.interpolate import UnivariateSpline, splev, splrep
 from scipy.optimize import curve_fit, minimize
-from sklearn.linear_model import LinearRegression
 from sklearn.isotonic import IsotonicRegression
+from sklearn.linear_model import LinearRegression
 
-from dslab_virgo_tsi.base import BaseModel, BaseSignals, Params, FinalResult, FitResult
+from dslab_virgo_tsi.base import BaseModel, BaseSignals, Params, FinalResult, FitResult, Corrections
 
 
 class ExpFamilyMixin:
@@ -109,13 +109,16 @@ class ExpModel(BaseModel, ExpFamilyMixin):
         lambda_initial, e_0_initial = self._initial_fit(ratio_a_b_mutual_nn, base_signals.exposure_a_mutual_nn)
         return Params(all=[lambda_initial, e_0_initial])
 
-    def fit_and_correct(self, base_signals: BaseSignals, initial_params: Params, ratio) -> FitResult:
-        params, _ = curve_fit(self._exp, base_signals.exposure_a_mutual_nn, ratio,
+    def fit_and_correct(self, base_signals: BaseSignals, fit_result: FitResult,
+                        initial_params: Params) -> Tuple[Corrections, Params]:
+        params, _ = curve_fit(self._exp, base_signals.exposure_a_mutual_nn,
+                              fit_result.ratio_a_b_mutual_nn_corrected,
                               p0=initial_params.kwargs.get('all'))
-        a_corrected = np.divide(base_signals.a_mutual_nn, self._exp(base_signals.exposure_a_mutual_nn, *params))
-        b_corrected = np.divide(base_signals.b_mutual_nn, self._exp(base_signals.exposure_b_mutual_nn, *params))
 
-        return FitResult(a_corrected, b_corrected, Params(all=params))
+        a_correction = self._exp(base_signals.exposure_a_mutual_nn, *params)
+        b_correction = self._exp(base_signals.exposure_b_mutual_nn, *params)
+
+        return Corrections(a_correction, b_correction), Params(all=params)
 
     def compute_final_result(self, base_signals: BaseSignals, optimal_params: Params) -> FinalResult:
         optimal_params_list = optimal_params.kwargs.get('all')
@@ -138,15 +141,16 @@ class ExpLinModel(BaseModel, ExpFamilyMixin):
         lambda_initial, e_0_initial = self._initial_fit(ratio_a_b_mutual_nn, base_signals.exposure_a_mutual_nn)
         return Params(all=[lambda_initial, e_0_initial, 0])
 
-    def fit_and_correct(self, base_signals: BaseSignals, initial_params: Params, ratio) -> FitResult:
-        optimal_params, _ = curve_fit(self._exp_lin, base_signals.exposure_a_mutual_nn, ratio,
-                                      p0=initial_params.kwargs.get('all'))
-        a_corrected = np.divide(base_signals.a_mutual_nn, self._exp_lin(base_signals.exposure_a_mutual_nn,
-                                                                        *optimal_params))
-        b_corrected = np.divide(base_signals.b_mutual_nn, self._exp_lin(base_signals.exposure_b_mutual_nn,
-                                                                        *optimal_params))
+    def fit_and_correct(self, base_signals: BaseSignals, fit_result: FitResult,
+                        initial_params: Params) -> Tuple[Corrections, Params]:
+        params, _ = curve_fit(self._exp_lin, base_signals.exposure_a_mutual_nn,
+                              fit_result.ratio_a_b_mutual_nn_corrected,
+                              p0=initial_params.kwargs.get('all'))
 
-        return FitResult(a_corrected, b_corrected, Params(all=optimal_params))
+        a_correction = self._exp_lin(base_signals.exposure_a_mutual_nn, *params)
+        b_correction = self._exp_lin(base_signals.exposure_b_mutual_nn, *params)
+
+        return Corrections(a_correction, b_correction), Params(all=params)
 
     def compute_final_result(self, base_signals: BaseSignals, optimal_params: Params) -> FinalResult:
         optimal_params_list = optimal_params.kwargs.get('all')
@@ -173,12 +177,14 @@ class SplineModel(BaseModel):
     def get_initial_params(self, base_signals: BaseSignals) -> Params:
         return Params()
 
-    def fit_and_correct(self, base_signals: BaseSignals, initial_params: Params, ratio) -> FitResult:
-        self.model.fit(base_signals.exposure_a_mutual_nn[::self.thinning], ratio[::self.thinning])
-        a_corrected = np.divide(base_signals.a_mutual_nn, self.model.predict(base_signals.exposure_a_mutual_nn))
-        b_corrected = np.divide(base_signals.b_mutual_nn, self.model.predict(base_signals.exposure_b_mutual_nn))
+    def fit_and_correct(self, base_signals: BaseSignals, fit_result: FitResult,
+                        initial_params: Params) -> Tuple[Corrections, Params]:
+        self.model.fit(base_signals.exposure_a_mutual_nn[::self.thinning],
+                       fit_result.ratio_a_b_mutual_nn_corrected[::self.thinning])
+        a_correction = self.model.predict(base_signals.exposure_a_mutual_nn)
+        b_correction = self.model.predict(base_signals.exposure_b_mutual_nn)
 
-        return FitResult(a_corrected, b_corrected, Params(sp=self.model))
+        return Corrections(a_correction, b_correction), Params(sp=self.model)
 
     def compute_final_result(self, base_signals: BaseSignals, optimal_params: Params) -> FinalResult:
         sp = optimal_params.kwargs.get('sp')
@@ -197,8 +203,9 @@ class IsotonicModel(BaseModel):
     def get_initial_params(self, base_signals: BaseSignals) -> Params:
         return Params()
 
-    def fit_and_correct(self, base_signals: BaseSignals, initial_params: Params, ratio) -> FitResult:
-        self.model.fit(base_signals.exposure_a_mutual_nn, ratio)
+    def fit_and_correct(self, base_signals: BaseSignals, fit_result: FitResult,
+                        initial_params: Params) -> Tuple[Corrections, Params]:
+        self.model.fit(base_signals.exposure_a_mutual_nn, fit_result.ratio_a_b_mutual_nn_corrected)
         if self.smoothing:
             max_exposure = base_signals.exposure_a_mutual_nn[-1]
             exposure = np.linspace(0, max_exposure, self.number_of_points)
@@ -206,10 +213,10 @@ class IsotonicModel(BaseModel):
             self.model = DegradationSpline(self.k, steps=self.steps)
             self.model.fit(exposure, ratio)
 
-        a_corrected = np.divide(base_signals.a_mutual_nn, self.model.predict(base_signals.exposure_a_mutual_nn))
-        b_corrected = np.divide(base_signals.b_mutual_nn, self.model.predict(base_signals.exposure_b_mutual_nn))
+        a_correction = self.model.predict(base_signals.exposure_a_mutual_nn)
+        b_correction = self.model.predict(base_signals.exposure_b_mutual_nn)
 
-        return FitResult(a_corrected, b_corrected, Params(model=self.model))
+        return Corrections(a_correction, b_correction), Params(model=self.model)
 
     def compute_final_result(self, base_signals: BaseSignals, optimal_params: Params) -> FinalResult:
         model = optimal_params.kwargs.get('model')
@@ -228,17 +235,21 @@ class EnsembleModel(BaseModel):
             params.append(model.get_initial_params(base_signals))
         return Params(all=params)
 
-    def fit_and_correct(self, base_signals: BaseSignals, initial_params: Params, ratio) -> FitResult:
+    def fit_and_correct(self, base_signals: BaseSignals, fit_result: FitResult,
+                        initial_params: Params) -> Tuple[Corrections, Params]:
         initial_params_list: List[Params] = initial_params.kwargs.get("all")
         # Placeholder for empty NumPy array of adequate size (size can be obtained 5 lines below)
-        a_corrected, b_corrected = 0, 0
+        a_correction, b_correction = 0, 0
         params = []
         for index, (model, weight) in enumerate(zip(self.models, self.weights)):
-            partial_results: FitResult = model.fit_and_correct(base_signals, initial_params_list[index], ratio)
-            a_corrected += weight * partial_results.a_mutual_nn_corrected
-            b_corrected += weight * partial_results.b_mutual_nn_corrected
-            params.append(partial_results.current_params)
-        return FitResult(a_corrected, b_corrected, Params(params=params))
+            corrections, current_params = model.fit_and_correct(base_signals, fit_result, initial_params_list[index])
+            # a_correction += np.divide(weight, corrections.a_correction)
+            # b_correction += np.divide(weight, corrections.b_correction)
+            a_correction += np.multiply(weight, corrections.a_correction)
+            b_correction += np.multiply(weight, corrections.b_correction)
+            params.append(current_params)
+        # return Corrections(np.divide(1, a_correction), np.divide(1, b_correction)), Params(params=params)
+        return Corrections(a_correction, b_correction), Params(params=params)
 
     def compute_final_result(self, base_signals: BaseSignals, optimal_params: Params) -> FinalResult:
         optimal_params_list: List[Params] = optimal_params.kwargs.get('params')

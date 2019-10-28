@@ -5,7 +5,8 @@ import pickle
 
 import matplotlib.pyplot as plt
 
-from dslab_virgo_tsi.base import ExposureMode, Result, FitResult, ModelFitter, BaseSignals, OutResult, FinalResult
+from dslab_virgo_tsi.base import ExposureMode, Result, FitResult, ModelFitter, BaseSignals, OutResult, FinalResult, \
+    CorrectionMethod
 from dslab_virgo_tsi.constants import Constants as Const
 from dslab_virgo_tsi.data_utils import load_data, make_dir
 from dslab_virgo_tsi.models import ExpModel, ExpLinModel, SplineModel, IsotonicModel, EnsembleModel
@@ -194,7 +195,13 @@ if __name__ == "__main__":
         model1, model2, model3, model4 = ExpLinModel(), ExpModel(), SplineModel(), IsotonicModel()
         model = EnsembleModel([model1, model2, model3, model4], [0.1, 0.3, 0.3, 0.3])
 
+    # Get correction method
+    if ARGS.correction_method == 1:
+        correction_method = CorrectionMethod.CORRECT_BOTH
+    else:
+        correction_method = CorrectionMethod.CORRECT_ONE
 
+    print(correction_method)
 
     fitter = ModelFitter(data=data_pmo6v,
                          t_field_name=Const.T,
@@ -203,9 +210,8 @@ if __name__ == "__main__":
                          exposure_mode=ExposureMode.NUM_MEASUREMENTS,
                          outlier_fraction=ARGS.outlier_fraction)
 
-
     result: Result = fitter(model=model,
-                            iterative_correction_model=ARGS.iterative_correction,
+                            correction_method=correction_method,
                             moving_average_window=ARGS.window)
 
     if ARGS.save:
