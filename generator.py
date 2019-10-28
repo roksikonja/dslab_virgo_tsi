@@ -8,7 +8,7 @@ import pandas as pd
 from dslab_virgo_tsi.base import ExposureMode, Result, FitResult, ModelFitter, BaseSignals, FinalResult
 from dslab_virgo_tsi.constants import Constants as Const
 from dslab_virgo_tsi.data_utils import make_dir
-from dslab_virgo_tsi.models import ExpModel, ExpLinModel, SplineModel, IsotonicModel
+from dslab_virgo_tsi.models import ExpModel, ExpLinModel, SplineModel, IsotonicModel, EnsembleModel
 from dslab_virgo_tsi.visualizer import Visualizer
 
 
@@ -105,7 +105,7 @@ class SignalGenerator(object):
 
 def create_results_dir(model_type):
     results_dir = make_dir(os.path.join(Const.RESULTS_DIR,
-                                        datetime.datetime.now().strftime(f"%Y-%m-%d_%H-%M-%S_gen_{model_type}")))
+                                        datetime.datetime.now().strftime(f"%Y-%m-%d_%H-%M-%S_{model_type}")))
     return results_dir
 
 
@@ -121,44 +121,44 @@ def plot_results(t_, x_, result_: Result, results_dir, model_name):
 
     fig = visualizer.plot_signals(
         [
-            (base_sig.t_a_nn, final_res.degradation_a_nn, f"DEGRADATION_{Const.A}", False),
-            (base_sig.t_b_nn, final_res.degradation_b_nn, f"DEGRADATION_{Const.B}", False)
+            (base_sig.t_a_nn, final_res.degradation_a_nn, "DEGRADATION_A", False),
+            (base_sig.t_b_nn, final_res.degradation_b_nn, "DEGRADATION_B", False)
         ],
-        results_dir, f"DEGRADATION_{Const.A}_{Const.B}_{model_name}", legend="upper right",
+        results_dir, f"DEGRADATION_{model_name}", legend="upper right",
         x_label="t", y_label="d(t)")
     figs.append(fig)
 
     fig = visualizer.plot_signals(
         [
-            (base_sig.t_mutual_nn, before_fit.a_mutual_nn_corrected, f"{Const.A}_mutual_nn", False),
-            (base_sig.t_mutual_nn, before_fit.b_mutual_nn_corrected, f"{Const.B}_mutual_nn", False),
-            (base_sig.t_mutual_nn, last_iter.a_mutual_nn_corrected, f"{Const.A}_mutual_nn_corrected", False),
-            (base_sig.t_mutual_nn, last_iter.b_mutual_nn_corrected, f"{Const.B}_mutual_nn_corrected", False),
-            (t_, x_, f"ground_truth", False),
+            (base_sig.t_mutual_nn, before_fit.a_mutual_nn_corrected, "A_mutual_nn", False),
+            (base_sig.t_mutual_nn, before_fit.b_mutual_nn_corrected, "B_mutual_nn", False),
+            (base_sig.t_mutual_nn, last_iter.a_mutual_nn_corrected, "A_mutual_nn_corrected", False),
+            (base_sig.t_mutual_nn, last_iter.b_mutual_nn_corrected, "B_mutual_nn_corrected", False),
+            (t_, x_, "ground_truth", False),
         ],
-        results_dir, f"{model_name}_{Const.A}_{Const.B}_mutual_corrected", legend="upper right",
+        results_dir, f"{model_name}_mutual_corrected", legend="upper right",
         x_label="t", y_label="x(t)")
     figs.append(fig)
 
     fig = visualizer.plot_signals(
         [
-            (base_sig.t_mutual_nn, before_fit.ratio_a_b_mutual_nn_corrected, f"RATIO_{Const.A}_{Const.B}_raw", False),
-            (base_sig.t_mutual_nn, last_iter.ratio_a_b_mutual_nn_corrected, f"RATIO_{Const.A}_{Const.B}_corrected",
+            (base_sig.t_mutual_nn, before_fit.ratio_a_b_mutual_nn_corrected, f"RATIO_A_B_raw", False),
+            (base_sig.t_mutual_nn, last_iter.ratio_a_b_mutual_nn_corrected, f"RATIO_A_B_corrected",
              False)
         ],
-        results_dir, f"{model_name}_RATIO_DEGRADATION_{Const.A}_{Const.B}_raw_corrected",
+        results_dir, f"{model_name}_RATIO_DEGRADATION_A_B_raw_corrected",
         legend="upper right", x_label="t", y_label="r(t)")
     figs.append(fig)
 
     fig = visualizer.plot_signals(
         [
-            (base_sig.t_a_nn, base_sig.a_nn, f"{Const.A}_raw", False),
-            (base_sig.t_b_nn, base_sig.b_nn, f"{Const.B}_raw", False),
-            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_raw_corrected", False),
-            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_raw_corrected", False),
-            (t_, x_, f"ground_truth", False),
+            (base_sig.t_a_nn, base_sig.a_nn, "A_raw", False),
+            (base_sig.t_b_nn, base_sig.b_nn, "B_raw", False),
+            (base_sig.t_a_nn, final_res.a_nn_corrected, "A_raw_corrected", False),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, "B_raw_corrected", False),
+            (t_, x_, "ground_truth", False),
         ],
-        results_dir, f"{model_name}_{Const.A}_{Const.B}_raw_corrected_full",
+        results_dir, f"{model_name}_A_B_raw_corrected_full",
         legend="upper right", x_label="t", y_label="x(t)")
     figs.append(fig)
 
@@ -185,7 +185,7 @@ if __name__ == "__main__":
 
     # Constants
     data_dir = Const.DATA_DIR
-    results_dir_path = create_results_dir(ARGS.model_type)
+    results_dir_path = create_results_dir(f"gen_{ARGS.model_type}")
 
     # Generator
     Generator = SignalGenerator(ARGS.signal_length)
@@ -208,6 +208,9 @@ if __name__ == "__main__":
         model = SplineModel()
     elif ARGS.model_type == "isotonic":
         model = IsotonicModel(smoothing=ARGS.model_smoothing)
+    elif ARGS.model_type == "ensemble":
+        model1, model2, model3, model4 = ExpLinModel(), ExpModel(), SplineModel(), IsotonicModel()
+        model = EnsembleModel([model1, model2, model3, model4], [0.1, 0.3, 0.3, 0.3])
 
     fitter = ModelFitter(data=data_gen,
                          t_field_name=T,
@@ -220,4 +223,4 @@ if __name__ == "__main__":
                             iterative_correction_model=ARGS.iterative_correction,
                             moving_average_window=ARGS.window)
 
-    plot_results(t, x, result, results_dir_path, ARGS.model_type)
+    plot_results(t, x, result, results_dir_path, f"gen_{ARGS.model_type}")
