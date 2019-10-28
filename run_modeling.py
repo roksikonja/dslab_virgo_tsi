@@ -4,6 +4,7 @@ import os
 import pickle
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 from dslab_virgo_tsi.base import ExposureMode, Result, FitResult, ModelFitter, BaseSignals, OutResult, FinalResult, \
     CorrectionMethod
@@ -73,8 +74,10 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
     fig = visualizer.plot_signals(
         [
             (base_sig.t_mutual_nn, before_fit.ratio_a_b_mutual_nn_corrected, f"RATIO_{Const.A}_{Const.B}_raw", False),
-            (base_sig.t_mutual_nn, last_iter.ratio_a_b_mutual_nn_corrected, f"RATIO_{Const.A}_{Const.B}_corrected",
-             False)
+            (base_sig.t_mutual_nn, last_iter.ratio_a_b_mutual_nn_corrected, f"RATIO_{Const.A}_not_{Const.B}_corrected",
+             False),
+            (base_sig.t_mutual_nn, np.divide(last_iter.a_mutual_nn_corrected, last_iter.b_mutual_nn_corrected),
+             f"RATIO_{Const.A}_corrected_{Const.B}_corrected", False)
         ],
         results_dir, f"{model_name}_RATIO_DEGRADATION_{Const.A}_{Const.B}_raw_corrected", x_ticker=1,
         legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)

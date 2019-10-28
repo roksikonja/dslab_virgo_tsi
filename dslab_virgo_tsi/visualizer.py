@@ -217,7 +217,7 @@ class Visualizer(object):
             if step in selected_triplet_indices or step in [0, len(history_fitresults)-1]:
                 a = fitresult.a_mutual_nn_corrected
                 b = fitresult.b_mutual_nn_corrected
-                r = fitresult.ratio_a_b_mutual_nn_corrected
+                r = np.divide(a, b)
 
                 axs[selected_step, 0].plot(t_mutual, a, label=f"step_{step}_A")
                 axs[selected_step, 0].plot(t_mutual, b, label=f"step_{step}_B")
