@@ -22,7 +22,7 @@ def parse_arguments():
     parser.add_argument("--model_type", type=str, default="isotonic", help="Model to train.")
     parser.add_argument("--model_smoothing", action="store_true", help="Only for isotonic model.")
 
-    parser.add_argument("--iterative_correction", type=int, default=2, help="Iterative correction method.")
+    parser.add_argument("--correction_method", type=int, default=2, help="Iterative correction method.")
     parser.add_argument("--window", type=int, default=81, help="Moving average window size.")
     parser.add_argument("--outlier_fraction", type=float, default=0, help="Outlier fraction.")
 
