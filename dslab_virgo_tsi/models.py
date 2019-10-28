@@ -227,13 +227,16 @@ class IsotonicModel(BaseModel):
 
 
 class SmoothMonotoneRegression(BaseModel):
-    def __init__(self, convexity=True, increasing=False, number_of_points=999, y_max=1, y_min=0, out_of_bounds='clip'):
-        self.convexity = convexity
+    def __init__(self, convex=True, increasing=False, number_of_points=999, y_max=1, y_min=0,
+                 out_of_bounds='clip', solver=cp.ECOS_BB, lam=1):
+        self.convex = convex
         self.increasing = increasing
         self.number_of_points = number_of_points
         self.model_for_help = IsotonicRegression(y_max=y_max, y_min=y_min,
                                                  increasing=increasing, out_of_bounds=out_of_bounds)
+        self.solver = solver
         self.model = None
+        self.lam = lam
 
     def get_initial_params(self, base_signals: BaseSignals) -> Params:
         return Params()
@@ -241,10 +244,14 @@ class SmoothMonotoneRegression(BaseModel):
     def _calculate_smooth_monotone_function(self, exposure):
         y = self.model_for_help.predict(exposure)
         mu = cp.Variable(self.number_of_points)
-        objective = cp.Minimize(cp.sum_squares(mu - y))
-        constraints = [mu[1:] <= mu[:-1], mu[:-2] + mu[2:] >= 2 * mu[1:-1], mu <= 1]
+        objective = cp.Minimize(cp.sum_squares(mu - y) + self.lam * cp.sum_squares(mu[:-1] - mu[1:]))
+        constraints = [mu <= 1]
+        if not self.increasing:
+            constraints.append(mu[1:] <= mu[:-1])
+        if self.convex:
+            constraints.append(mu[:-2] + mu[2:] >= 2 * mu[1:-1])
         model = cp.Problem(objective, constraints)
-        model.solve(solver=cp.ECOS_BB)
+        model.solve(solver=self.solver)
         spline = interp1d(exposure, mu.value, fill_value="extrapolate")
         return spline
 
