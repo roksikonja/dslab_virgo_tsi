@@ -1,7 +1,9 @@
+from abc import ABC
 from typing import List, Tuple
 
 import numpy as np
-from scipy.interpolate import UnivariateSpline, splev, splrep
+import cvxpy as cp
+from scipy.interpolate import UnivariateSpline, splev, splrep, interp1d
 from scipy.optimize import curve_fit, minimize
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LinearRegression
@@ -222,6 +224,46 @@ class IsotonicModel(BaseModel):
         model = optimal_params.kwargs.get('model')
         return FinalResult(base_signals, model.predict(base_signals.exposure_a_nn),
                            model.predict(base_signals.exposure_b_nn))
+
+
+class SmoothMonotoneRegression(BaseModel):
+    def __init__(self, convexity=True, increasing=False, number_of_points=999, y_max=1, y_min=0, out_of_bounds='clip'):
+        self.convexity = convexity
+        self.increasing = increasing
+        self.number_of_points = number_of_points
+        self.model_for_help = IsotonicRegression(y_max=y_max, y_min=y_min,
+                                                 increasing=increasing, out_of_bounds=out_of_bounds)
+        self.model = None
+
+    def get_initial_params(self, base_signals: BaseSignals) -> Params:
+        return Params()
+
+    def _calculate_smooth_monotone_function(self, exposure):
+        y = self.model_for_help.predict(exposure)
+        mu = cp.Variable(self.number_of_points)
+        objective = cp.Minimize(cp.sum_squares(mu - y))
+        constraints = [mu[1:] <= mu[:-1], mu[:-2] + mu[2:] >= 2 * mu[1:-1], mu <= 1]
+        model = cp.Problem(objective, constraints)
+        model.solve(solver=cp.ECOS_BB)
+        spline = interp1d(exposure, mu.value, fill_value="extrapolate")
+        return spline
+
+    def fit_and_correct(self, base_signals: BaseSignals, fit_result: FitResult,
+                        initial_params: Params) -> Tuple[Corrections, Params]:
+        self.model_for_help.fit(base_signals.exposure_a_mutual_nn, fit_result.ratio_a_b_mutual_nn_corrected)
+        max_exposure = base_signals.exposure_a_mutual_nn[-1]
+        exposure = np.linspace(0, max_exposure, self.number_of_points)
+        self.model = self._calculate_smooth_monotone_function(exposure)
+
+        a_correction = self.model(base_signals.exposure_a_mutual_nn)
+        b_correction = self.model(base_signals.exposure_b_mutual_nn)
+
+        return Corrections(a_correction, b_correction), Params(model=self.model)
+
+    def compute_final_result(self, base_signals: BaseSignals, optimal_params: Params) -> FinalResult:
+        model = optimal_params.kwargs.get('model')
+        return FinalResult(base_signals, model(base_signals.exposure_a_nn),
+                           model(base_signals.exposure_b_nn))
 
 
 class EnsembleModel(BaseModel):

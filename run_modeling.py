@@ -10,7 +10,8 @@ from dslab_virgo_tsi.base import ExposureMode, Result, FitResult, ModelFitter, B
     CorrectionMethod
 from dslab_virgo_tsi.constants import Constants as Const
 from dslab_virgo_tsi.data_utils import load_data, make_dir
-from dslab_virgo_tsi.models import ExpModel, ExpLinModel, SplineModel, IsotonicModel, EnsembleModel
+from dslab_virgo_tsi.models import ExpModel, ExpLinModel, SplineModel, IsotonicModel, EnsembleModel, \
+    SmoothMonotoneRegression
 from dslab_virgo_tsi.visualizer import Visualizer
 
 
@@ -19,7 +20,7 @@ def parse_arguments():
     parser.add_argument("--save", action="store_true", help="Flag for saving results.")
     parser.add_argument("--visualize", action="store_true", help="Flag for visualizing results.")
 
-    parser.add_argument("--model_type", type=str, default="isotonic", help="Model to train.")
+    parser.add_argument("--model_type", type=str, default="smooth_monotonic", help="Model to train.")
     parser.add_argument("--model_smoothing", action="store_true", help="Only for isotonic model.")
 
     parser.add_argument("--correction_method", type=int, default=2, help="Iterative correction method.")
@@ -203,6 +204,8 @@ if __name__ == "__main__":
     elif ARGS.model_type == "ensemble":
         model1, model2, model3, model4 = ExpLinModel(), ExpModel(), SplineModel(), IsotonicModel()
         model = EnsembleModel([model1, model2, model3, model4], [0.1, 0.3, 0.3, 0.3])
+    elif ARGS.model_type == "smooth_monotonic":
+        model = SmoothMonotoneRegression()
 
     # Get correction method
     if ARGS.correction_method == 1:
