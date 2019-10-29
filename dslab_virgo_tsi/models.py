@@ -227,6 +227,10 @@ class IsotonicModel(BaseModel):
 
 
 class SmoothMonotoneRegression(BaseModel):
+    """
+    For solvers one can choose: ECOS, ECOS_BB, OSQP, SCS,
+    others (better) are under license: GUROBI (best), CVXOPT
+    """
     def __init__(self, convex=True, increasing=False, number_of_points=999, y_max=1, y_min=0,
                  out_of_bounds='clip', solver=cp.ECOS_BB, lam=1):
         self.convex = convex
@@ -245,7 +249,7 @@ class SmoothMonotoneRegression(BaseModel):
         y = self.model_for_help.predict(exposure)
         mu = cp.Variable(self.number_of_points)
         objective = cp.Minimize(cp.sum_squares(mu - y) + self.lam * cp.sum_squares(mu[:-1] - mu[1:]))
-        constraints = [mu <= 1]
+        constraints = [mu <= 1, mu[0] == 1]
         if not self.increasing:
             constraints.append(mu[1:] <= mu[:-1])
         if self.convex:
