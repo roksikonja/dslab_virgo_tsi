@@ -19,9 +19,10 @@ def parse_arguments():
     parser.add_argument("--model_type", type=str, default="smooth_monotonic", help="Model to train.")
     parser.add_argument("--model_smoothing", action="store_true", help="Only for isotonic model.")
 
-    parser.add_argument("--correction_method", type=int, default=2, help="Iterative correction method.")
+    parser.add_argument("--correction_method", type=str, default="one", help="Iterative correction method.")
     parser.add_argument("--window", type=int, default=81, help="Moving average window size.")
     parser.add_argument("--outlier_fraction", type=float, default=0, help="Outlier fraction.")
+    parser.add_argument("--ratio_smoothing", action="store_true", help="Flag for ratio smoothing before fitting.")
 
     return parser.parse_args()
 
@@ -45,6 +46,7 @@ if __name__ == "__main__":
     data_gen[X_A] = x_a_raw
     data_gen[X_B] = x_b_raw
 
+    # Perform modeling
     model = None
     if ARGS.model_type == "exp_lin":
         model = ExpLinModel()
@@ -61,12 +63,15 @@ if __name__ == "__main__":
         model = SmoothMonotoneRegression()
 
     # Get correction method
-    if ARGS.correction_method == 1:
+    if ARGS.correction_method == "both":
         correction_method = CorrectionMethod.CORRECT_BOTH
     else:
         correction_method = CorrectionMethod.CORRECT_ONE
 
-    fitter = ModelFitter(data=data_gen,
+    print(correction_method)
+
+    fitter = ModelFitter(mode="generator",
+                         data=data_gen,
                          t_field_name=T,
                          a_field_name=X_A,
                          b_field_name=X_B,
@@ -75,6 +80,6 @@ if __name__ == "__main__":
 
     result: Result = fitter(model=model,
                             correction_method=correction_method,
-                            moving_average_window=ARGS.window)
+                            ratio_smoothing=ARGS.ratio_smoothing)
 
     plot_results(t, x, result, results_dir_path, f"gen_{ARGS.model_type}")

@@ -3,7 +3,7 @@ import os
 
 import numpy as np
 
-from dslab_virgo_tsi.base import Result, FitResult, BaseSignals, FinalResult
+from dslab_virgo_tsi.base import Result, FitResult, BaseSignals, FinalResult, OutResult, ExposureMode
 from dslab_virgo_tsi.constants import Constants as Const
 from dslab_virgo_tsi.data_utils import make_dir
 from dslab_virgo_tsi.visualizer import Visualizer
@@ -14,11 +14,12 @@ visualizer.set_figsize()
 
 class SignalGenerator(object):
 
-    def __init__(self, length, random_seed=0):
+    def __init__(self, length, random_seed=0, exposure_mode=ExposureMode.NUM_MEASUREMENTS):
         np.random.seed(random_seed)
 
         self.length = length
         self.time = self.generate_time()
+        self.exposure_mode = exposure_mode
 
         # Ground truth signal
         self.x = None
@@ -34,7 +35,7 @@ class SignalGenerator(object):
         :return: x(t) = 10 + sin(10 * pi * a[2] * (t - a[1])) + (2 * int(a[4] >= 0.5) - 1) * a[3] * t.
         """
         a = np.random.rand(5)
-        x_ = 10 + a[0]/10 * np.sin(10 * np.pi * a[2] * (self.time - a[1])) + \
+        x_ = 10 + a[0] / 10 * np.sin(10 * np.pi * a[2] * (self.time - a[1])) + \
             (2 * int(a[4] >= 0.5) - 1) * a[3] * self.time
 
         self.x = x_
@@ -46,10 +47,12 @@ class SignalGenerator(object):
 
         x_a, t_a = self.remove_measurements(x_.copy(), self.time.copy(), 0.1)
         x_b, t_b = self.remove_measurements(x_.copy(), self.time.copy(), 0.9)
-        mean_b = float(np.mean(x_b[~np.isnan(x_b)]))
 
-        exposure_a = self.compute_exposure(x_a, "sum", mean_b)
-        exposure_b = self.compute_exposure(x_b, "sum", mean_b)
+        mean_b = float(np.mean(x_b[~np.isnan(x_b)]))
+        length_a = x_a.shape[0]
+
+        exposure_a = self.compute_exposure(x_a, mode=self.exposure_mode, mean=mean_b, length=length_a)
+        exposure_b = self.compute_exposure(x_b, mode=self.exposure_mode, mean=mean_b, length=length_a)
 
         x_a_raw_, x_b_raw_, params = self.degrade_signal(x_a, x_b, exposure_a, exposure_b,
                                                          degradation_model=degradation_model, rate=rate)
@@ -75,15 +78,16 @@ class SignalGenerator(object):
         return noise
 
     @staticmethod
-    def compute_exposure(x_, mode="measurements", mean=1.0):
-        if mode == "measurements":
-            x_ = np.nan_to_num(x_) > 0
-        elif mode == "sum":
-            x_ = np.nan_to_num(x_)
-            x_ = x_ / mean
+    def compute_exposure(x, mode=ExposureMode.NUM_MEASUREMENTS, mean=1.0, length=None):
+        if mode == ExposureMode.NUM_MEASUREMENTS:
+            x = np.nan_to_num(x) > 0
+        elif mode == ExposureMode.EXPOSURE_SUM:
+            x = np.nan_to_num(x)
+            x = x / mean
 
-        x_ = x_ / x_.shape[0]
-        return np.cumsum(x_)
+        if length:
+            x = x / length
+        return np.cumsum(x)
 
     @staticmethod
     def degrade_signal(x_a, x_b, exposure_a, exposure_b, degradation_model="exp", rate=1.0):
@@ -111,6 +115,7 @@ def plot_results(t_, x_, result_: Result, results_dir, model_name):
 
     base_sig: BaseSignals = result_.base_signals
     final_res: FinalResult = result_.final
+    out_res: OutResult = result_.out
 
     print("plotting results ...")
 
@@ -140,7 +145,7 @@ def plot_results(t_, x_, result_: Result, results_dir, model_name):
              False),
             (base_sig.t_mutual_nn, np.divide(last_iter.a_mutual_nn_corrected, last_iter.b_mutual_nn_corrected),
              f"RATIO_A_corrected_B_corrected", False)
-             ],
+        ],
         results_dir, f"{model_name}_RATIO_DEGRADATION_A_B_raw_corrected",
         legend="upper right", x_label="t", y_label="r(t)")
 
@@ -156,6 +161,20 @@ def plot_results(t_, x_, result_: Result, results_dir, model_name):
         legend="upper right", x_label="t", y_label="x(t)")
 
     visualizer.plot_signal_history(base_sig.t_mutual_nn, result_.history_mutual_nn,
-                                         results_dir, f"{model_name}_history",
-                                         ground_truth_triplet=(t_, x_, "ground_truth"),
-                                         legend="upper right", x_label="t", y_label="x(t)")
+                                   results_dir, f"{model_name}_history",
+                                   ground_truth_triplet=(t_, x_, "ground_truth"),
+                                   legend="upper right", x_label="t", y_label="x(t)")
+
+    visualizer.plot_signals_mean_std_precompute(
+        [
+            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"gen_hourly_{model_name}")
+        ],
+        results_dir, f"gen_hourly_{model_name}", ground_truth_triplet=(t_, x_, "ground_truth"),
+        legend="upper left", x_label="t", y_label="x(t)")
+
+    visualizer.plot_signals_mean_std_precompute(
+        [
+            (out_res.t_daily_out, out_res.signal_daily_out, out_res.signal_std_daily_out, f"gen_daily_{model_name}")
+        ],
+        results_dir, f"gen_daily_{model_name}", ground_truth_triplet=(t_, x_, "ground_truth"),
+        legend="upper left", x_label="t", y_label="x(t)")
