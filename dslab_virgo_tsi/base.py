@@ -206,14 +206,14 @@ class ModelFitter:
         mean = np.mean(np.concatenate((final_result.a_nn_corrected, final_result.b_nn_corrected), axis=0))
 
         kf = KalmanFilter(n_dim_obs=2,
-                                initial_state_mean=0,
-                                transition_matrices=[[1]],
-                                transition_offsets=0,
-                                observation_matrices=[[1], [1]],
-                                observation_offsets=[0, 0],
-                                em_vars=["transition_covariance",
-                                         "observation_covariance",
-                                         "initial_state_covariance"])
+                          initial_state_mean=0,
+                          transition_matrices=[[1]],
+                          transition_offsets=0,
+                          observation_matrices=[[1], [1]],
+                          observation_offsets=[0, 0],
+                          em_vars=["transition_covariance",
+                                   "observation_covariance",
+                                   "initial_state_covariance"])
 
         print("Running EM for Kalman Filter")
         kf.em(observations_daily - mean)
@@ -239,7 +239,7 @@ class ModelFitter:
     @staticmethod
     def _iterative_correction(model: BaseModel, base_signals: BaseSignals, initial_params: Params,
                               method: CorrectionMethod, ratio_smoothing, eps=1e-7, max_iter=100) -> Tuple[
-            List[FitResult], Params]:
+        List[FitResult], Params]:
         """Note that we here deal only with mutual_nn data. Variable ratio_a_b_mutual_nn_corrected has different
         definitions based on the correction method used."""
         fit_result = FitResult(np.copy(base_signals.a_mutual_nn), np.copy(base_signals.b_mutual_nn),
