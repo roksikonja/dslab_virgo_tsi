@@ -6,7 +6,7 @@ import numpy as np
 from pykalman import KalmanFilter
 from scipy.interpolate import interp1d
 
-from dslab_virgo_tsi.data_utils import resampling_average_std, notnan_indices, detect_outliers
+from dslab_virgo_tsi.data_utils import notnan_indices, detect_outliers
 
 
 class ExposureMode(Enum):
@@ -145,13 +145,13 @@ class ModelFitter:
         self.base_signals = BaseSignals(a_nn, b_nn, t_a_nn, t_b_nn, exposure_a_nn, exposure_b_nn, a_mutual_nn,
                                         b_mutual_nn, t_mutual_nn, exposure_a_mutual_nn, exposure_b_mutual_nn)
 
-    def __call__(self, model: BaseModel, correction_method: CorrectionMethod, ratio_smoothing) -> Result:
+    def __call__(self, model: BaseModel, correction_method: CorrectionMethod) -> Result:
         # Perform initial fit if needed
         initial_params: Params = model.get_initial_params(self.base_signals)
 
         # Compute iterative corrections
         history_mutual_nn, optimal_params = self._iterative_correction(model, self.base_signals, initial_params,
-                                                                       correction_method, ratio_smoothing)
+                                                                       correction_method)
 
         # Compute final result
         final_result = model.compute_final_result(self.base_signals, optimal_params)
@@ -252,8 +252,8 @@ class ModelFitter:
 
     @staticmethod
     def _iterative_correction(model: BaseModel, base_signals: BaseSignals, initial_params: Params,
-                              method: CorrectionMethod, ratio_smoothing, eps=1e-7, max_iter=100) -> Tuple[
-            List[FitResult], Params]:
+                              method: CorrectionMethod, eps=1e-7, max_iter=100) -> Tuple[
+        List[FitResult], Params]:
         """Note that we here deal only with mutual_nn data. Variable ratio_a_b_mutual_nn_corrected has different
         definitions based on the correction method used."""
         fit_result = FitResult(np.copy(base_signals.a_mutual_nn), np.copy(base_signals.b_mutual_nn),
@@ -280,12 +280,6 @@ class ModelFitter:
                 a_mutual_nn_corrected = np.divide(base_signals.a_mutual_nn, corrections.a_correction)
                 b_mutual_nn_corrected = np.divide(base_signals.b_mutual_nn, corrections.b_correction)
                 ratio_a_b_mutual_nn_corrected = np.divide(base_signals.a_mutual_nn, b_mutual_nn_corrected)
-
-            if ratio_smoothing:
-                ratio_a_b_mutual_nn_corrected, _ = resampling_average_std(ratio_a_b_mutual_nn_corrected,
-                                                                          w=ratio_a_b_mutual_nn_corrected.shape[
-                                                                                0] / 100,
-                                                                          std=False)
 
             # Store current state to history
             fit_result = FitResult(a_mutual_nn_corrected, b_mutual_nn_corrected, ratio_a_b_mutual_nn_corrected)

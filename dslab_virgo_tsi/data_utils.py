@@ -1,5 +1,6 @@
 import datetime
 import os
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -213,6 +214,24 @@ def detect_outliers(x_fit, x=None, outlier_fraction=1e-3):
         outliers = envelope.predict(x) == -1
 
     return outliers
+
+
+def create_results_dir(results_dir_path, model_type):
+    results_dir = make_dir(os.path.join(results_dir_path,
+                                        datetime.datetime.now().strftime(f"%Y-%m-%d_%H-%M-%S_{model_type}")))
+    return results_dir
+
+
+def save_modeling_result(results_dir, model_results, model_name):
+    with open(os.path.join(results_dir, f"{model_name}_modeling_result.pkl"), 'wb') as f:
+        pickle.dump(model_results, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def save_config(results_dir, config):
+    with open(os.path.join(results_dir, "config.txt"), "w") as f:
+        for key in config:
+            if not str(key)[0:2] == "__" and not str(key) == "return_config":
+                f.write("{:<30}{}\n".format(key + ":", config[key]))
 
 
 if __name__ == "__main__":

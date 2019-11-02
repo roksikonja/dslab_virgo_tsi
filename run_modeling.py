@@ -1,14 +1,18 @@
 import argparse
-import datetime
-import os
-import pickle
 
 import numpy as np
 
 from dslab_virgo_tsi.base import ExposureMode, Result, FitResult, ModelFitter, BaseSignals, OutResult, FinalResult, \
     CorrectionMethod
 from dslab_virgo_tsi.constants import Constants as Const
-from dslab_virgo_tsi.data_utils import load_data, make_dir
+from dslab_virgo_tsi.data_utils import create_results_dir
+from dslab_virgo_tsi.data_utils import load_data, save_modeling_result, save_config
+from dslab_virgo_tsi.model_constants import EnsembleConstants as EnsConsts
+from dslab_virgo_tsi.model_constants import ExpConstants as ExpConsts
+from dslab_virgo_tsi.model_constants import ExpLinConstants as ExpLinConsts
+from dslab_virgo_tsi.model_constants import IsotonicConstants as IsoConsts
+from dslab_virgo_tsi.model_constants import SmoothMonotoneRegressionConstants as SMRConsts
+from dslab_virgo_tsi.model_constants import SplineConstants as SplConsts
 from dslab_virgo_tsi.models import ExpModel, ExpLinModel, SplineModel, IsotonicModel, EnsembleModel, \
     SmoothMonotoneRegression
 from dslab_virgo_tsi.visualizer import Visualizer
@@ -18,27 +22,14 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--save_plots", action="store_true", help="Flag for saving plots.")
     parser.add_argument("--save_signals", action="store_true", help="Flag for saving computed signals.")
+    parser.add_argument("--window", type=int, default=81, help="Moving average window size for plotting.")
 
     parser.add_argument("--model_type", type=str, default="smooth_monotonic", help="Model to train.")
-    parser.add_argument("--model_smoothing", action="store_true", help="Only for isotonic model.")
-
     parser.add_argument("--correction_method", type=str, default="one", help="Iterative correction method.")
-    parser.add_argument("--window", type=int, default=81, help="Moving average window size.")
     parser.add_argument("--outlier_fraction", type=float, default=0, help="Outlier fraction.")
-    parser.add_argument("--ratio_smoothing", action="store_true", help="Flag for ratio smoothing before fitting.")
+    parser.add_argument("--exposure_mode", type=str, default="measurements", help="Exposure computing method.")
 
     return parser.parse_args()
-
-
-def create_results_dir(model_type):
-    results_dir = make_dir(os.path.join(Const.RESULTS_DIR,
-                                        datetime.datetime.now().strftime(f"%Y-%m-%d_%H-%M-%S_{model_type}")))
-    return results_dir
-
-
-def save_modeling_result(results_dir, model_results, model_name):
-    with open(os.path.join(results_dir, f"{model_name}_modeling_result.pkl"), 'wb') as f:
-        pickle.dump(model_results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def plot_results(result_: Result, results_dir, model_name, window_size):
@@ -172,7 +163,7 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
 
 if __name__ == "__main__":
     ARGS = parse_arguments()
-    results_dir_path = create_results_dir(ARGS.model_type)
+    results_dir_path = create_results_dir(Const.RESULTS_DIR, ARGS.model_type)
 
     # Load data
     data_pmo6v = load_data(Const.DATA_DIR, Const.VIRGO_FILE)
@@ -182,19 +173,27 @@ if __name__ == "__main__":
 
     # Perform modeling
     model = None
+    config = None
     if ARGS.model_type == "exp_lin":
         model = ExpLinModel()
+        config = ExpLinConsts.return_config()
     elif ARGS.model_type == "exp":
         model = ExpModel()
+        config = ExpConsts.return_config()
     elif ARGS.model_type == "spline":
         model = SplineModel()
+        config = SplConsts.return_config()
     elif ARGS.model_type == "isotonic":
-        model = IsotonicModel(smoothing=ARGS.model_smoothing)
+        model = IsotonicModel()
+        config = IsoConsts.return_config()
     elif ARGS.model_type == "ensemble":
-        model1, model2, model3, model4 = ExpLinModel(), ExpModel(), SplineModel(), IsotonicModel()
-        model = EnsembleModel([model1, model2, model3, model4], [0.1, 0.3, 0.3, 0.3])
+        models = [ExpLinModel(), ExpModel(), SplineModel(), IsotonicModel()]
+        model = EnsembleModel(models=models)
+        config = EnsConsts.return_config()
+        config["models"] = str(models)
     elif ARGS.model_type == "smooth_monotonic":
         model = SmoothMonotoneRegression()
+        config = SMRConsts.return_config()
 
     # Get correction method
     if ARGS.correction_method == "both":
@@ -202,9 +201,19 @@ if __name__ == "__main__":
     else:
         correction_method = CorrectionMethod.CORRECT_ONE
 
-    print(correction_method)
+    if ARGS.exposure_mode == "measurements":
+        exposure_mode = ExposureMode.NUM_MEASUREMENTS
+    else:
+        exposure_mode = ExposureMode.EXPOSURE_SUM
 
-    fitter = ModelFitter(mode="virgo",
+    config["correction_method"] = ARGS.correction_method
+    config["model_type"] = ARGS.model_type
+    config["outlier_fraction"] = ARGS.outlier_fraction
+    config["exposure_mode"] = ARGS.exposure_mode
+    config["mode"] = "virgo"
+    save_config(results_dir_path, config)
+
+    fitter = ModelFitter(mode=config["mode"],
                          data=data_pmo6v,
                          t_field_name=Const.T,
                          a_field_name=Const.A,
@@ -213,8 +222,7 @@ if __name__ == "__main__":
                          outlier_fraction=ARGS.outlier_fraction)
 
     result: Result = fitter(model=model,
-                            correction_method=correction_method,
-                            ratio_smoothing=ARGS.ratio_smoothing)
+                            correction_method=correction_method)
 
     if ARGS.save_signals:
         save_modeling_result(results_dir_path, result, ARGS.model_type)

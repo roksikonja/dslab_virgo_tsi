@@ -8,15 +8,17 @@ from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LinearRegression
 
 from dslab_virgo_tsi.base import BaseModel, BaseSignals, Params, FinalResult, FitResult, Corrections, CorrectionMethod
+from dslab_virgo_tsi.model_constants import EnsembleConstants as EnsConsts
+from dslab_virgo_tsi.model_constants import IsotonicConstants as IsoConsts
+from dslab_virgo_tsi.model_constants import SmoothMonotoneRegressionConstants as SMRConsts
+from dslab_virgo_tsi.model_constants import SplineConstants as SplConsts
 
 
 class ExpFamilyMixin:
     @staticmethod
     def _initial_fit(ratio_a_b, exposure_a):
         """y(t) = gamma + exp(-lambda_ * (exposure_a - e_0))"""
-        # TODO: Auto?? epsilon = 1e-5
         epsilon = 1e-5
-        # epsilon = (ratio_a_b.max() - ratio_a_b.min()) / 100
         gamma = ratio_a_b.min()
 
         y = np.log(ratio_a_b - gamma + epsilon)
@@ -32,7 +34,7 @@ class ExpFamilyMixin:
 
 
 class DegradationSpline:
-    def __init__(self, k=3, steps=30):
+    def __init__(self, k, steps):
         self.k = k
         self.sp = None
         self.steps = steps
@@ -52,7 +54,7 @@ class DegradationSpline:
             diff = np.dot(diff * diff, w)
         return np.abs(diff)
 
-    def _spline_dirichlet(self, x, y, k=3, s=0.0, w=None):
+    def _spline_dirichlet(self, x, y, k, s, w=None):
         t, c0, k = self._guess(x, y, k, s, w=w)
         con = {'type': 'eq',
                'fun': lambda c: splev(0, (t, c, k), der=0) - 1,
@@ -169,7 +171,7 @@ class ExpLinModel(BaseModel, ExpFamilyMixin):
 
 
 class SplineModel(BaseModel):
-    def __init__(self, k=3, steps=30, thinning=100):
+    def __init__(self, k=SplConsts.K, steps=SplConsts.STEPS, thinning=SplConsts.THINNING):
         self.k = k
         self.steps = steps
         self.thinning = thinning
@@ -193,8 +195,9 @@ class SplineModel(BaseModel):
 
 
 class IsotonicModel(BaseModel):
-    def __init__(self, smoothing=False, y_max=1, y_min=0, increasing=False, out_of_bounds='clip', k=3, steps=30,
-                 number_of_points=201):
+    def __init__(self, smoothing=IsoConsts.SMOOTHING, y_max=IsoConsts.Y_MAX, y_min=IsoConsts.Y_MIN,
+                 increasing=IsoConsts.INCREASING, out_of_bounds=IsoConsts.OUT_OF_BOUNDS, k=IsoConsts.K,
+                 steps=IsoConsts.STEPS, number_of_points=IsoConsts.NUMBER_OF_POINTS):
         self.k = k
         self.steps = steps
         self.smoothing = smoothing
@@ -230,8 +233,11 @@ class SmoothMonotoneRegression(BaseModel):
     For solvers one can choose: ECOS, ECOS_BB, OSQP, SCS,
     others (better) are under license: GUROBI (best), CVXOPT
     """
-    def __init__(self, increasing=False, number_of_points=999, y_max=1, y_min=0,
-                 out_of_bounds='clip', solver=cp.ECOS_BB, lam=1):
+
+    def __init__(self, increasing=SMRConsts.INCREASING, number_of_points=SMRConsts.NUMBER_OF_POINTS,
+                 y_max=SMRConsts.Y_MAX, y_min=SMRConsts.Y_MIN, out_of_bounds=SMRConsts.OUT_OF_BOUNDS,
+                 solver=SMRConsts.SOLVER, lam=SMRConsts.LAM):
+
         self.increasing = increasing
         self.number_of_points = number_of_points
         self.model_for_help = IsotonicRegression(y_max=y_max, y_min=y_min,
@@ -283,7 +289,7 @@ class SmoothMonotoneRegression(BaseModel):
 
 
 class EnsembleModel(BaseModel):
-    def __init__(self, models: List[BaseModel], weights):
+    def __init__(self, models: List[BaseModel] = EnsConsts.MODELS, weights=EnsConsts.WEIGHTS):
         self.models = models
         self.weights = weights
 
