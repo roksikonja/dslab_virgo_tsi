@@ -226,6 +226,10 @@ class IsotonicModel(BaseModel):
 
 
 class SmoothMonotoneRegression(BaseModel):
+    """
+    For solvers one can choose: ECOS, ECOS_BB, OSQP, SCS,
+    others (better) are under license: GUROBI (best), CVXOPT
+    """
     def __init__(self, increasing=False, number_of_points=999, y_max=1, y_min=0,
                  out_of_bounds='clip', solver=cp.ECOS_BB, lam=1):
         self.increasing = increasing
