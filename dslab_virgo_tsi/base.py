@@ -3,6 +3,7 @@ from enum import Enum, auto
 from typing import List, Tuple
 
 import numpy as np
+from pykalman import KalmanFilter
 from scipy.interpolate import interp1d
 
 from dslab_virgo_tsi.data_utils import resampling_average_std, notnan_indices, detect_outliers
@@ -142,8 +143,7 @@ class ModelFitter:
         self.base_signals = BaseSignals(a_nn, b_nn, t_a_nn, t_b_nn, exposure_a_nn, exposure_b_nn, a_mutual_nn,
                                         b_mutual_nn, t_mutual_nn, exposure_a_mutual_nn, exposure_b_mutual_nn)
 
-    def __call__(self, model: BaseModel, correction_method: CorrectionMethod, ratio_smoothing,
-                 moving_average_window) -> Result:
+    def __call__(self, model: BaseModel, correction_method: CorrectionMethod, ratio_smoothing) -> Result:
         # Perform initial fit if needed
         initial_params: Params = model.get_initial_params(self.base_signals)
 
@@ -155,7 +155,7 @@ class ModelFitter:
         final_result = model.compute_final_result(self.base_signals, optimal_params)
 
         # Compute output signals
-        out_result = self._compute_output(self.base_signals, final_result, moving_average_window)
+        out_result = self._compute_output(self.base_signals, final_result)
 
         # Return all together
         return Result(self.base_signals, history_mutual_nn, final_result, out_result)
@@ -183,7 +183,8 @@ class ModelFitter:
 
         return data
 
-    def _compute_output(self, base_signals: BaseSignals, final_result: FinalResult, moving_average_window) -> OutResult:
+    @staticmethod
+    def _compute_output(base_signals: BaseSignals, final_result: FinalResult) -> OutResult:
         print("Compute output")
         min_time = np.maximum(np.ceil(base_signals.t_a_nn.min()), np.ceil(base_signals.t_b_nn.min()))
         max_time = np.minimum(np.floor(base_signals.t_a_nn.max()), np.floor(base_signals.t_b_nn.max()))
@@ -199,26 +200,29 @@ class ModelFitter:
         b_nn_hourly_resampled = b_nn_interpolation_func(t_hourly_out)
         b_nn_daily_resampled = b_nn_interpolation_func(t_daily_out)
 
-        signal_hourly_out, signal_std_hourly_out = self._resample_and_compute_gain(
-            a_nn_hourly_resampled, b_nn_hourly_resampled, moving_average_window * 24)
-        signal_daily_out, signal_std_daily_out = self._resample_and_compute_gain(
-            a_nn_daily_resampled, b_nn_daily_resampled, moving_average_window)
+        observations_hourly = np.stack((a_nn_hourly_resampled, b_nn_hourly_resampled), axis=1)
+        observations_daily = np.stack((a_nn_daily_resampled, b_nn_daily_resampled), axis=1)
 
-        return OutResult(t_hourly_out, signal_hourly_out, signal_std_hourly_out, t_daily_out, signal_daily_out,
-                         signal_std_daily_out)
+        mean = np.mean(np.concatenate((final_result.a_nn_corrected, final_result.b_nn_corrected), axis=0))
 
-    @staticmethod
-    def _resample_and_compute_gain(a, b, moving_average_window):
-        a_out_mean, a_out_std = resampling_average_std(a, w=moving_average_window)
-        b_out_mean, b_out_std = resampling_average_std(b, w=moving_average_window)
+        kf = KalmanFilter(n_dim_obs=2,
+                                initial_state_mean=0,
+                                transition_matrices=[[1]],
+                                transition_offsets=0,
+                                observation_matrices=[[1], [1]],
+                                observation_offsets=[0, 0],
+                                em_vars=["transition_covariance",
+                                         "observation_covariance",
+                                         "initial_state_covariance"])
 
-        a_out_std_squared, b_out_std_squared = np.square(a_out_std), np.square(b_out_std)
+        print("Running EM for Kalman Filter")
+        kf.em(observations_daily - mean)
 
-        a_out_gain = np.multiply(a_out_mean, np.divide(b_out_std_squared, a_out_std_squared + b_out_std_squared))
-        b_out_gain = np.multiply(b_out_mean, np.divide(a_out_std_squared, a_out_std_squared + b_out_std_squared))
+        signal_hourly_out, signal_std_hourly_out = kf.smooth(observations_hourly - mean)
+        signal_daily_out, signal_std_daily_out = kf.smooth(observations_daily - mean)
 
-        return a_out_gain + b_out_gain, np.sqrt(np.divide(np.multiply(a_out_std_squared, b_out_std_squared),
-                                                          a_out_std_squared + b_out_std_squared))
+        return OutResult(t_hourly_out, signal_hourly_out.ravel() + mean, np.sqrt(signal_std_hourly_out.ravel()),
+                         t_daily_out, signal_daily_out.ravel() + mean, np.sqrt(signal_std_daily_out.ravel()))
 
     @staticmethod
     def _compute_exposure(x, mode=ExposureMode.NUM_MEASUREMENTS, mean=1.0, length=None):
@@ -235,7 +239,7 @@ class ModelFitter:
     @staticmethod
     def _iterative_correction(model: BaseModel, base_signals: BaseSignals, initial_params: Params,
                               method: CorrectionMethod, ratio_smoothing, eps=1e-7, max_iter=100) -> Tuple[
-        List[FitResult], Params]:
+            List[FitResult], Params]:
         """Note that we here deal only with mutual_nn data. Variable ratio_a_b_mutual_nn_corrected has different
         definitions based on the correction method used."""
         fit_result = FitResult(np.copy(base_signals.a_mutual_nn), np.copy(base_signals.b_mutual_nn),

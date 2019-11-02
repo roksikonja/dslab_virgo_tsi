@@ -213,8 +213,7 @@ if __name__ == "__main__":
 
     result: Result = fitter(model=model,
                             correction_method=correction_method,
-                            ratio_smoothing=ARGS.ratio_smoothing,
-                            moving_average_window=ARGS.window)
+                            ratio_smoothing=ARGS.ratio_smoothing)
 
     if ARGS.save_signals:
         save_modeling_result(results_dir_path, result, ARGS.model_type)
