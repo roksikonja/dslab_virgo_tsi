@@ -1,7 +1,11 @@
-.container-fluid {
-    padding-top: 1.5rem;
+body {
+    padding-top: 1rem;
 }
 
-body {
-    font-family: sans-serif !important;
+@media (min-width: 992px) {
+    .container-fluid {
+        /* width: 80%;
+        max-width: 1000px;
+        */
+    }
 }

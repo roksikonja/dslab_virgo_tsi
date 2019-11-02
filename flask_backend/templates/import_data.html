@@ -1,0 +1,128 @@
+{% extends "layout.html" %}
+{% block content %}
+    <div class="row">
+        <div class="col-12">
+
+            <!-- Form begin -->
+            <form method="POST" action="">
+                {{ form.hidden_tag() }}
+                <div class="form-group row">
+                    {{ form.name.label(class="col-sm-4 col-form-label") }}
+                    <div class="col-sm-8">
+                        {{ form.name(class="form-control") }}
+                        <small class="form-text text-muted">
+                            Filename will be taken as a default name.
+                        </small>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    {{ form.file.label(class="col-sm-4 col-form-label") }}
+                    <div class="col-sm-8">
+                        {% if form.file.errors %}
+                            {{ form.file(class="form-control is-invalid") }}
+                            <div class="invalid-feedback">
+                                <div class="invalid-feedback">
+                                    <span>{{ form.outlier_fraction.errors|join(', ') }}</span>
+                                </div>
+                            </div>
+                        {% else %}
+                            {{ form.file(class="form-control-file") }}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    {{ form.a_field.label(class="col-sm-4 col-form-label") }}
+                    <div class="col-sm-8">
+                        {% if form.a_field.errors %}
+                            {{ form.a_field(class="form-control is-invalid") }}
+                            <div class="invalid-feedback">
+                                <div class="invalid-feedback">
+                                    <span>{{ form.outlier_fraction.errors|join(', ') }}</span>
+                                </div>
+                            </div>
+                        {% else %}
+                            {{ form.a_field(class="form-control") }}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    {{ form.b_field.label(class="col-sm-4 col-form-label") }}
+                    <div class="col-sm-8">
+                        {% if form.b_field.errors %}
+                            {{ form.b_field(class="form-control is-invalid") }}
+                            <div class="invalid-feedback">
+                                <div class="invalid-feedback">
+                                    <span>{{ form.outlier_fraction.errors|join(', ') }}</span>
+                                </div>
+                            </div>
+                        {% else %}
+                            {{ form.b_field(class="form-control") }}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    {{ form.time_field.label(class="col-sm-4 col-form-label") }}
+                    <div class="col-sm-8">
+                        {% if form.time_field.errors %}
+                            {{ form.time_field(class="form-control is-invalid") }}
+                            <div class="invalid-feedback">
+                                <div class="invalid-feedback">
+                                    <span>{{ form.outlier_fraction.errors|join(', ') }}</span>
+                                </div>
+                            </div>
+                        {% else %}
+                            {{ form.time_field(class="form-control") }}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    {{ form.exposure_mode.label(class="col-sm-4 col-form-label") }}
+                    <div class="col-sm-8">
+                        {% if form.exposure_mode.errors %}
+                            {{ form.exposure_mode(class="custom-select is-invalid") }}
+                            <div class="invalid-feedback">
+                                <div class="invalid-feedback">
+                                    <span>{{ form.outlier_fraction.errors|join(', ') }}</span>
+                                </div>
+                            </div>
+                        {% else %}
+                            {{ form.exposure_mode(class="custom-select") }}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    {{ form.outlier_fraction.label(class="col-sm-4 col-form-label") }}
+                    <div class="col-sm-8">
+                        {% if form.outlier_fraction.errors %}
+                            {{ form.outlier_fraction(class="form-control is-invalid") }}
+                            <div class="invalid-feedback">
+                                <span>{{ form.outlier_fraction.errors|join(', ') }}</span>
+                            </div>
+                        {% else %}
+                            {{ form.outlier_fraction(class="form-control") }}
+                            <small class="form-text text-muted">
+                                Value must be between 0 and 1.
+                            </small>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <div class="col-sm-10">
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </div>
+
+            </form>
+            <!-- Form end -->
+
+        </div>
+    </div>
+
+{% endblock content %}
