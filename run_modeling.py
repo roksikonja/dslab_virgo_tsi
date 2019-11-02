@@ -204,7 +204,8 @@ if __name__ == "__main__":
 
     print(correction_method)
 
-    fitter = ModelFitter(data=data_pmo6v,
+    fitter = ModelFitter(mode="virgo",
+                         data=data_pmo6v,
                          t_field_name=Const.T,
                          a_field_name=Const.A,
                          b_field_name=Const.B,

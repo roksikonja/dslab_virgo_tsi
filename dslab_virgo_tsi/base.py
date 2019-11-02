@@ -112,7 +112,9 @@ class ModelFitter:
     nn -> values taken at times when specific signal is not nan
     """
 
-    def __init__(self, data, a_field_name, b_field_name, t_field_name, exposure_mode, outlier_fraction=0):
+    def __init__(self, mode, data, a_field_name, b_field_name, t_field_name, exposure_mode, outlier_fraction=0):
+        self.mode = mode
+
         # Compute all signals and store all relevant to BaseSignals object
         a, b, t = data[a_field_name].values, data[b_field_name].values, data[t_field_name].values
 
@@ -183,16 +185,28 @@ class ModelFitter:
 
         return data
 
-    @staticmethod
-    def _compute_output(base_signals: BaseSignals, final_result: FinalResult) -> OutResult:
+    def _compute_output(self, base_signals: BaseSignals, final_result: FinalResult) -> OutResult:
         print("Compute output")
-        min_time = np.maximum(np.ceil(base_signals.t_a_nn.min()), np.ceil(base_signals.t_b_nn.min()))
-        max_time = np.minimum(np.floor(base_signals.t_a_nn.max()), np.floor(base_signals.t_b_nn.max()))
 
-        t_hourly_out = np.arange(min_time, max_time, 1.0 / 24.0)
-        t_daily_out = np.arange(min_time, max_time, 1.0)
+        num_hours, num_days = None, None
+        min_time, max_time = None, None
+        if self.mode == "virgo":
+            min_time = np.maximum(np.ceil(base_signals.t_a_nn.min()), np.ceil(base_signals.t_b_nn.min()))
+            max_time = np.minimum(np.floor(base_signals.t_a_nn.max()), np.floor(base_signals.t_b_nn.max()))
 
-        a_nn_interpolation_func = interp1d(base_signals.t_a_nn, final_result.a_nn_corrected, kind="linear")
+            num_days = int((max_time - min_time) + 1)
+            num_hours = int(24 * (max_time - min_time) + 1)
+        elif self.mode == "generator":
+            min_time = np.maximum(base_signals.t_a_nn.min(), base_signals.t_b_nn.min())
+            max_time = np.minimum(base_signals.t_a_nn.max(), base_signals.t_b_nn.max())
+
+            num_days = int(10000)
+            num_hours = int(10000)
+
+        t_hourly_out = np.linspace(min_time, max_time, num_hours)
+        t_daily_out = np.linspace(min_time, max_time, num_days)
+
+        a_nn_interpolation_func = interp1d(base_signals.t_a_nn, final_result.a_nn_corrected, kind="nearest")
         a_nn_hourly_resampled = a_nn_interpolation_func(t_hourly_out)
         a_nn_daily_resampled = a_nn_interpolation_func(t_daily_out)
 
