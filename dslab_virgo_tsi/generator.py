@@ -113,18 +113,16 @@ def plot_results(t_, x_, result_: Result, results_dir, model_name):
     final_res: FinalResult = result_.final
 
     print("plotting results ...")
-    figs = []
 
-    fig = visualizer.plot_signals(
+    visualizer.plot_signals(
         [
             (base_sig.t_a_nn, final_res.degradation_a_nn, "DEGRADATION_A", False),
             (base_sig.t_b_nn, final_res.degradation_b_nn, "DEGRADATION_B", False)
         ],
         results_dir, f"DEGRADATION_{model_name}", legend="upper right",
         x_label="t", y_label="d(t)")
-    figs.append(fig)
 
-    fig = visualizer.plot_signals(
+    visualizer.plot_signals(
         [
             (base_sig.t_mutual_nn, before_fit.a_mutual_nn_corrected, "A_mutual_nn", False),
             (base_sig.t_mutual_nn, before_fit.b_mutual_nn_corrected, "B_mutual_nn", False),
@@ -134,9 +132,8 @@ def plot_results(t_, x_, result_: Result, results_dir, model_name):
         ],
         results_dir, f"{model_name}_mutual_corrected", legend="upper right",
         x_label="t", y_label="x(t)")
-    figs.append(fig)
 
-    fig = visualizer.plot_signals(
+    visualizer.plot_signals(
         [
             (base_sig.t_mutual_nn, before_fit.ratio_a_b_mutual_nn_corrected, f"RATIO_A_B_raw", False),
             (base_sig.t_mutual_nn, last_iter.ratio_a_b_mutual_nn_corrected, f"RATIO_A_not_B_corrected",
@@ -146,9 +143,8 @@ def plot_results(t_, x_, result_: Result, results_dir, model_name):
              ],
         results_dir, f"{model_name}_RATIO_DEGRADATION_A_B_raw_corrected",
         legend="upper right", x_label="t", y_label="r(t)")
-    figs.append(fig)
 
-    fig = visualizer.plot_signals(
+    visualizer.plot_signals(
         [
             (base_sig.t_a_nn, base_sig.a_nn, "A_raw", False),
             (base_sig.t_b_nn, base_sig.b_nn, "B_raw", False),
@@ -158,10 +154,8 @@ def plot_results(t_, x_, result_: Result, results_dir, model_name):
         ],
         results_dir, f"{model_name}_A_B_raw_corrected_full",
         legend="upper right", x_label="t", y_label="x(t)")
-    figs.append(fig)
 
-    fig = visualizer.plot_signal_history(base_sig.t_mutual_nn, result_.history_mutual_nn,
+    visualizer.plot_signal_history(base_sig.t_mutual_nn, result_.history_mutual_nn,
                                          results_dir, f"{model_name}_history",
                                          ground_truth_triplet=(t_, x_, "ground_truth"),
                                          legend="upper right", x_label="t", y_label="x(t)")
-    figs.append(fig)

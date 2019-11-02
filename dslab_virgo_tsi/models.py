@@ -1,14 +1,13 @@
-from abc import ABC
 from typing import List, Tuple
 
-import numpy as np
 import cvxpy as cp
+import numpy as np
 from scipy.interpolate import UnivariateSpline, splev, splrep, interp1d
 from scipy.optimize import curve_fit, minimize
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LinearRegression
 
-from dslab_virgo_tsi.base import BaseModel, BaseSignals, Params, FinalResult, FitResult, Corrections
+from dslab_virgo_tsi.base import BaseModel, BaseSignals, Params, FinalResult, FitResult, Corrections, CorrectionMethod
 
 
 class ExpFamilyMixin:
@@ -112,7 +111,7 @@ class ExpModel(BaseModel, ExpFamilyMixin):
         return Params(all=[lambda_initial, e_0_initial])
 
     def fit_and_correct(self, base_signals: BaseSignals, fit_result: FitResult,
-                        initial_params: Params) -> Tuple[Corrections, Params]:
+                        initial_params: Params, method: CorrectionMethod) -> Tuple[Corrections, Params]:
         params, _ = curve_fit(self._exp, base_signals.exposure_a_mutual_nn,
                               fit_result.ratio_a_b_mutual_nn_corrected,
                               p0=initial_params.kwargs.get('all'))
@@ -144,7 +143,7 @@ class ExpLinModel(BaseModel, ExpFamilyMixin):
         return Params(all=[lambda_initial, e_0_initial, 0])
 
     def fit_and_correct(self, base_signals: BaseSignals, fit_result: FitResult,
-                        initial_params: Params) -> Tuple[Corrections, Params]:
+                        initial_params: Params, method: CorrectionMethod) -> Tuple[Corrections, Params]:
         params, _ = curve_fit(self._exp_lin, base_signals.exposure_a_mutual_nn,
                               fit_result.ratio_a_b_mutual_nn_corrected,
                               p0=initial_params.kwargs.get('all'))
@@ -180,7 +179,7 @@ class SplineModel(BaseModel):
         return Params()
 
     def fit_and_correct(self, base_signals: BaseSignals, fit_result: FitResult,
-                        initial_params: Params) -> Tuple[Corrections, Params]:
+                        initial_params: Params, method: CorrectionMethod) -> Tuple[Corrections, Params]:
         self.model.fit(base_signals.exposure_a_mutual_nn[::self.thinning],
                        fit_result.ratio_a_b_mutual_nn_corrected[::self.thinning])
         a_correction = self.model.predict(base_signals.exposure_a_mutual_nn)
@@ -206,7 +205,7 @@ class IsotonicModel(BaseModel):
         return Params()
 
     def fit_and_correct(self, base_signals: BaseSignals, fit_result: FitResult,
-                        initial_params: Params) -> Tuple[Corrections, Params]:
+                        initial_params: Params, method: CorrectionMethod) -> Tuple[Corrections, Params]:
         self.model.fit(base_signals.exposure_a_mutual_nn, fit_result.ratio_a_b_mutual_nn_corrected)
         if self.smoothing:
             max_exposure = base_signals.exposure_a_mutual_nn[-1]
@@ -227,9 +226,8 @@ class IsotonicModel(BaseModel):
 
 
 class SmoothMonotoneRegression(BaseModel):
-    def __init__(self, convex=True, increasing=False, number_of_points=999, y_max=1, y_min=0,
+    def __init__(self, increasing=False, number_of_points=999, y_max=1, y_min=0,
                  out_of_bounds='clip', solver=cp.ECOS_BB, lam=1):
-        self.convex = convex
         self.increasing = increasing
         self.number_of_points = number_of_points
         self.model_for_help = IsotonicRegression(y_max=y_max, y_min=y_min,
@@ -241,27 +239,34 @@ class SmoothMonotoneRegression(BaseModel):
     def get_initial_params(self, base_signals: BaseSignals) -> Params:
         return Params()
 
-    def _calculate_smooth_monotone_function(self, exposure):
+    def _calculate_smooth_monotone_function(self, exposure, convex):
         y = self.model_for_help.predict(exposure)
         mu = cp.Variable(self.number_of_points)
         objective = cp.Minimize(cp.sum_squares(mu - y) + self.lam * cp.sum_squares(mu[:-1] - mu[1:]))
-        constraints = [mu <= 1]
+        constraints = [mu <= 1, mu[0] == 1]
         if not self.increasing:
             constraints.append(mu[1:] <= mu[:-1])
-        if self.convex:
+
+        if convex:
             constraints.append(mu[:-2] + mu[2:] >= 2 * mu[1:-1])
+
         model = cp.Problem(objective, constraints)
         model.solve(solver=self.solver)
         spline = interp1d(exposure, mu.value, fill_value="extrapolate")
         return spline
 
     def fit_and_correct(self, base_signals: BaseSignals, fit_result: FitResult,
-                        initial_params: Params) -> Tuple[Corrections, Params]:
+                        initial_params: Params, method: CorrectionMethod) -> Tuple[Corrections, Params]:
         self.model_for_help.fit(base_signals.exposure_a_mutual_nn, fit_result.ratio_a_b_mutual_nn_corrected)
         max_exposure = base_signals.exposure_a_mutual_nn[-1]
         exposure = np.linspace(0, max_exposure, self.number_of_points)
-        self.model = self._calculate_smooth_monotone_function(exposure)
 
+        if method == CorrectionMethod.CORRECT_ONE:
+            convex = True
+        else:
+            convex = False
+
+        self.model = self._calculate_smooth_monotone_function(exposure, convex)
         a_correction = self.model(base_signals.exposure_a_mutual_nn)
         b_correction = self.model(base_signals.exposure_b_mutual_nn)
 
@@ -285,13 +290,14 @@ class EnsembleModel(BaseModel):
         return Params(all=params)
 
     def fit_and_correct(self, base_signals: BaseSignals, fit_result: FitResult,
-                        initial_params: Params) -> Tuple[Corrections, Params]:
+                        initial_params: Params, method: CorrectionMethod) -> Tuple[Corrections, Params]:
         initial_params_list: List[Params] = initial_params.kwargs.get("all")
         # Placeholder for empty NumPy array of adequate size (size can be obtained 5 lines below)
         a_correction, b_correction = 0, 0
         params = []
         for index, (model, weight) in enumerate(zip(self.models, self.weights)):
-            corrections, current_params = model.fit_and_correct(base_signals, fit_result, initial_params_list[index])
+            corrections, current_params = model.fit_and_correct(base_signals, fit_result, initial_params_list[index],
+                                                                method)
             # a_correction += np.divide(weight, corrections.a_correction)
             # b_correction += np.divide(weight, corrections.b_correction)
             a_correction += np.multiply(weight, corrections.a_correction)

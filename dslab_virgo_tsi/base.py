@@ -5,7 +5,7 @@ from typing import List, Tuple
 import numpy as np
 from scipy.interpolate import interp1d
 
-from dslab_virgo_tsi.data_utils import resampling_average_std, notnan_indices, detect_outliers, downsample_signal
+from dslab_virgo_tsi.data_utils import resampling_average_std, notnan_indices, detect_outliers
 
 
 class ExposureMode(Enum):
@@ -27,12 +27,6 @@ class BaseSignals:
         self.a_mutual_nn, self.b_mutual_nn = a_mutual_nn, b_mutual_nn
         self.t_mutual_nn = t_mutual_nn
         self.exposure_a_mutual_nn, self.exposure_b_mutual_nn = exposure_a_mutual_nn, exposure_b_mutual_nn
-
-    def downsample_nn_signals(self, k_a, k_b):
-        self.t_a_nn, self.t_b_nn = downsample_signal(self.t_a_nn, k_a), downsample_signal(self.t_b_nn, k_b)
-        self.a_nn, self.b_nn = downsample_signal(self.a_nn, k_a), downsample_signal(self.b_nn, k_b)
-        self.exposure_a_nn = downsample_signal(self.exposure_a_nn, k_a)
-        self.exposure_b_nn = downsample_signal(self.exposure_b_nn, k_b)
 
 
 class OutResult:
@@ -73,12 +67,6 @@ class FinalResult:
         self.a_nn_corrected = np.divide(base_signals.a_nn, degradation_a_nn)
         self.b_nn_corrected = np.divide(base_signals.b_nn, degradation_b_nn)
 
-    def downsample_nn_signals(self, k_a, k_b):
-        self.degradation_a_nn = downsample_signal(self.degradation_a_nn, k_a)
-        self.degradation_b_nn = downsample_signal(self.degradation_b_nn, k_b)
-        self.a_nn_corrected = downsample_signal(self.a_nn_corrected, k_a)
-        self.b_nn_corrected = downsample_signal(self.b_nn_corrected, k_b)
-
 
 class Result:
     def __init__(self, base_signals: BaseSignals, history_mutual_nn: List[FitResult], final: FinalResult,
@@ -88,10 +76,6 @@ class Result:
         self.final = final
         self.out = out
 
-    def downsample_nn_signals(self, k_a, k_b):
-        self.base_signals.downsample_nn_signals(k_a, k_b)
-        self.final.downsample_nn_signals(k_a, k_b)
-
 
 class BaseModel(ABC):
     @abstractmethod
@@ -100,7 +84,7 @@ class BaseModel(ABC):
 
     @abstractmethod
     def fit_and_correct(self, base_signals: BaseSignals, fit_result: FitResult,
-                        initial_params: Params) -> Tuple[Corrections, Params]:
+                        initial_params: Params, method: CorrectionMethod) -> Tuple[Corrections, Params]:
         """
 
         Parameters
@@ -108,6 +92,7 @@ class BaseModel(ABC):
         base_signals
         fit_result
         initial_params
+        method
 
         Returns
         -------
@@ -157,13 +142,14 @@ class ModelFitter:
         self.base_signals = BaseSignals(a_nn, b_nn, t_a_nn, t_b_nn, exposure_a_nn, exposure_b_nn, a_mutual_nn,
                                         b_mutual_nn, t_mutual_nn, exposure_a_mutual_nn, exposure_b_mutual_nn)
 
-    def __call__(self, model: BaseModel, correction_method: CorrectionMethod, moving_average_window=81) -> Result:
+    def __call__(self, model: BaseModel, correction_method: CorrectionMethod, ratio_smoothing,
+                 moving_average_window) -> Result:
         # Perform initial fit if needed
         initial_params: Params = model.get_initial_params(self.base_signals)
 
         # Compute iterative corrections
         history_mutual_nn, optimal_params = self._iterative_correction(model, self.base_signals, initial_params,
-                                                                       correction_method)
+                                                                       correction_method, ratio_smoothing)
 
         # Compute final result
         final_result = model.compute_final_result(self.base_signals, optimal_params)
@@ -189,17 +175,11 @@ class ModelFitter:
         print(f"{a_field_name}: {a_outlier_indices.sum()} outliers")
         print(f"{b_field_name}: {b_outlier_indices.sum()} outliers")
 
-        # a_outliers = a.copy()
-        # b_outliers = b.copy()
-
         a[a_outlier_indices] = np.nan
         b[b_outlier_indices] = np.nan
 
         data[a_field_name] = a
         data[b_field_name] = b
-
-        # a_outliers[~a_outlier_indices] = np.nan
-        # b_outliers[~b_outlier_indices] = np.nan
 
         return data
 
@@ -254,7 +234,8 @@ class ModelFitter:
 
     @staticmethod
     def _iterative_correction(model: BaseModel, base_signals: BaseSignals, initial_params: Params,
-                              method: CorrectionMethod, eps=1e-7, max_iter=100) -> Tuple[List[FitResult], Params]:
+                              method: CorrectionMethod, ratio_smoothing, eps=1e-7, max_iter=100) -> Tuple[
+        List[FitResult], Params]:
         """Note that we here deal only with mutual_nn data. Variable ratio_a_b_mutual_nn_corrected has different
         definitions based on the correction method used."""
         fit_result = FitResult(np.copy(base_signals.a_mutual_nn), np.copy(base_signals.b_mutual_nn),
@@ -270,7 +251,8 @@ class ModelFitter:
             fit_result_previous = fit_result
 
             # Use model for fitting
-            corrections, current_params = model.fit_and_correct(base_signals, fit_result_previous, initial_params)
+            corrections, current_params = model.fit_and_correct(base_signals, fit_result_previous, initial_params,
+                                                                method)
 
             if method == CorrectionMethod.CORRECT_BOTH:
                 a_mutual_nn_corrected = np.divide(fit_result_previous.a_mutual_nn_corrected, corrections.a_correction)
@@ -280,6 +262,12 @@ class ModelFitter:
                 a_mutual_nn_corrected = np.divide(base_signals.a_mutual_nn, corrections.a_correction)
                 b_mutual_nn_corrected = np.divide(base_signals.b_mutual_nn, corrections.b_correction)
                 ratio_a_b_mutual_nn_corrected = np.divide(base_signals.a_mutual_nn, b_mutual_nn_corrected)
+
+            if ratio_smoothing:
+                ratio_a_b_mutual_nn_corrected, _ = resampling_average_std(ratio_a_b_mutual_nn_corrected,
+                                                                          w=ratio_a_b_mutual_nn_corrected.shape[
+                                                                                0] / 100,
+                                                                          std=False)
 
             # Store current state to history
             fit_result = FitResult(a_mutual_nn_corrected, b_mutual_nn_corrected, ratio_a_b_mutual_nn_corrected)
@@ -297,8 +285,9 @@ class ModelFitter:
             print("\nstep:\t" + str(step) + "\nnorm:\t", delta_norm, "\nparams:\t", current_params)
 
         if method == CorrectionMethod.CORRECT_BOTH:
+            method = CorrectionMethod.CORRECT_ONE
             ratio_final = np.divide(base_signals.a_mutual_nn, fit_result.b_mutual_nn_corrected)
             fit_result_final = FitResult(base_signals.a_mutual_nn, fit_result.b_mutual_nn_corrected, ratio_final)
-            _, current_params = model.fit_and_correct(base_signals, fit_result_final, initial_params)
+            _, current_params = model.fit_and_correct(base_signals, fit_result_final, initial_params, method)
 
         return history, current_params

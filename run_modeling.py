@@ -3,7 +3,6 @@ import datetime
 import os
 import pickle
 
-import matplotlib.pyplot as plt
 import numpy as np
 
 from dslab_virgo_tsi.base import ExposureMode, Result, FitResult, ModelFitter, BaseSignals, OutResult, FinalResult, \
@@ -17,15 +16,16 @@ from dslab_virgo_tsi.visualizer import Visualizer
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--save", action="store_true", help="Flag for saving results.")
-    parser.add_argument("--visualize", action="store_true", help="Flag for visualizing results.")
+    parser.add_argument("--save_plots", action="store_true", help="Flag for saving plots.")
+    parser.add_argument("--save_signals", action="store_true", help="Flag for saving computed signals.")
 
     parser.add_argument("--model_type", type=str, default="smooth_monotonic", help="Model to train.")
     parser.add_argument("--model_smoothing", action="store_true", help="Only for isotonic model.")
 
-    parser.add_argument("--correction_method", type=int, default=2, help="Iterative correction method.")
+    parser.add_argument("--correction_method", type=str, default="one", help="Iterative correction method.")
     parser.add_argument("--window", type=int, default=81, help="Moving average window size.")
     parser.add_argument("--outlier_fraction", type=float, default=0, help="Outlier fraction.")
+    parser.add_argument("--ratio_smoothing", action="store_true", help="Flag for ratio smoothing before fitting.")
 
     return parser.parse_args()
 
@@ -50,18 +50,15 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
     final_res: FinalResult = result_.final
 
     print("plotting results ...")
-    figs = []
-
-    fig = visualizer.plot_signals(
+    visualizer.plot_signals(
         [
             (base_sig.t_a_nn, final_res.degradation_a_nn, f"DEGRADATION_{Const.A}", False),
             (base_sig.t_b_nn, final_res.degradation_b_nn, f"DEGRADATION_{Const.B}", False)
         ],
         results_dir, f"DEGRADATION_{Const.A}_{Const.B}_{model_name}", x_ticker=1, legend="upper right",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
-    figs.append(fig)
 
-    fig = visualizer.plot_signals(
+    visualizer.plot_signals(
         [
             (base_sig.t_mutual_nn, before_fit.a_mutual_nn_corrected, f"{Const.A}_mutual_nn", False),
             (base_sig.t_mutual_nn, before_fit.b_mutual_nn_corrected, f"{Const.B}_mutual_nn", False),
@@ -70,9 +67,8 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
         ],
         results_dir, f"{model_name}_{Const.A}_{Const.B}_mutual_corrected", x_ticker=1, legend="upper right",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
-    figs.append(fig)
 
-    fig = visualizer.plot_signals(
+    visualizer.plot_signals(
         [
             (base_sig.t_mutual_nn, before_fit.ratio_a_b_mutual_nn_corrected, f"RATIO_{Const.A}_{Const.B}_raw", False),
             (base_sig.t_mutual_nn, last_iter.ratio_a_b_mutual_nn_corrected, f"RATIO_{Const.A}_not_{Const.B}_corrected",
@@ -82,9 +78,8 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
         ],
         results_dir, f"{model_name}_RATIO_DEGRADATION_{Const.A}_{Const.B}_raw_corrected", x_ticker=1,
         legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
-    figs.append(fig)
 
-    fig = visualizer.plot_signals(
+    visualizer.plot_signals(
         [
             (base_sig.t_a_nn, base_sig.a_nn, f"{Const.A}_raw", False),
             (base_sig.t_b_nn, base_sig.b_nn, f"{Const.B}_raw", False),
@@ -93,45 +88,39 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
         ],
         results_dir, f"{model_name}_{Const.A}_{Const.B}_raw_corrected_full", x_ticker=1, y_lim=[1357, 1369],
         legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
-    figs.append(fig)
 
-    fig = visualizer.plot_signals_mean_std_precompute(
+    visualizer.plot_signals_mean_std_precompute(
         [
             (out_res.t_daily_out, out_res.signal_daily_out, out_res.signal_std_daily_out, f"TSI_daily_{model_name}")
         ],
         results_dir, f"TSI_daily_{model_name}", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
-    figs.append(fig)
 
-    fig = visualizer.plot_signals_mean_std_precompute(
+    visualizer.plot_signals_mean_std_precompute(
         [
             (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
         ],
         results_dir, f"TSI_hourly_{model_name}", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
-    figs.append(fig)
 
-    fig = visualizer.plot_signals_mean_std(
+    visualizer.plot_signals_mean_std(
         [
             (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_corrected_conf_int", window_size)
         ],
         results_dir, f"{model_name}_{Const.A}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1362, 1369])
-    figs.append(fig)
 
-    fig = visualizer.plot_signals_mean_std(
+    visualizer.plot_signals_mean_std(
         [
             (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_corrected_conf_int", window_size)
         ],
         results_dir, f"{model_name}_{Const.B}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1362, 1369])
-    figs.append(fig)
 
-    fig = visualizer.plot_signal_history(base_sig.t_mutual_nn, result_.history_mutual_nn,
-                                         results_dir, f"{model_name}_history",
-                                         ground_truth_triplet=None,
-                                         legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
-    figs.append(fig)
+    visualizer.plot_signal_history(base_sig.t_mutual_nn, result_.history_mutual_nn,
+                                   results_dir, f"{model_name}_history",
+                                   ground_truth_triplet=None,
+                                   legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
     """
     fig = visualizer.plot_signals(
@@ -208,7 +197,7 @@ if __name__ == "__main__":
         model = SmoothMonotoneRegression()
 
     # Get correction method
-    if ARGS.correction_method == 1:
+    if ARGS.correction_method == "both":
         correction_method = CorrectionMethod.CORRECT_BOTH
     else:
         correction_method = CorrectionMethod.CORRECT_ONE
@@ -224,13 +213,11 @@ if __name__ == "__main__":
 
     result: Result = fitter(model=model,
                             correction_method=correction_method,
+                            ratio_smoothing=ARGS.ratio_smoothing,
                             moving_average_window=ARGS.window)
 
-    if ARGS.save:
+    if ARGS.save_signals:
         save_modeling_result(results_dir_path, result, ARGS.model_type)
 
-    result.downsample_nn_signals(k_a=1, k_b=1)
-    plot_results(result, results_dir_path, ARGS.model_type, ARGS.window)
-
-    if ARGS.visualize:
-        plt.show()
+    if ARGS.save_plots or not ARGS.save_signals:
+        plot_results(result, results_dir_path, ARGS.model_type, ARGS.window)

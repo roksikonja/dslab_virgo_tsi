@@ -226,6 +226,8 @@ class Visualizer(object):
                     axs[selected_step, 0].plot(t_ground_truth, signal_ground_truth, label=label_ground_truth)
 
                 axs[selected_step, 1].plot(t_mutual, r, label=f"step_{step}_RATIO")
+                axs[selected_step, 1].plot(t_mutual, fitresult.ratio_a_b_mutual_nn_corrected,
+                                           label=f"step_{step}_RATIO_fitted")
 
                 if x_label:
                     axs[selected_step, 0].set_xlabel(x_label)

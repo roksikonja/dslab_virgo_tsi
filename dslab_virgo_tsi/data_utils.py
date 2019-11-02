@@ -152,7 +152,15 @@ class NumpyQueue:
         return self.array[self.beginning:self.end]
 
 
-def resampling_average_std(x, w):
+def interpolate_nearest(x):
+    ind = np.where(~np.isnan(x))[0]
+    first, last = ind[0], ind[-1]
+    x[:first] = x[first]
+    x[last + 1:] = x[last]
+    return x
+
+
+def resampling_average_std(x, w, std=True):
     w = int(w)
     x_resampled_mean = None
     x_resampled_std = None
@@ -163,7 +171,10 @@ def resampling_average_std(x, w):
     if w > 1:
         x = x.rolling(w, center=True)
         x_resampled_mean = x.mean()
-        x_resampled_std = x.std()
+        x_resampled_mean = interpolate_nearest(x_resampled_mean)
+        if std:
+            x_resampled_std = x.std()
+            x_resampled_std = interpolate_nearest(x_resampled_std)
 
     return x_resampled_mean, x_resampled_std
 
