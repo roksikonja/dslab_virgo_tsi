@@ -312,6 +312,9 @@ class ExpModel(BaseModel, ExpFamilyMixin):
         y = np.exp(-lambda_ * (x - e_0)) + (1 - np.exp(lambda_ * e_0))
         return y
 
+    def __repr__(self):
+        return "ExpModel"
+
 
 class ExpLinModel(BaseModel, ExpFamilyMixin):
     def get_initial_params(self, base_signals: BaseSignals) -> Params:
@@ -362,6 +365,9 @@ class ExpLinModel(BaseModel, ExpFamilyMixin):
         y = np.exp(-lambda_ * (x - e_0)) + (1 - np.exp(lambda_ * e_0)) + linear * x
         return y
 
+    def __repr__(self):
+        return "ExpLinModel"
+
 
 class SplineModel(BaseModel):
     def __init__(self, k=SplConsts.K, steps=SplConsts.STEPS, thinning=SplConsts.THINNING):
@@ -396,6 +402,9 @@ class SplineModel(BaseModel):
     def compute_final_result(self, base_signals: BaseSignals, optimal_params: Params) -> FinalResult:
         sp = optimal_params.kwargs.get('sp')
         return FinalResult(base_signals, sp.predict(base_signals.exposure_a_nn), sp.predict(base_signals.exposure_b_nn))
+
+    def __repr__(self):
+        return "SplineModel"
 
 
 class IsotonicModel(BaseModel):
@@ -452,6 +461,9 @@ class IsotonicModel(BaseModel):
         model = optimal_params.kwargs.get('model')
         return FinalResult(base_signals, model.predict(base_signals.exposure_a_nn),
                            model.predict(base_signals.exposure_b_nn))
+
+    def __repr__(self):
+        return "IsotonicModel"
 
 
 class SmoothMonotoneRegression(BaseModel):
@@ -528,6 +540,8 @@ class SmoothMonotoneRegression(BaseModel):
         return FinalResult(base_signals, model(base_signals.exposure_a_nn),
                            model(base_signals.exposure_b_nn))
 
+    def __repr__(self):
+        return "SmoothMonotonicRegressionModel"
 
 class EnsembleModel(BaseModel):
     def __init__(self, models: List[BaseModel] = EnsConsts.MODELS, weights=EnsConsts.WEIGHTS):
@@ -576,3 +590,6 @@ class EnsembleModel(BaseModel):
             degradation_a_nn += weight * partial_results.degradation_a_nn
             degradation_b_nn += weight * partial_results.degradation_b_nn
         return FinalResult(base_signals, degradation_a_nn, degradation_b_nn)
+
+    def __repr__(self):
+        return "EnsembleModel"
