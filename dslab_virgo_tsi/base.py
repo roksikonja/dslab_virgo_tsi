@@ -22,6 +22,33 @@ class CorrectionMethod(Enum):
 class BaseSignals:
     def __init__(self, a_nn, b_nn, t_a_nn, t_b_nn, exposure_a_nn, exposure_b_nn, a_mutual_nn, b_mutual_nn, t_mutual_nn,
                  exposure_a_mutual_nn, exposure_b_mutual_nn):
+        """
+
+        Parameters
+        ----------
+        a_nn : array_like
+            Signal a with non nan values.
+        b_nn : array_like
+            Signal a with non nan values.
+        t_a_nn : array_like
+            Time at which sensor a has non nan value.
+        t_b_nn : array_like
+            Time at which sensor b has non nan value.
+        exposure_a_nn : array_like
+            Exposure at which sensor b has non nan value.
+        exposure_b_nn : array_like
+            Exposure at which sensor b has non nan value.
+        a_mutual_nn : array_like
+            Signal a where neither a nor b signal have nan values.
+        b_mutual_nn : array_like
+            Signal b where neither a nor b signal have nan values.
+        t_mutual_nn : array_like
+            Time where neither a nor b signal have nan values.
+        exposure_a_mutual_nn : array_like
+            Exposure a where neither a nor b signal have nan values.
+        exposure_b_mutual_nn : array_like
+            Exposure b where neither a nor b signal have nan values.
+        """
         self.a_nn, self.b_nn = a_nn, b_nn
         self.t_a_nn, self.t_b_nn = t_a_nn, t_b_nn
         self.exposure_a_nn, self.exposure_b_nn = exposure_a_nn, exposure_b_nn
@@ -33,6 +60,23 @@ class BaseSignals:
 class OutResult:
     def __init__(self, t_hourly_out, signal_hourly_out, signal_std_hourly_out, t_daily_out, signal_daily_out,
                  signal_std_daily_out):
+        """
+
+        Parameters
+        ----------
+        t_hourly_out : array_like
+            Times by hour.
+        signal_hourly_out : array_like
+            Final signal sampled every hour.
+        signal_std_hourly_out : array_like
+            Standard deviation of final signal sampled every hour.
+        t_daily_out : array_like
+            Times by day.
+        signal_daily_out : array_like
+            Final signal sampled every day.
+        signal_std_daily_out : array_like
+            Standard deviation of final signal sampled every day.
+        """
         self.t_hourly_out = t_hourly_out
         self.signal_hourly_out = signal_hourly_out
         self.signal_std_hourly_out = signal_std_hourly_out
@@ -43,6 +87,15 @@ class OutResult:
 
 class Params:
     def __init__(self, *args, **kwargs):
+        """
+
+        Parameters
+        ----------
+        args : List
+            List of parameters.
+        kwargs : Dict
+            Dictionary of parameters.
+        """
         self.args = args
         self.kwargs = kwargs
 
@@ -52,6 +105,15 @@ class Params:
 
 class Corrections:
     def __init__(self, a_correction, b_correction):
+        """
+
+        Parameters
+        ----------
+        a_correction : array_like
+            Corrected signal a.
+        b_correction : array_like
+            Corrected signal b.
+        """
         self.a_correction = a_correction
         self.b_correction = b_correction
 
