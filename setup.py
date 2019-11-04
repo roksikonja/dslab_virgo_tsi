@@ -22,6 +22,7 @@ setup(
                 "tables",
                 "numba",
                 "pytables>=3.2",
-                "flask"
+                "flask",
+                "wtforms"
         ],
 )

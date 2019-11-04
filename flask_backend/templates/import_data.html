@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 {% block content %}
     <div class="row">
-        <div class="col-12">
+        <div class="col-lg-8">
 
             <!-- Form begin -->
             <form method="POST" action="">
@@ -23,7 +23,7 @@
                             {{ form.file(class="form-control is-invalid") }}
                             <div class="invalid-feedback">
                                 <div class="invalid-feedback">
-                                    <span>{{ form.outlier_fraction.errors|join(', ') }}</span>
+                                    <span>{{ form.file.errors|join(', ') }}</span>
                                 </div>
                             </div>
                         {% else %}
@@ -39,7 +39,7 @@
                             {{ form.a_field(class="form-control is-invalid") }}
                             <div class="invalid-feedback">
                                 <div class="invalid-feedback">
-                                    <span>{{ form.outlier_fraction.errors|join(', ') }}</span>
+                                    <span>{{ form.a_field.errors|join(', ') }}</span>
                                 </div>
                             </div>
                         {% else %}
@@ -55,7 +55,7 @@
                             {{ form.b_field(class="form-control is-invalid") }}
                             <div class="invalid-feedback">
                                 <div class="invalid-feedback">
-                                    <span>{{ form.outlier_fraction.errors|join(', ') }}</span>
+                                    <span>{{ form.b_field.errors|join(', ') }}</span>
                                 </div>
                             </div>
                         {% else %}
@@ -71,7 +71,7 @@
                             {{ form.time_field(class="form-control is-invalid") }}
                             <div class="invalid-feedback">
                                 <div class="invalid-feedback">
-                                    <span>{{ form.outlier_fraction.errors|join(', ') }}</span>
+                                    <span>{{ form.time_field.errors|join(', ') }}</span>
                                 </div>
                             </div>
                         {% else %}
@@ -87,7 +87,7 @@
                             {{ form.exposure_mode(class="custom-select is-invalid") }}
                             <div class="invalid-feedback">
                                 <div class="invalid-feedback">
-                                    <span>{{ form.outlier_fraction.errors|join(', ') }}</span>
+                                    <span>{{ form.exposure_mode.errors|join(', ') }}</span>
                                 </div>
                             </div>
                         {% else %}
@@ -116,6 +116,7 @@
                 <div class="form-group row">
                     <div class="col-sm-10">
                         {{ form.submit(class="btn btn-primary") }}
+                        <a class="btn btn-link" href="{{ url_for('home') }}">Back</a>
                     </div>
                 </div>
 

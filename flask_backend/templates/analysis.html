@@ -1,0 +1,86 @@
+{% extends "layout.html" %}
+{% block content %}
+
+    <div class="row">
+        <div class="col-lg-8">
+
+            <!-- Form begin -->
+            <form method="POST" action="">
+                {{ form.hidden_tag() }}
+
+                <div class="form-group row">
+                    {{ form.model.label(class="col-sm-4 col-form-label") }}
+                    <div class="col-sm-8">
+                        {% if form.model.errors %}
+                            {{ form.model(class="custom-select is-invalid") }}
+                            <div class="invalid-feedback">
+                                <div class="invalid-feedback">
+                                    <span>{{ form.model.errors|join(', ') }}</span>
+                                </div>
+                            </div>
+                        {% else %}
+                            {{ form.model(class="custom-select") }}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    {{ form.model_params.label(class="col-sm-4 col-form-label") }}
+                    <div class="col-sm-8">
+                        {% if form.model_params.errors %}
+                            {{ form.model_params(class="form-control is-invalid") }}
+                            <div class="invalid-feedback">
+                                <div class="invalid-feedback">
+                                    <span>{{ form.model_params.errors|join(', ') }}</span>
+                                </div>
+                            </div>
+                        {% else %}
+                            {{ form.model_params(class="form-control") }}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    {{ form.correction.label(class="col-sm-4 col-form-label") }}
+                    <div class="col-sm-8">
+                        {% if form.correction.errors %}
+                            {{ form.correction(class="custom-select is-invalid") }}
+                            <div class="invalid-feedback">
+                                <div class="invalid-feedback">
+                                    <span>{{ form.correction.errors|join(', ') }}</span>
+                                </div>
+                            </div>
+                        {% else %}
+                            {{ form.correction(class="custom-select") }}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    {{ form.window.label(class="col-sm-4 col-form-label") }}
+                    <div class="col-sm-8">
+                        {% if form.window.errors %}
+                            {{ form.window(class="form-control is-invalid") }}
+                            <div class="invalid-feedback">
+                                <span>{{ form.window.errors|join(', ') }}</span>
+                            </div>
+                        {% else %}
+                            {{ form.window(class="form-control") }}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <div class="col-sm-10">
+                        {{ form.submit(class="btn btn-primary") }}
+                        <a class="btn btn-link" href="{{ url_for('home') }}">Back</a>
+                    </div>
+                </div>
+
+            </form>
+            <!-- Form end -->
+
+        </div>
+    </div>
+
+{% endblock content %}
