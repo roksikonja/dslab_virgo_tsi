@@ -241,7 +241,7 @@ def save_config(results_dir, config):
 
 def create_logger(results_dir):
     logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)-5s %(name)-20s %(levelname)-8s %(message)s',
+                        format='%(asctime)-5s %(name)-20s %(levelname)-15s %(message)s',
                         datefmt='[%m-%d %H:%M]',
                         handlers=[logging.FileHandler(os.path.join(results_dir, 'log.log')),
                                   logging.StreamHandler()])
