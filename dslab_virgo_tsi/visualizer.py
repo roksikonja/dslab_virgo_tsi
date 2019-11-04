@@ -132,13 +132,25 @@ class Visualizer(object):
 
     @staticmethod
     def plot_signals_mean_std_precompute(signal_fourplets, results_dir, title, x_ticker=None, legend=None, y_lim=None,
-                                         x_label=None, y_label=None, confidence=0.95, alpha=0.5, max_points=1e5):
+                                         x_label=None, y_label=None, ground_truth_triplet=None,
+                                         confidence=0.95, alpha=0.5, max_points=1e5):
 
         factor = norm.ppf(confidence) - norm.ppf(1 - confidence)
 
+        t_ground_truth = None
+        signal_ground_truth = None
+        label_ground_truth = None
+
+        if ground_truth_triplet:
+            t_ground_truth = ground_truth_triplet[0]
+            if x_label == Const.YEAR_UNIT:
+                t_ground_truth = np.array(list(map(mission_day_to_year, t_ground_truth)))
+
+            signal_ground_truth = ground_truth_triplet[1]
+            label_ground_truth = ground_truth_triplet[2]
+
         fig = plt.figure()
         for signal_fourplet in signal_fourplets:
-
             t = signal_fourplet[0]
             x_mean = signal_fourplet[1]
             x_std = signal_fourplet[2]
@@ -156,6 +168,9 @@ class Visualizer(object):
             plt.plot(t, x_mean, label=label)
             plt.fill_between(t, x_mean - factor * x_std, x_mean + factor * x_std, alpha=alpha,
                              label='{}_{}_conf_interval'.format(label, confidence))
+
+        if ground_truth_triplet:
+            plt.plot(t_ground_truth, signal_ground_truth, label=label_ground_truth)
 
         plt.title(f"{title}_{int(confidence * 100)}%_conf_interval")
 
@@ -200,21 +215,21 @@ class Visualizer(object):
         max_plots = 10
 
         if len(history_fitresults) > max_plots:
-            selected_triplet_indices = np.arange(1, len(history_fitresults)-1,
-                                                 np.ceil((len(history_fitresults)-1) / max_plots))
+            selected_triplet_indices = np.arange(1, len(history_fitresults) - 1,
+                                                 np.ceil((len(history_fitresults) - 1) / max_plots))
         else:
-            selected_triplet_indices = np.arange(1, len(history_fitresults)-1, 1)
+            selected_triplet_indices = np.arange(1, len(history_fitresults) - 1, 1)
 
         max_plots = len(selected_triplet_indices) + 2
 
         if x_label == Const.YEAR_UNIT:
             t_mutual = np.array(list(map(mission_day_to_year, t_mutual)))
 
-        fig, axs = plt.subplots(max_plots, 2, figsize=(16, 4*max_plots))
+        fig, axs = plt.subplots(max_plots, 2, figsize=(16, 4 * max_plots))
 
         selected_step = 0
         for step, fitresult in enumerate(history_fitresults):
-            if step in selected_triplet_indices or step in [0, len(history_fitresults)-1]:
+            if step in selected_triplet_indices or step in [0, len(history_fitresults) - 1]:
                 a = fitresult.a_mutual_nn_corrected
                 b = fitresult.b_mutual_nn_corrected
                 r = np.divide(a, b)
@@ -226,6 +241,8 @@ class Visualizer(object):
                     axs[selected_step, 0].plot(t_ground_truth, signal_ground_truth, label=label_ground_truth)
 
                 axs[selected_step, 1].plot(t_mutual, r, label=f"step_{step}_RATIO")
+                axs[selected_step, 1].plot(t_mutual, fitresult.ratio_a_b_mutual_nn_corrected,
+                                           label=f"step_{step}_RATIO_fitted")
 
                 if x_label:
                     axs[selected_step, 0].set_xlabel(x_label)

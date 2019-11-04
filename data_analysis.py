@@ -41,6 +41,7 @@ pmo_a = data[Const.A].values
 pmo_b = data[Const.B].values
 temp = data[Const.TEMP].values
 
+
 # Filter outliers
 outliers_a = notnan_indices(pmo_a)
 outliers_a[outliers_a] = detect_outliers(pmo_a[notnan_indices(pmo_a)], None,

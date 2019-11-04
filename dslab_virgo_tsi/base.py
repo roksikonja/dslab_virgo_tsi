@@ -3,9 +3,10 @@ from enum import Enum, auto
 from typing import List, Tuple
 
 import numpy as np
+from pykalman import KalmanFilter
 from scipy.interpolate import interp1d
 
-from dslab_virgo_tsi.data_utils import resampling_average_std, notnan_indices, detect_outliers, downsample_signal
+from dslab_virgo_tsi.data_utils import notnan_indices, detect_outliers
 
 
 class ExposureMode(Enum):
@@ -21,6 +22,33 @@ class CorrectionMethod(Enum):
 class BaseSignals:
     def __init__(self, a_nn, b_nn, t_a_nn, t_b_nn, exposure_a_nn, exposure_b_nn, a_mutual_nn, b_mutual_nn, t_mutual_nn,
                  exposure_a_mutual_nn, exposure_b_mutual_nn):
+        """
+
+        Parameters
+        ----------
+        a_nn : array_like
+            Signal a with non nan values.
+        b_nn : array_like
+            Signal a with non nan values.
+        t_a_nn : array_like
+            Time at which sensor a has non nan value.
+        t_b_nn : array_like
+            Time at which sensor b has non nan value.
+        exposure_a_nn : array_like
+            Exposure at which sensor b has non nan value.
+        exposure_b_nn : array_like
+            Exposure at which sensor b has non nan value.
+        a_mutual_nn : array_like
+            Signal a where neither a nor b signal have nan values.
+        b_mutual_nn : array_like
+            Signal b where neither a nor b signal have nan values.
+        t_mutual_nn : array_like
+            Time where neither a nor b signal have nan values.
+        exposure_a_mutual_nn : array_like
+            Exposure a where neither a nor b signal have nan values.
+        exposure_b_mutual_nn : array_like
+            Exposure b where neither a nor b signal have nan values.
+        """
         self.a_nn, self.b_nn = a_nn, b_nn
         self.t_a_nn, self.t_b_nn = t_a_nn, t_b_nn
         self.exposure_a_nn, self.exposure_b_nn = exposure_a_nn, exposure_b_nn
@@ -28,16 +56,27 @@ class BaseSignals:
         self.t_mutual_nn = t_mutual_nn
         self.exposure_a_mutual_nn, self.exposure_b_mutual_nn = exposure_a_mutual_nn, exposure_b_mutual_nn
 
-    def downsample_nn_signals(self, k_a, k_b):
-        self.t_a_nn, self.t_b_nn = downsample_signal(self.t_a_nn, k_a), downsample_signal(self.t_b_nn, k_b)
-        self.a_nn, self.b_nn = downsample_signal(self.a_nn, k_a), downsample_signal(self.b_nn, k_b)
-        self.exposure_a_nn = downsample_signal(self.exposure_a_nn, k_a)
-        self.exposure_b_nn = downsample_signal(self.exposure_b_nn, k_b)
-
 
 class OutResult:
     def __init__(self, t_hourly_out, signal_hourly_out, signal_std_hourly_out, t_daily_out, signal_daily_out,
                  signal_std_daily_out):
+        """
+
+        Parameters
+        ----------
+        t_hourly_out : array_like
+            Times by hour.
+        signal_hourly_out : array_like
+            Final signal sampled every hour.
+        signal_std_hourly_out : array_like
+            Standard deviation of final signal sampled every hour.
+        t_daily_out : array_like
+            Times by day.
+        signal_daily_out : array_like
+            Final signal sampled every day.
+        signal_std_daily_out : array_like
+            Standard deviation of final signal sampled every day.
+        """
         self.t_hourly_out = t_hourly_out
         self.signal_hourly_out = signal_hourly_out
         self.signal_std_hourly_out = signal_std_hourly_out
@@ -48,6 +87,15 @@ class OutResult:
 
 class Params:
     def __init__(self, *args, **kwargs):
+        """
+
+        Parameters
+        ----------
+        args : List
+            List of parameters.
+        kwargs : Dict
+            Dictionary of parameters.
+        """
         self.args = args
         self.kwargs = kwargs
 
@@ -57,6 +105,15 @@ class Params:
 
 class Corrections:
     def __init__(self, a_correction, b_correction):
+        """
+
+        Parameters
+        ----------
+        a_correction : array_like
+            Corrected signal a.
+        b_correction : array_like
+            Corrected signal b.
+        """
         self.a_correction = a_correction
         self.b_correction = b_correction
 
@@ -73,12 +130,6 @@ class FinalResult:
         self.a_nn_corrected = np.divide(base_signals.a_nn, degradation_a_nn)
         self.b_nn_corrected = np.divide(base_signals.b_nn, degradation_b_nn)
 
-    def downsample_nn_signals(self, k_a, k_b):
-        self.degradation_a_nn = downsample_signal(self.degradation_a_nn, k_a)
-        self.degradation_b_nn = downsample_signal(self.degradation_b_nn, k_b)
-        self.a_nn_corrected = downsample_signal(self.a_nn_corrected, k_a)
-        self.b_nn_corrected = downsample_signal(self.b_nn_corrected, k_b)
-
 
 class Result:
     def __init__(self, base_signals: BaseSignals, history_mutual_nn: List[FitResult], final: FinalResult,
@@ -88,10 +139,6 @@ class Result:
         self.final = final
         self.out = out
 
-    def downsample_nn_signals(self, k_a, k_b):
-        self.base_signals.downsample_nn_signals(k_a, k_b)
-        self.final.downsample_nn_signals(k_a, k_b)
-
 
 class BaseModel(ABC):
     @abstractmethod
@@ -100,7 +147,7 @@ class BaseModel(ABC):
 
     @abstractmethod
     def fit_and_correct(self, base_signals: BaseSignals, fit_result: FitResult,
-                        initial_params: Params) -> Tuple[Corrections, Params]:
+                        initial_params: Params, method: CorrectionMethod) -> Tuple[Corrections, Params]:
         """
 
         Parameters
@@ -108,6 +155,7 @@ class BaseModel(ABC):
         base_signals
         fit_result
         initial_params
+        method
 
         Returns
         -------
@@ -126,7 +174,9 @@ class ModelFitter:
     nn -> values taken at times when specific signal is not nan
     """
 
-    def __init__(self, data, a_field_name, b_field_name, t_field_name, exposure_mode, outlier_fraction=0):
+    def __init__(self, mode, data, a_field_name, b_field_name, t_field_name, exposure_mode, outlier_fraction=0):
+        self.mode = mode
+
         # Compute all signals and store all relevant to BaseSignals object
         a, b, t = data[a_field_name].values, data[b_field_name].values, data[t_field_name].values
 
@@ -157,7 +207,7 @@ class ModelFitter:
         self.base_signals = BaseSignals(a_nn, b_nn, t_a_nn, t_b_nn, exposure_a_nn, exposure_b_nn, a_mutual_nn,
                                         b_mutual_nn, t_mutual_nn, exposure_a_mutual_nn, exposure_b_mutual_nn)
 
-    def __call__(self, model: BaseModel, correction_method: CorrectionMethod, moving_average_window=81) -> Result:
+    def __call__(self, model: BaseModel, correction_method: CorrectionMethod) -> Result:
         # Perform initial fit if needed
         initial_params: Params = model.get_initial_params(self.base_signals)
 
@@ -169,7 +219,7 @@ class ModelFitter:
         final_result = model.compute_final_result(self.base_signals, optimal_params)
 
         # Compute output signals
-        out_result = self._compute_output(self.base_signals, final_result, moving_average_window)
+        out_result = self._compute_output(self.base_signals, final_result)
 
         # Return all together
         return Result(self.base_signals, history_mutual_nn, final_result, out_result)
@@ -189,29 +239,36 @@ class ModelFitter:
         print(f"{a_field_name}: {a_outlier_indices.sum()} outliers")
         print(f"{b_field_name}: {b_outlier_indices.sum()} outliers")
 
-        # a_outliers = a.copy()
-        # b_outliers = b.copy()
-
         a[a_outlier_indices] = np.nan
         b[b_outlier_indices] = np.nan
 
         data[a_field_name] = a
         data[b_field_name] = b
 
-        # a_outliers[~a_outlier_indices] = np.nan
-        # b_outliers[~b_outlier_indices] = np.nan
-
         return data
 
-    def _compute_output(self, base_signals: BaseSignals, final_result: FinalResult, moving_average_window) -> OutResult:
+    def _compute_output(self, base_signals: BaseSignals, final_result: FinalResult) -> OutResult:
         print("Compute output")
-        min_time = np.maximum(np.ceil(base_signals.t_a_nn.min()), np.ceil(base_signals.t_b_nn.min()))
-        max_time = np.minimum(np.floor(base_signals.t_a_nn.max()), np.floor(base_signals.t_b_nn.max()))
 
-        t_hourly_out = np.arange(min_time, max_time, 1.0 / 24.0)
-        t_daily_out = np.arange(min_time, max_time, 1.0)
+        num_hours, num_days = None, None
+        min_time, max_time = None, None
+        if self.mode == "virgo":
+            min_time = np.maximum(np.ceil(base_signals.t_a_nn.min()), np.ceil(base_signals.t_b_nn.min()))
+            max_time = np.minimum(np.floor(base_signals.t_a_nn.max()), np.floor(base_signals.t_b_nn.max()))
 
-        a_nn_interpolation_func = interp1d(base_signals.t_a_nn, final_result.a_nn_corrected, kind="linear")
+            num_days = int((max_time - min_time) + 1)
+            num_hours = int(24 * (max_time - min_time) + 1)
+        elif self.mode == "generator":
+            min_time = np.maximum(base_signals.t_a_nn.min(), base_signals.t_b_nn.min())
+            max_time = np.minimum(base_signals.t_a_nn.max(), base_signals.t_b_nn.max())
+
+            num_days = int(10000)
+            num_hours = int(10000)
+
+        t_hourly_out = np.linspace(min_time, max_time, num_hours)
+        t_daily_out = np.linspace(min_time, max_time, num_days)
+
+        a_nn_interpolation_func = interp1d(base_signals.t_a_nn, final_result.a_nn_corrected, kind="nearest")
         a_nn_hourly_resampled = a_nn_interpolation_func(t_hourly_out)
         a_nn_daily_resampled = a_nn_interpolation_func(t_daily_out)
 
@@ -219,26 +276,29 @@ class ModelFitter:
         b_nn_hourly_resampled = b_nn_interpolation_func(t_hourly_out)
         b_nn_daily_resampled = b_nn_interpolation_func(t_daily_out)
 
-        signal_hourly_out, signal_std_hourly_out = self._resample_and_compute_gain(
-            a_nn_hourly_resampled, b_nn_hourly_resampled, moving_average_window * 24)
-        signal_daily_out, signal_std_daily_out = self._resample_and_compute_gain(
-            a_nn_daily_resampled, b_nn_daily_resampled, moving_average_window)
+        observations_hourly = np.stack((a_nn_hourly_resampled, b_nn_hourly_resampled), axis=1)
+        observations_daily = np.stack((a_nn_daily_resampled, b_nn_daily_resampled), axis=1)
 
-        return OutResult(t_hourly_out, signal_hourly_out, signal_std_hourly_out, t_daily_out, signal_daily_out,
-                         signal_std_daily_out)
+        mean = np.mean(np.concatenate((final_result.a_nn_corrected, final_result.b_nn_corrected), axis=0))
 
-    @staticmethod
-    def _resample_and_compute_gain(a, b, moving_average_window):
-        a_out_mean, a_out_std = resampling_average_std(a, w=moving_average_window)
-        b_out_mean, b_out_std = resampling_average_std(b, w=moving_average_window)
+        kf = KalmanFilter(n_dim_obs=2,
+                          initial_state_mean=0,
+                          transition_matrices=[[1]],
+                          transition_offsets=0,
+                          observation_matrices=[[1], [1]],
+                          observation_offsets=[0, 0],
+                          em_vars=["transition_covariance",
+                                   "observation_covariance",
+                                   "initial_state_covariance"])
 
-        a_out_std_squared, b_out_std_squared = np.square(a_out_std), np.square(b_out_std)
+        print("Running EM for Kalman Filter")
+        kf.em(observations_daily - mean)
 
-        a_out_gain = np.multiply(a_out_mean, np.divide(b_out_std_squared, a_out_std_squared + b_out_std_squared))
-        b_out_gain = np.multiply(b_out_mean, np.divide(a_out_std_squared, a_out_std_squared + b_out_std_squared))
+        signal_hourly_out, signal_std_hourly_out = kf.smooth(observations_hourly - mean)
+        signal_daily_out, signal_std_daily_out = kf.smooth(observations_daily - mean)
 
-        return a_out_gain + b_out_gain, np.sqrt(np.divide(np.multiply(a_out_std_squared, b_out_std_squared),
-                                                          a_out_std_squared + b_out_std_squared))
+        return OutResult(t_hourly_out, signal_hourly_out.ravel() + mean, np.sqrt(signal_std_hourly_out.ravel()),
+                         t_daily_out, signal_daily_out.ravel() + mean, np.sqrt(signal_std_daily_out.ravel()))
 
     @staticmethod
     def _compute_exposure(x, mode=ExposureMode.NUM_MEASUREMENTS, mean=1.0, length=None):
@@ -254,7 +314,8 @@ class ModelFitter:
 
     @staticmethod
     def _iterative_correction(model: BaseModel, base_signals: BaseSignals, initial_params: Params,
-                              method: CorrectionMethod, eps=1e-7, max_iter=100) -> Tuple[List[FitResult], Params]:
+                              method: CorrectionMethod, eps=1e-7, max_iter=100) -> Tuple[
+        List[FitResult], Params]:
         """Note that we here deal only with mutual_nn data. Variable ratio_a_b_mutual_nn_corrected has different
         definitions based on the correction method used."""
         fit_result = FitResult(np.copy(base_signals.a_mutual_nn), np.copy(base_signals.b_mutual_nn),
@@ -270,7 +331,8 @@ class ModelFitter:
             fit_result_previous = fit_result
 
             # Use model for fitting
-            corrections, current_params = model.fit_and_correct(base_signals, fit_result_previous, initial_params)
+            corrections, current_params = model.fit_and_correct(base_signals, fit_result_previous, initial_params,
+                                                                method)
 
             if method == CorrectionMethod.CORRECT_BOTH:
                 a_mutual_nn_corrected = np.divide(fit_result_previous.a_mutual_nn_corrected, corrections.a_correction)
@@ -297,8 +359,9 @@ class ModelFitter:
             print("\nstep:\t" + str(step) + "\nnorm:\t", delta_norm, "\nparams:\t", current_params)
 
         if method == CorrectionMethod.CORRECT_BOTH:
+            method = CorrectionMethod.CORRECT_ONE
             ratio_final = np.divide(base_signals.a_mutual_nn, fit_result.b_mutual_nn_corrected)
             fit_result_final = FitResult(base_signals.a_mutual_nn, fit_result.b_mutual_nn_corrected, ratio_final)
-            _, current_params = model.fit_and_correct(base_signals, fit_result_final, initial_params)
+            _, current_params = model.fit_and_correct(base_signals, fit_result_final, initial_params, method)
 
         return history, current_params
