@@ -5,6 +5,7 @@ class Constants(object):
 
     # Data files
     VIRGO_FILE = "VIRGO_Level1.txt"
+    PREMOS_FILE = "PREMOS.dat"
 
     # PMO6V
     A = "PMO6V-A"

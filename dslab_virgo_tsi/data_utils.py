@@ -199,6 +199,20 @@ def get_sampling_intervals(t, x):
     return sampling_intervals
 
 
+def fft_spectrum(x, sampling_period):
+    n = x.shape[0]
+    mean = x.mean()
+    x_fft = np.fft.fft(x - mean) / n
+    s = np.square(np.abs(x_fft))
+
+    f_0 = 1 / n
+    fs = 1 / sampling_period
+    k = np.arange(n)
+    freq = k * f_0 * fs
+
+    return s, fs, freq
+
+
 def detect_outliers(x_fit, x=None, outlier_fraction=1e-3):
     x_fit = np.reshape(x_fit, newshape=(-1, 1))
 
