@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import List, Tuple
@@ -202,6 +203,7 @@ class ModelFitter:
         a_mutual_nn, b_mutual_nn = data_mutual_nn[a_field_name].values, data_mutual_nn[b_field_name].values
         t_mutual_nn = data_mutual_nn[t_field_name].values
         exposure_a_mutual_nn, exposure_b_mutual_nn = data_mutual_nn["e_a"].values, data_mutual_nn["e_b"].values
+        logging.info("Mutual signals extracted.")
 
         # Create BaseSignals instance
         self.base_signals = BaseSignals(a_nn, b_nn, t_a_nn, t_b_nn, exposure_a_nn, exposure_b_nn, a_mutual_nn,
@@ -236,8 +238,9 @@ class ModelFitter:
         b_outlier_indices = notnan_indices(b)
         b_outlier_indices[b_outlier_indices] = detect_outliers(b[notnan_indices(b)], None, outlier_fraction)
 
-        print(f"{a_field_name}: {a_outlier_indices.sum()} outliers")
-        print(f"{b_field_name}: {b_outlier_indices.sum()} outliers")
+        logging.info(f"{a_field_name}: {a_outlier_indices.sum()} outliers")
+        logging.info(f"{b_field_name}: {b_outlier_indices.sum()} outliers")
+        logging.info("Outliers filtered.")
 
         a[a_outlier_indices] = np.nan
         b[b_outlier_indices] = np.nan
@@ -248,7 +251,7 @@ class ModelFitter:
         return data
 
     def _compute_output(self, base_signals: BaseSignals, final_result: FinalResult) -> OutResult:
-        print("Compute output")
+        logging.info("Computing output ...")
 
         num_hours, num_days = None, None
         min_time, max_time = None, None
@@ -268,7 +271,7 @@ class ModelFitter:
         t_hourly_out = np.linspace(min_time, max_time, num_hours)
         t_daily_out = np.linspace(min_time, max_time, num_days)
 
-        a_nn_interpolation_func = interp1d(base_signals.t_a_nn, final_result.a_nn_corrected, kind="nearest")
+        a_nn_interpolation_func = interp1d(base_signals.t_a_nn, final_result.a_nn_corrected, kind="linear")
         a_nn_hourly_resampled = a_nn_interpolation_func(t_hourly_out)
         a_nn_daily_resampled = a_nn_interpolation_func(t_daily_out)
 
@@ -291,11 +294,15 @@ class ModelFitter:
                                    "observation_covariance",
                                    "initial_state_covariance"])
 
-        print("Running EM for Kalman Filter")
+        logging.info("Running EM for Kalman Filter")
         kf.em(observations_daily - mean)
 
+        logging.info("Running Kalman smoothing")
         signal_hourly_out, signal_std_hourly_out = kf.smooth(observations_hourly - mean)
         signal_daily_out, signal_std_daily_out = kf.smooth(observations_daily - mean)
+
+        # signal_hourly_out, signal_std_hourly_out = kf.filter(observations_hourly - mean)
+        # signal_daily_out, signal_std_daily_out = kf.filter(observations_daily - mean)
 
         return OutResult(t_hourly_out, signal_hourly_out.ravel() + mean, np.sqrt(signal_std_hourly_out.ravel()),
                          t_daily_out, signal_daily_out.ravel() + mean, np.sqrt(signal_std_daily_out.ravel()))
@@ -310,6 +317,8 @@ class ModelFitter:
 
         if length:
             x = x / length
+
+        logging.info("Exposure computed.")
         return np.cumsum(x)
 
     @staticmethod
@@ -318,6 +327,7 @@ class ModelFitter:
         List[FitResult], Params]:
         """Note that we here deal only with mutual_nn data. Variable ratio_a_b_mutual_nn_corrected has different
         definitions based on the correction method used."""
+        logging.info("Iterative correction started.")
         fit_result = FitResult(np.copy(base_signals.a_mutual_nn), np.copy(base_signals.b_mutual_nn),
                                np.divide(base_signals.a_mutual_nn, base_signals.b_mutual_nn))
 
@@ -355,13 +365,13 @@ class ModelFitter:
             delta_norm = delta_norm_a + delta_norm_b
 
             has_converged = delta_norm < eps
-
-            print("\nstep:\t" + str(step) + "\nnorm:\t", delta_norm, "\nparams:\t", current_params)
+            logging.info("Step:\t{:<30}Delta norm:\t{:>10}".format(step, delta_norm))
 
         if method == CorrectionMethod.CORRECT_BOTH:
             method = CorrectionMethod.CORRECT_ONE
             ratio_final = np.divide(base_signals.a_mutual_nn, fit_result.b_mutual_nn_corrected)
             fit_result_final = FitResult(base_signals.a_mutual_nn, fit_result.b_mutual_nn_corrected, ratio_final)
             _, current_params = model.fit_and_correct(base_signals, fit_result_final, initial_params, method)
+            logging.info("Final fit.")
 
         return history, current_params

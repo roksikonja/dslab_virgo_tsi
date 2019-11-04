@@ -1,3 +1,4 @@
+import logging
 import os
 
 import matplotlib as mpl
@@ -69,6 +70,7 @@ class Visualizer(object):
 
         if results_dir:
             plt.savefig(os.path.join(results_dir, title))
+            logging.info(f"Plot {title} generated.")
 
         return fig
 
@@ -127,6 +129,7 @@ class Visualizer(object):
 
         if results_dir:
             plt.savefig(os.path.join(results_dir, title))
+            logging.info(f"Plot {title} generated.")
 
         return fig
 
@@ -192,7 +195,9 @@ class Visualizer(object):
             plt.ylabel(y_label)
 
         if results_dir:
-            plt.savefig(os.path.join(results_dir, "{}_{}_conf_interval".format(title, int(confidence * 100))))
+            name = "{}_{}_conf_interval".format(title, int(confidence * 100))
+            plt.savefig(os.path.join(results_dir, name))
+            logging.info(f"Plot {name} generated.")
 
         return fig
 
@@ -273,5 +278,6 @@ class Visualizer(object):
 
         if results_dir:
             plt.savefig(os.path.join(results_dir, title))
+            logging.info(f"Plot {title} generated.")
 
         return fig

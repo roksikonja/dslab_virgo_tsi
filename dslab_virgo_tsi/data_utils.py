@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 import pickle
 
@@ -11,7 +12,7 @@ from dslab_virgo_tsi.constants import Constants as Const
 
 
 def check_data(file_dir, num_cols=4):
-    print("checking data file", file_dir, "...")
+    logging.info(f"Checking data file {file_dir} ...")
     with open(file_dir, "r") as f:
         error_count = 0
         for line in f.readlines():
@@ -20,10 +21,10 @@ def check_data(file_dir, num_cols=4):
                 error_count = error_count + 1
 
     if error_count > 0:
-        print(error_count, "errors found")
+        logging.info(f"{error_count} errors found.")
         return False
     else:
-        print("valid file")
+        logging.info("Check passed.")
         return True
 
 
@@ -223,15 +224,29 @@ def create_results_dir(results_dir_path, model_type):
 
 
 def save_modeling_result(results_dir, model_results, model_name):
-    with open(os.path.join(results_dir, f"{model_name}_modeling_result.pkl"), 'wb') as f:
+    name = f"{model_name}_modeling_result.pkl"
+    with open(os.path.join(results_dir, name), 'wb') as f:
         pickle.dump(model_results, f, protocol=pickle.HIGHEST_PROTOCOL)
+    logging.info(f"Modeling result saved to {name}.")
 
 
 def save_config(results_dir, config):
-    with open(os.path.join(results_dir, "config.txt"), "w") as f:
+    name = "config.txt"
+    with open(os.path.join(results_dir, name), "w") as f:
         for key in config:
             if not str(key)[0:2] == "__" and not str(key) == "return_config":
                 f.write("{:<30}{}\n".format(key + ":", config[key]))
+    logging.info(f"Config saved to {name}.")
+
+
+def create_logger(results_dir):
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)-5s %(name)-20s %(levelname)-8s %(message)s',
+                        datefmt='[%m-%d %H:%M]',
+                        handlers=[logging.FileHandler(os.path.join(results_dir, 'log.log')),
+                                  logging.StreamHandler()])
+    logging.info("Application started.")
+    logging.info("Logging started.")
 
 
 if __name__ == "__main__":

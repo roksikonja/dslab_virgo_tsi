@@ -1,11 +1,12 @@
 import argparse
+import logging
 
 import numpy as np
 
 from dslab_virgo_tsi.base import ExposureMode, Result, FitResult, ModelFitter, BaseSignals, OutResult, FinalResult, \
     CorrectionMethod
 from dslab_virgo_tsi.constants import Constants as Const
-from dslab_virgo_tsi.data_utils import create_results_dir
+from dslab_virgo_tsi.data_utils import create_results_dir, create_logger
 from dslab_virgo_tsi.data_utils import load_data, save_modeling_result, save_config
 from dslab_virgo_tsi.model_constants import EnsembleConstants as EnsConsts
 from dslab_virgo_tsi.model_constants import ExpConstants as ExpConsts
@@ -40,7 +41,7 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
     out_res: OutResult = result_.out
     final_res: FinalResult = result_.final
 
-    print("plotting results ...")
+    logging.info("Plotting results ...")
     visualizer.plot_signals(
         [
             (base_sig.t_a_nn, final_res.degradation_a_nn, f"DEGRADATION_{Const.A}", False),
@@ -85,14 +86,14 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
             (out_res.t_daily_out, out_res.signal_daily_out, out_res.signal_std_daily_out, f"TSI_daily_{model_name}")
         ],
         results_dir, f"TSI_daily_{model_name}", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7)
 
     visualizer.plot_signals_mean_std_precompute(
         [
             (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
         ],
         results_dir, f"TSI_hourly_{model_name}", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7)
 
     visualizer.plot_signals_mean_std(
         [
@@ -113,60 +114,15 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
                                    ground_truth_triplet=None,
                                    legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
-    """
-    fig = visualizer.plot_signals(
-        [
-            (base_sig.t_mutual_nn, before_fit.ratio_a_b_mutual_nn_corrected, f"RATIO_{Const.A}_{Const.B}_raw", False)
-        ],
-        results_dir, f"RATIO_{Const.A}_{Const.B}_raw_initial_fit", x_ticker=1, legend="upper right",
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
-    figs.append(fig)
-    
-    fig = visualizer.plot_signals_mean_std(
-        [
-            (base_sig.t_a_nn, base_sig.a_nn, f"{Const.A}_conf_int", window_size),
-            (base_sig.t_b_nn, base_sig.b_nn, f"{Const.B}_conf_int", window_size),
-            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_corrected_conf_int", window_size),
-            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_corrected_conf_int", window_size)
-        ],
-        results_dir, f"{model_name}_{Const.A}_{Const.B}_raw_corrected_full_conf_int", x_ticker=1, legend="lower left",
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
-    figs.append(fig)
-    
-        fig = visualizer.plot_signals(
-        [
-            (out_res.t_hourly_out, out_res.signal_hourly_out, f"TSI_hourly_{model_name}", False)
-        ],
-        results_dir, f"TSI_hourly_{model_name}", x_ticker=1, legend="upper left",
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
-    figs.append(fig)
-
-    fig = visualizer.plot_signals(
-        [
-            (out_res.t_daily_out, out_res.signal_daily_out, f"TSI_daily_{model_name}", False)
-        ],
-        results_dir, f"TSI_daily_{model_name}", x_ticker=1, legend="upper left",
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
-    figs.append(fig)
-    
-    fig = visualizer.plot_signals(
-        [
-            (out_res.t_hourly_out, out_res.signal_hourly_out, f"TSI_hourly_{model_name}", False),
-            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_raw_corrected", False),
-            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_raw_corrected", False)
-        ],
-        results_dir, f"TSI_{model_name}_{Const.A}_hourly_{Const.B}", x_ticker=1, legend="upper left",
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, y_lim=[1357, 1369])
-    figs.append(fig)
-    """
-
 
 if __name__ == "__main__":
     ARGS = parse_arguments()
     results_dir_path = create_results_dir(Const.RESULTS_DIR, ARGS.model_type)
+    create_logger(results_dir_path)
 
     # Load data
     data_pmo6v = load_data(Const.DATA_DIR, Const.VIRGO_FILE)
+    logging.info(f"Data {Const.VIRGO_FILE} loaded.")
 
     visualizer = Visualizer()
     visualizer.set_figsize()
@@ -211,6 +167,13 @@ if __name__ == "__main__":
     config["outlier_fraction"] = ARGS.outlier_fraction
     config["exposure_mode"] = ARGS.exposure_mode
     config["mode"] = "virgo"
+
+    logging.info("Running in {} mode.".format(config["mode"]))
+    logging.info(f"Model {ARGS.model_type} selected.")
+    logging.info(f"Correction method {ARGS.correction_method} selected.")
+    logging.info(f"Exposure mode {ARGS.exposure_mode} selected.")
+    logging.info(f"Outlier fraction {ARGS.outlier_fraction} selected.")
+
     save_config(results_dir_path, config)
 
     fitter = ModelFitter(mode=config["mode"],
@@ -229,3 +192,5 @@ if __name__ == "__main__":
 
     if ARGS.save_plots or not ARGS.save_signals:
         plot_results(result, results_dir_path, ARGS.model_type, ARGS.window)
+
+    logging.info("Application finished.")

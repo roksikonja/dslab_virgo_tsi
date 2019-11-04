@@ -1,4 +1,5 @@
 import argparse
+import logging
 
 import numpy as np
 import pandas as pd
@@ -6,7 +7,7 @@ import pandas as pd
 from dslab_virgo_tsi.base import ExposureMode, Result, ModelFitter, CorrectionMethod
 from dslab_virgo_tsi.base import FitResult, BaseSignals, OutResult, FinalResult
 from dslab_virgo_tsi.constants import Constants as Const
-from dslab_virgo_tsi.data_utils import create_results_dir, save_config
+from dslab_virgo_tsi.data_utils import create_results_dir, save_config, create_logger
 from dslab_virgo_tsi.generator import SignalGenerator
 from dslab_virgo_tsi.model_constants import EnsembleConstants as EnsConsts
 from dslab_virgo_tsi.model_constants import ExpConstants as ExpConsts
@@ -44,8 +45,7 @@ def plot_results(t_, x_, result_: Result, results_dir, model_name):
     final_res: FinalResult = result_.final
     out_res: OutResult = result_.out
 
-    print("plotting results ...")
-
+    logging.info("Plotting results ...")
     visualizer.plot_signals(
         [
             (base_sig.t_a_nn, final_res.degradation_a_nn, "DEGRADATION_A", False),
@@ -113,6 +113,7 @@ if __name__ == "__main__":
     # Constants
     data_dir = Const.DATA_DIR
     results_dir_path = create_results_dir(Const.RESULTS_DIR, f"gen_{ARGS.model_type}")
+    create_logger(results_dir_path)
 
     visualizer = Visualizer()
     visualizer.set_figsize()
@@ -128,6 +129,7 @@ if __name__ == "__main__":
     data_gen[T] = t
     data_gen[X_A] = x_a_raw
     data_gen[X_B] = x_b_raw
+    logging.info(f"Data generator loaded.")
 
     # Perform modeling
     model = None
@@ -169,6 +171,13 @@ if __name__ == "__main__":
     config["outlier_fraction"] = ARGS.outlier_fraction
     config["exposure_mode"] = ARGS.exposure_mode
     config["mode"] = "generator"
+
+    logging.info("Running in {} mode.".format(config["mode"]))
+    logging.info(f"Model {ARGS.model_type} selected.")
+    logging.info(f"Correction method {ARGS.correction_method} selected.")
+    logging.info(f"Exposure mode {ARGS.exposure_mode} selected.")
+    logging.info(f"Outlier fraction {ARGS.outlier_fraction} selected.")
+
     save_config(results_dir_path, config)
 
     fitter = ModelFitter(mode=config["mode"],
@@ -183,3 +192,4 @@ if __name__ == "__main__":
                             correction_method=correction_method)
 
     plot_results(t, x, result, results_dir_path, f"gen_{ARGS.model_type}")
+    logging.info("Application finished.")

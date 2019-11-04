@@ -1,3 +1,4 @@
+import logging
 from typing import List, Tuple
 
 import cvxpy as cp
@@ -225,7 +226,7 @@ class DegradationSpline:
             step += 1
         spline = self._spline_dirichlet(x.ravel(), y.ravel(), k=self.k, s=end)
         if not self._is_convex(spline, x):
-            print("Spline is decreasing but not convex.")
+            logging.warning("Spline is decreasing but not convex.")
         return spline
 
     def fit(self, x, y):
@@ -269,6 +270,7 @@ class ExpModel(BaseModel, ExpFamilyMixin):
     def get_initial_params(self, base_signals: BaseSignals) -> Params:
         ratio_a_b_mutual_nn = np.divide(base_signals.a_mutual_nn, base_signals.b_mutual_nn)
         lambda_initial, e_0_initial = self._initial_fit(ratio_a_b_mutual_nn, base_signals.exposure_a_mutual_nn)
+        logging.info("Initial parameters computed.")
         return Params(all=[lambda_initial, e_0_initial])
 
     def fit_and_correct(self, base_signals: BaseSignals, fit_result: FitResult,
@@ -320,6 +322,7 @@ class ExpLinModel(BaseModel, ExpFamilyMixin):
     def get_initial_params(self, base_signals: BaseSignals) -> Params:
         ratio_a_b_mutual_nn = np.divide(base_signals.a_mutual_nn, base_signals.b_mutual_nn)
         lambda_initial, e_0_initial = self._initial_fit(ratio_a_b_mutual_nn, base_signals.exposure_a_mutual_nn)
+        logging.info("Initial parameters computed.")
         return Params(all=[lambda_initial, e_0_initial, 0])
 
     def fit_and_correct(self, base_signals: BaseSignals, fit_result: FitResult,
@@ -542,6 +545,7 @@ class SmoothMonotoneRegression(BaseModel):
 
     def __repr__(self):
         return "SmoothMonotonicRegressionModel"
+
 
 class EnsembleModel(BaseModel):
     def __init__(self, models: List[BaseModel] = EnsConsts.MODELS, weights=EnsConsts.WEIGHTS):
