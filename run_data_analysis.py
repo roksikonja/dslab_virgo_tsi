@@ -224,4 +224,3 @@ if __name__ == "__main__":
 
         if ARGS.sampling:
             plot_analyse_virgo_sampling(data)
-
