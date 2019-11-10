@@ -7,7 +7,7 @@ import pandas as pd
 from dslab_virgo_tsi.base import ExposureMode, Result, ModelFitter, CorrectionMethod
 from dslab_virgo_tsi.base import FitResult, BaseSignals, OutResult, FinalResult
 from dslab_virgo_tsi.constants import Constants as Const
-from dslab_virgo_tsi.data_utils import create_results_dir, save_config, create_logger
+from dslab_virgo_tsi.data_utils import create_results_dir, save_config, create_logger, save_modeling_result
 from dslab_virgo_tsi.generator import SignalGenerator
 from dslab_virgo_tsi.model_constants import EnsembleConstants as EnsConsts
 from dslab_virgo_tsi.model_constants import ExpConstants as ExpConsts
@@ -27,6 +27,8 @@ def parse_arguments():
     parser.add_argument("--degradation_rate", type=float, default=1.0, help="Tuning parameter for degradation.")
     parser.add_argument("--random_seed", type=int, default=0, help="Set random seed.")
 
+    parser.add_argument("--save_plots", action="store_true", help="Flag for saving plots.")
+    parser.add_argument("--save_signals", action="store_true", help="Flag for saving computed signals.")
     parser.add_argument("--window", type=int, default=81, help="Moving average window size for plotting.")
 
     parser.add_argument("--model_type", type=str, default="smooth_monotonic", help="Model to train.")
@@ -118,19 +120,6 @@ if __name__ == "__main__":
     visualizer = Visualizer()
     visualizer.set_figsize()
 
-    # Generator
-    Generator = SignalGenerator(ARGS.signal_length, ARGS.random_seed)
-    t = Generator.time
-    x = Generator.x
-    x_a_raw, x_b_raw, _ = Generator.generate_raw_signal(x, 5, rate=ARGS.degradation_rate)
-
-    T, X_A, X_B = "t", "x_a", "x_b"
-    data_gen = pd.DataFrame()
-    data_gen[T] = t
-    data_gen[X_A] = x_a_raw
-    data_gen[X_B] = x_b_raw
-    logging.info(f"Data generator loaded.")
-
     # Perform modeling
     model = None
     config = None
@@ -161,10 +150,10 @@ if __name__ == "__main__":
     else:
         correction_method = CorrectionMethod.CORRECT_ONE
 
-    if ARGS.exposure_mode == "measurements":
-        exposure_mode = ExposureMode.NUM_MEASUREMENTS
-    else:
+    if ARGS.exposure_mode == "sum":
         exposure_mode = ExposureMode.EXPOSURE_SUM
+    else:
+        exposure_mode = ExposureMode.NUM_MEASUREMENTS
 
     config["correction_method"] = ARGS.correction_method
     config["model_type"] = ARGS.model_type
@@ -180,6 +169,19 @@ if __name__ == "__main__":
 
     save_config(results_dir_path, config)
 
+    # Generator
+    Generator = SignalGenerator(ARGS.signal_length, ARGS.random_seed, exposure_mode)
+    t = Generator.time
+    x = Generator.x
+    x_a_raw, x_b_raw, _ = Generator.generate_raw_signal(x, 5, rate=ARGS.degradation_rate)
+
+    T, X_A, X_B = "t", "x_a", "x_b"
+    data_gen = pd.DataFrame()
+    data_gen[T] = t
+    data_gen[X_A] = x_a_raw
+    data_gen[X_B] = x_b_raw
+    logging.info(f"Data generator loaded.")
+
     fitter = ModelFitter(mode=config["mode"],
                          data=data_gen,
                          t_field_name=T,
@@ -191,5 +193,11 @@ if __name__ == "__main__":
     result: Result = fitter(model=model,
                             correction_method=correction_method)
 
-    plot_results(t, x, result, results_dir_path, f"gen_{ARGS.model_type}")
+
+    if ARGS.save_signals:
+        save_modeling_result(results_dir_path, result, f"gen_{ARGS.model_type}")
+
+    if ARGS.save_plots or not ARGS.save_signals:
+        plot_results(t, x, result, results_dir_path, f"gen_{ARGS.model_type}")
+
     logging.info("Application finished.")
