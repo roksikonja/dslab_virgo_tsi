@@ -2,6 +2,7 @@ import datetime
 import logging
 import os
 import pickle
+import collections
 
 import numpy as np
 import pandas as pd
@@ -245,12 +246,31 @@ def save_modeling_result(results_dir, model_results, model_name):
 
 
 def save_config(results_dir, config):
+    config_out = dict()
+
+    for key in config:
+        if str(key).islower():
+            config_out[f"BASE_{key}"] = config[key]
+        else:
+            config_out[key] = config[key]
+
+    config_out = collections.OrderedDict(sorted(config_out.items()))
+
     name = "config.txt"
+    prev_const_type = "BASE"
     with open(os.path.join(results_dir, name), "w") as f:
-        for key in config:
-            if not str(key)[0:2] == "__" and not str(key) == "return_config":
-                f.write("{:<30}{}\n".format(key + ":", config[key]))
+        for key in config_out:
+            const_type = str(key).split("_")[0]
+            if const_type != prev_const_type:
+                prev_const_type = const_type
+                f.write("\n")
+
+            f.write("{:<50}{}\n".format(key + ":", config_out[key]))
     logging.info(f"Config saved to {name}.")
+
+
+def add_output_config(config, output_config):
+    config.update(output_config)
 
 
 def create_logger(results_dir):

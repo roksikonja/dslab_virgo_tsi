@@ -4,10 +4,10 @@ from enum import Enum, auto
 from typing import List, Tuple
 
 import numpy as np
-from sklearn.gaussian_process.kernels import WhiteKernel, Matern
 from sklearn.gaussian_process import GaussianProcessRegressor
 
 from dslab_virgo_tsi.data_utils import notnan_indices, detect_outliers
+from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
 
 
 # from pykalman import KalmanFilter
@@ -286,23 +286,22 @@ class ModelFitter:
         mean = np.mean(np.concatenate((final_result.a_nn_corrected, final_result.b_nn_corrected), axis=0))
 
         # Downsample and normalize
-        k_a, k_b = 10000, 100
-        t_a_downsampled = downsample(base_signals.t_a_nn, k_a).reshape(-1, 1)
-        t_b_downsampled = downsample(base_signals.t_b_nn, k_b).reshape(-1, 1)
+        t_a_downsampled = downsample(base_signals.t_a_nn, GPConsts.DOWNSAMPLING_FACTOR_A).reshape(-1, 1)
+        t_b_downsampled = downsample(base_signals.t_b_nn, GPConsts.DOWNSAMPLING_FACTOR_B).reshape(-1, 1)
 
-        a_downsampled = downsample(final_result.a_nn_corrected, k_a) - mean
+        a_downsampled = downsample(final_result.a_nn_corrected, GPConsts.DOWNSAMPLING_FACTOR_A) - mean
         a_label = np.zeros(shape=a_downsampled.shape, dtype=np.bool)
 
-        b_downsampled = downsample(final_result.b_nn_corrected, k_b) - mean
+        b_downsampled = downsample(final_result.b_nn_corrected, GPConsts.DOWNSAMPLING_FACTOR_B) - mean
         b_label = np.ones(shape=b_downsampled.shape, dtype=np.bool)
 
         signal = np.concatenate([a_downsampled, b_downsampled], axis=0)
         t = np.concatenate([t_a_downsampled, t_b_downsampled], axis=0)
         signal_mask = np.concatenate([a_label, b_label], axis=0)
 
-        kernel = Matern(length_scale=1, length_scale_bounds=(1e-3, 1e3), nu=1.5) + WhiteKernel(1e4, (1e-5, 1e5))
-
-        gpr = GaussianProcessRegressor(kernel=kernel, random_state=0, n_restarts_optimizer=1)
+        gpr = GaussianProcessRegressor(kernel=GPConsts.KERNEL,
+                                       random_state=GPConsts.RANDOM_STATE,
+                                       n_restarts_optimizer=GPConsts.N_RESTARTS_OPTIMIZER)
         gpr.fit(t, signal)
 
         logging.info("GP data samples: {:>10}".format(t.shape[0]))

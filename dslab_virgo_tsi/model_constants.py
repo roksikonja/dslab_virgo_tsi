@@ -1,8 +1,22 @@
 import cvxpy as cp
+from sklearn.gaussian_process.kernels import WhiteKernel, Matern
 
 
-class SmoothMonotoneRegressionConstants(object):
+class ModelConstants(object):
 
+    @staticmethod
+    def return_config(model_class, consts_type="MODEL"):
+        d = dict(model_class.__dict__)
+        out_d = dict()
+
+        for key in d:
+            if not str(key)[0:2] == "__" and not str(key) == "return_config":
+                out_d[f"{consts_type}_{key}"] = d[key]
+
+        return out_d
+
+
+class SmoothMonotoneRegressionConstants(ModelConstants):
     INCREASING = False
     NUMBER_OF_POINTS = 999
     Y_MAX = 1
@@ -11,13 +25,8 @@ class SmoothMonotoneRegressionConstants(object):
     SOLVER = cp.ECOS_BB
     LAM = 1
 
-    @staticmethod
-    def return_config():
-        return dict(SmoothMonotoneRegressionConstants.__dict__)
 
-
-class IsotonicConstants(object):
-
+class IsotonicConstants(ModelConstants):
     SMOOTHING = False
     INCREASING = False
     NUMBER_OF_POINTS = 201
@@ -27,41 +36,41 @@ class IsotonicConstants(object):
     K = 3
     STEPS = 30
 
-    @staticmethod
-    def return_config():
-        return dict(IsotonicConstants.__dict__)
 
-
-class SplineConstants(object):
-
+class SplineConstants(ModelConstants):
     K = 3
     STEPS = 30
     THINNING = 100
 
-    @staticmethod
-    def return_config():
-        return dict(SplineConstants.__dict__)
+
+class ExpConstants(ModelConstants):
+    pass
 
 
-class ExpConstants(object):
-
-    @staticmethod
-    def return_config():
-        return dict(ExpConstants.__dict__)
+class ExpLinConstants(ModelConstants):
+    pass
 
 
-class ExpLinConstants(object):
-
-    @staticmethod
-    def return_config():
-        return dict(ExpLinConstants.__dict__)
-
-
-class EnsembleConstants(object):
-
+class EnsembleConstants(ModelConstants):
     MODELS = None
     WEIGHTS = [0.1, 0.3, 0.3, 0.3]
 
-    @staticmethod
-    def return_config():
-        return dict(EnsembleConstants.__dict__)
+
+class GaussianProcessConstants(ModelConstants):
+    DOWNSAMPLING_FACTOR_A = 10000
+    DOWNSAMPLING_FACTOR_B = 100
+
+    MATERN_LENGTH_SCALE = 1
+    MATERN_LENGTH_SCALE_BOUNDS = (1e-3, 1e3)
+    MATERN_NU = 1.5
+
+    WHITE_NOISE_LEVEL = 1e4
+    WHITE_NOISE_LEVEL_BOUNDS = (1e-5, 1e5)
+
+    KERNEL = Matern(length_scale=MATERN_LENGTH_SCALE,
+                    length_scale_bounds=MATERN_LENGTH_SCALE_BOUNDS, nu=MATERN_NU) \
+        + WhiteKernel(noise_level=WHITE_NOISE_LEVEL,
+                      noise_level_bounds=WHITE_NOISE_LEVEL_BOUNDS)
+
+    RANDOM_STATE = 0
+    N_RESTARTS_OPTIMIZER = 1
