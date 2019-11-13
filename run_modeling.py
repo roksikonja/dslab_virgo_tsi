@@ -96,6 +96,28 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
         results_dir, f"TSI_hourly_{model_name}", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7)
 
+    visualizer.plot_signals_mean_std_precompute(
+        [
+            (out_res.t_daily_out, out_res.signal_daily_out, out_res.signal_std_daily_out, f"TSI_daily_{model_name}")
+        ],
+        results_dir, f"TSI_daily_{model_name}_points", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
+        data_points_triplets=[
+            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_raw_corrected"),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_raw_corrected")
+        ],
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7)
+
+    visualizer.plot_signals_mean_std_precompute(
+        [
+            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
+        ],
+        results_dir, f"TSI_hourly_{model_name}_points", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
+        data_points_triplets=[
+            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_raw_corrected"),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_raw_corrected")
+        ],
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7)
+
     visualizer.plot_signals_mean_std(
         [
             (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_corrected_conf_int", window_size)

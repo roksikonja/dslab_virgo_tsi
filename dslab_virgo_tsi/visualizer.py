@@ -136,21 +136,10 @@ class Visualizer(object):
     @staticmethod
     def plot_signals_mean_std_precompute(signal_fourplets, results_dir, title, x_ticker=None, legend=None, y_lim=None,
                                          x_label=None, y_label=None, ground_truth_triplet=None,
-                                         confidence=0.95, alpha=0.5, max_points=1e5):
+                                         data_points_triplets=None, confidence=0.95, alpha=0.5, max_points=1e5,
+                                         max_points_scatter=1e4):
 
         factor = norm.ppf(confidence) - norm.ppf(1 - confidence)
-
-        t_ground_truth = None
-        signal_ground_truth = None
-        label_ground_truth = None
-
-        if ground_truth_triplet:
-            t_ground_truth = ground_truth_triplet[0]
-            if x_label == Const.YEAR_UNIT:
-                t_ground_truth = np.array(list(map(mission_day_to_year, t_ground_truth)))
-
-            signal_ground_truth = ground_truth_triplet[1]
-            label_ground_truth = ground_truth_triplet[2]
 
         fig = plt.figure()
         for signal_fourplet in signal_fourplets:
@@ -172,7 +161,34 @@ class Visualizer(object):
             plt.fill_between(t, x_mean - factor * x_std, x_mean + factor * x_std, alpha=alpha,
                              label='{}_{}_conf_interval'.format(label, confidence))
 
+        if data_points_triplets:
+            for data_points_triplet in data_points_triplets:
+
+                t_data_points = data_points_triplet[0]
+                if x_label == Const.YEAR_UNIT:
+                    t_data_points = np.array(list(map(mission_day_to_year, t_data_points)))
+
+                signal_data_points = data_points_triplet[1]
+                label_data_points = data_points_triplet[2]
+
+                if t_data_points.shape[0] > max_points_scatter:
+                    downsampling_factor = int(np.floor(float(t_data_points.shape[0]) / float(max_points_scatter)))
+                    t_data_points = downsample_signal(t_data_points, downsampling_factor)
+                    signal_data_points = downsample_signal(signal_data_points, downsampling_factor)
+
+                plt.scatter(t_data_points, signal_data_points,
+                            label=label_data_points,
+                            marker=Const.MATPLOTLIB_STYLE_MARKER,
+                            s=Const.MATPLOTLIB_STYLE_MARKERSIZE)
+
         if ground_truth_triplet:
+            t_ground_truth = ground_truth_triplet[0]
+            if x_label == Const.YEAR_UNIT:
+                t_ground_truth = np.array(list(map(mission_day_to_year, t_ground_truth)))
+
+            signal_ground_truth = ground_truth_triplet[1]
+            label_ground_truth = ground_truth_triplet[2]
+
             plt.plot(t_ground_truth, signal_ground_truth, label=label_ground_truth)
 
         plt.title(f"{title}_{int(confidence * 100)}%_conf_interval")

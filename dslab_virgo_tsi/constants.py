@@ -38,3 +38,5 @@ class Constants(object):
     OUT_FORMAT = "pdf"
     OUT_BBOX = "tight"
     OUT_DPI = 400
+    MATPLOTLIB_STYLE_MARKER = "x"
+    MATPLOTLIB_STYLE_MARKERSIZE = 3

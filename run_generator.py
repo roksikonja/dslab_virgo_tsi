@@ -101,6 +101,7 @@ def plot_results(t_, x_, result_: Result, results_dir, model_name):
             (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"gen_hourly_{model_name}")
         ],
         results_dir, f"gen_hourly_{model_name}", ground_truth_triplet=(t_, x_, "ground_truth"),
+
         legend="upper left", x_label="t", y_label="x(t)")
 
     visualizer.plot_signals_mean_std_precompute(
@@ -108,6 +109,28 @@ def plot_results(t_, x_, result_: Result, results_dir, model_name):
             (out_res.t_daily_out, out_res.signal_daily_out, out_res.signal_std_daily_out, f"gen_daily_{model_name}")
         ],
         results_dir, f"gen_daily_{model_name}", ground_truth_triplet=(t_, x_, "ground_truth"),
+        legend="upper left", x_label="t", y_label="x(t)")
+
+    visualizer.plot_signals_mean_std_precompute(
+        [
+            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"gen_hourly_{model_name}")
+        ],
+        results_dir, f"gen_hourly_{model_name}_points", ground_truth_triplet=(t_, x_, "ground_truth"),
+        data_points_triplets=[
+            (base_sig.t_a_nn, final_res.a_nn_corrected, "A_raw_corrected"),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, "B_raw_corrected")
+        ],
+        legend="upper left", x_label="t", y_label="x(t)")
+
+    visualizer.plot_signals_mean_std_precompute(
+        [
+            (out_res.t_daily_out, out_res.signal_daily_out, out_res.signal_std_daily_out, f"gen_daily_{model_name}")
+        ],
+        results_dir, f"gen_daily_{model_name}_points", ground_truth_triplet=(t_, x_, "ground_truth"),
+        data_points_triplets=[
+            (base_sig.t_a_nn, final_res.a_nn_corrected, "A_raw_corrected"),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, "B_raw_corrected")
+        ],
         legend="upper left", x_label="t", y_label="x(t)")
 
 

@@ -274,8 +274,8 @@ class ModelFitter:
             min_time = 0
             max_time = np.minimum(base_signals.t_a_nn.max(), base_signals.t_b_nn.max())
 
-            num_days = int(1000)
-            num_hours = int(5000)
+            num_days = int(100)
+            num_hours = int(1000)
 
         t_hourly_out = np.linspace(min_time, max_time, num_hours)
         t_daily_out = np.linspace(min_time, max_time, num_days)
