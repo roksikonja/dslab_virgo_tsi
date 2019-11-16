@@ -232,6 +232,15 @@ def detect_outliers(x_fit, x=None, outlier_fraction=1e-3):
     return outliers
 
 
+def median_downsample_by_factor(x, n):
+    return np.array([np.median(x[i:n + i]) for i in range(0, np.size(x), n)])
+
+
+def median_downsample_by_max_points(x, max_points=500):
+    n = np.ceil(x.shape[0] / max_points).astype(int)
+    return np.array([np.median(x[i:n + i]) for i in range(0, np.size(x), n)])
+
+
 def create_results_dir(results_dir_path, model_type):
     results_dir = make_dir(os.path.join(results_dir_path,
                                         datetime.datetime.now().strftime(f"%Y-%m-%d_%H-%M-%S_{model_type}")))

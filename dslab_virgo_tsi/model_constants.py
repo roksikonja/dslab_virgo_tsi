@@ -1,5 +1,4 @@
 import cvxpy as cp
-from sklearn.gaussian_process.kernels import WhiteKernel, Matern
 
 
 class ModelConstants(object):
@@ -67,10 +66,4 @@ class GaussianProcessConstants(ModelConstants):
     WHITE_NOISE_LEVEL = 1e4
     WHITE_NOISE_LEVEL_BOUNDS = (1e-5, 1e5)
 
-    KERNEL = Matern(length_scale=MATERN_LENGTH_SCALE,
-                    length_scale_bounds=MATERN_LENGTH_SCALE_BOUNDS, nu=MATERN_NU) \
-        + WhiteKernel(noise_level=WHITE_NOISE_LEVEL,
-                      noise_level_bounds=WHITE_NOISE_LEVEL_BOUNDS)
-
-    RANDOM_STATE = 0
-    N_RESTARTS_OPTIMIZER = 1
+    N_RESTARTS_OPTIMIZER = 4

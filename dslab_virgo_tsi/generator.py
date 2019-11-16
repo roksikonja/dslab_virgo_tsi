@@ -1,4 +1,5 @@
 import numpy as np
+import logging
 
 from dslab_virgo_tsi.base import ExposureMode
 
@@ -48,8 +49,14 @@ class SignalGenerator(object):
         x_a_raw_, x_b_raw_, params = self.degrade_signal(x_a, x_b, exposure_a, exposure_b,
                                                          degradation_model=degradation_model, rate=rate)
 
-        x_a_raw_ = x_a_raw_ + self.generate_noise(x_a.shape, std=srange * 0.05)
-        x_b_raw_ = x_b_raw_ + self.generate_noise(x_b.shape, std=srange * 0.05)
+        noise_std_a = srange * 0.08
+        noise_std_b = srange * 0.05
+
+        x_a_raw_ = x_a_raw_ + self.generate_noise(x_a.shape, std=noise_std_a)
+        x_b_raw_ = x_b_raw_ + self.generate_noise(x_b.shape, std=noise_std_b)
+
+        logging.info("Generator noise variance A:\t{:>10}".format(noise_std_a ** 2))
+        logging.info("Generator noise variance B:\t{:>10}".format(noise_std_b ** 2))
 
         return x_a_raw_, x_b_raw_, params
 

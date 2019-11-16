@@ -15,6 +15,9 @@ class Constants(object):
     EA = "EXPOSURE-A"
     EB = "EXPOSURE-B"
 
+    # RANDOMNESS
+    RANDOM_SEED = 0
+
     # MODELS
     SPLINE = "SPLINE"
     GP = "GP"
