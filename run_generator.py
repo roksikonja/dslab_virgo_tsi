@@ -4,21 +4,11 @@ import logging
 import numpy as np
 import pandas as pd
 
-from dslab_virgo_tsi.base import ExposureMode, Result, ModelFitter, CorrectionMethod, FitResult, BaseSignals, OutResult, \
+from dslab_virgo_tsi.base import Result, ModelFitter, FitResult, BaseSignals, OutResult, \
     FinalResult
 from dslab_virgo_tsi.constants import Constants as Const
-from dslab_virgo_tsi.data_utils import create_results_dir, save_config, create_logger, save_modeling_result, \
-    add_output_config
 from dslab_virgo_tsi.generator import SignalGenerator
-from dslab_virgo_tsi.model_constants import EnsembleConstants as EnsConsts
-from dslab_virgo_tsi.model_constants import ExpConstants as ExpConsts
-from dslab_virgo_tsi.model_constants import ExpLinConstants as ExpLinConsts
-from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
-from dslab_virgo_tsi.model_constants import IsotonicConstants as IsoConsts
-from dslab_virgo_tsi.model_constants import SmoothMonotoneRegressionConstants as SMRConsts
-from dslab_virgo_tsi.model_constants import SplineConstants as SplConsts
-from dslab_virgo_tsi.models import ExpModel, ExpLinModel, SplineModel, IsotonicModel, EnsembleModel, \
-    SmoothMonotoneRegression
+from dslab_virgo_tsi.run_utils import setup_run, create_results_dir, create_logger, save_modeling_result
 from dslab_virgo_tsi.visualizer import Visualizer
 
 
@@ -31,12 +21,12 @@ def parse_arguments():
 
     parser.add_argument("--save_plots", action="store_true", help="Flag for saving plots.")
     parser.add_argument("--save_signals", action="store_true", help="Flag for saving computed signals.")
-    parser.add_argument("--window", type=int, default=81, help="Moving average window size for plotting.")
 
     parser.add_argument("--model_type", type=str, default="smooth_monotonic", help="Model to train.")
     parser.add_argument("--correction_method", type=str, default="one", help="Iterative correction method.")
     parser.add_argument("--outlier_fraction", type=float, default=0, help="Outlier fraction.")
     parser.add_argument("--exposure_mode", type=str, default="measurements", help="Exposure computing method.")
+    parser.add_argument("--output_method", type=str, default="svgp", help="Exposure computing method.")
 
     return parser.parse_args()
 
@@ -137,7 +127,6 @@ def plot_results(t_, x_, result_: Result, results_dir, model_name):
 if __name__ == "__main__":
     ARGS = parse_arguments()
 
-    # Constants
     data_dir = Const.DATA_DIR
     results_dir_path = create_results_dir(Const.RESULTS_DIR, f"gen_{ARGS.model_type}")
     create_logger(results_dir_path)
@@ -145,57 +134,8 @@ if __name__ == "__main__":
     visualizer = Visualizer()
     visualizer.set_figsize()
 
-    # Perform modeling
-    model = None
-    config = None
-    if ARGS.model_type == "exp_lin":
-        model = ExpLinModel()
-        config = ExpLinConsts.return_config(ExpLinConsts)
-    elif ARGS.model_type == "exp":
-        model = ExpModel()
-        config = ExpConsts.return_config(ExpConsts)
-    elif ARGS.model_type == "spline":
-        model = SplineModel()
-        config = SplConsts.return_config(SplConsts)
-    elif ARGS.model_type == "isotonic":
-        model = IsotonicModel()
-        config = IsoConsts.return_config(IsoConsts)
-    elif ARGS.model_type == "ensemble":
-        models = [ExpLinModel(), ExpModel(), SplineModel(), IsotonicModel()]
-        model = EnsembleModel(models=models)
-        config = EnsConsts.return_config(EnsConsts)
-        config["models"] = str(models)
-    elif ARGS.model_type == "smooth_monotonic":
-        model = SmoothMonotoneRegression()
-        config = SMRConsts.return_config(SMRConsts)
-
-    # Get correction method
-    if ARGS.correction_method == "both":
-        correction_method = CorrectionMethod.CORRECT_BOTH
-    else:
-        correction_method = CorrectionMethod.CORRECT_ONE
-
-    if ARGS.exposure_mode == "sum":
-        exposure_mode = ExposureMode.EXPOSURE_SUM
-    else:
-        exposure_mode = ExposureMode.NUM_MEASUREMENTS
-
-    # Compute output config
-    add_output_config(config, GPConsts.return_config(GPConsts, "OUTPUT"))
-
-    config["correction_method"] = ARGS.correction_method
-    config["model_type"] = ARGS.model_type
-    config["outlier_fraction"] = ARGS.outlier_fraction
-    config["exposure_mode"] = ARGS.exposure_mode
-    config["mode"] = "generator"
-
-    logging.info("Running in {} mode.".format(config["mode"]))
-    logging.info(f"Model {ARGS.model_type} selected.")
-    logging.info(f"Correction method {ARGS.correction_method} selected.")
-    logging.info(f"Exposure mode {ARGS.exposure_mode} selected.")
-    logging.info(f"Outlier fraction {ARGS.outlier_fraction} selected.")
-
-    save_config(results_dir_path, config)
+    model, mode, model_type, correction_method, exposure_mode, output_method, outlier_fraction \
+        = setup_run(ARGS, "gen", results_dir_path)
 
     # Generator
     Generator = SignalGenerator(ARGS.signal_length, ARGS.random_seed, exposure_mode)
@@ -210,16 +150,17 @@ if __name__ == "__main__":
     data_gen[X_B] = x_b_raw
     logging.info(f"Data generator loaded.")
 
-    fitter = ModelFitter(mode=config["mode"],
+    fitter = ModelFitter(mode=mode,
                          data=data_gen,
                          t_field_name=T,
                          a_field_name=X_A,
                          b_field_name=X_B,
                          exposure_mode=exposure_mode,
-                         outlier_fraction=ARGS.outlier_fraction)
+                         outlier_fraction=outlier_fraction)
 
     result: Result = fitter(model=model,
-                            correction_method=correction_method)
+                            correction_method=correction_method,
+                            output_method=output_method)
 
     if ARGS.save_signals:
         save_modeling_result(results_dir_path, result, f"gen_{ARGS.model_type}")

@@ -24,6 +24,8 @@ setup(
         "numba",
         "pytables>=3.2",
         "flask",
-        "wtforms"
+        "wtforms",
+        "tensorflow==2.0.0",
+        "gpflow==2.0.0rc1"
     ],
 )

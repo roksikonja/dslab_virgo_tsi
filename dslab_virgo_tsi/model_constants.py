@@ -56,8 +56,8 @@ class EnsembleConstants(ModelConstants):
 
 
 class GaussianProcessConstants(ModelConstants):
-    DOWNSAMPLING_FACTOR_A = 10000
-    DOWNSAMPLING_FACTOR_B = 100
+    DOWNSAMPLING_FACTOR_A = 20000
+    DOWNSAMPLING_FACTOR_B = 200
 
     MATERN_LENGTH_SCALE = 1
     MATERN_LENGTH_SCALE_BOUNDS = (1e-3, 1e3)
@@ -67,3 +67,9 @@ class GaussianProcessConstants(ModelConstants):
     WHITE_NOISE_LEVEL_BOUNDS = (1e-5, 1e5)
 
     N_RESTARTS_OPTIMIZER = 4
+
+
+class SVGaussianProcessConstants(ModelConstants):
+    NUM_INDUCING_POINTS = 200
+    MINIBATCH_SIZE = 100
+    MAX_ITERATIONS = 10000

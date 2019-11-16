@@ -1,11 +1,11 @@
 import datetime
 import logging
 import os
-import pickle
-import collections
 
 import numpy as np
 import pandas as pd
+import tensorflow as tf
+from gpflow.utilities.utilities import tabulate_module_summary
 from numba import jit, jitclass, int32, float64
 from sklearn.covariance import EllipticEnvelope
 
@@ -241,55 +241,11 @@ def median_downsample_by_max_points(x, max_points=500):
     return np.array([np.median(x[i:n + i]) for i in range(0, np.size(x), n)])
 
 
-def create_results_dir(results_dir_path, model_type):
-    results_dir = make_dir(os.path.join(results_dir_path,
-                                        datetime.datetime.now().strftime(f"%Y-%m-%d_%H-%M-%S_{model_type}")))
-    return results_dir
-
-
-def save_modeling_result(results_dir, model_results, model_name):
-    name = f"{model_name}_modeling_result.pkl"
-    with open(os.path.join(results_dir, name), 'wb') as f:
-        pickle.dump(model_results, f, protocol=pickle.HIGHEST_PROTOCOL)
-    logging.info(f"Modeling result saved to {name}.")
-
-
-def save_config(results_dir, config):
-    config_out = dict()
-
-    for key in config:
-        if str(key).islower():
-            config_out[f"BASE_{key}"] = config[key]
-        else:
-            config_out[key] = config[key]
-
-    config_out = collections.OrderedDict(sorted(config_out.items()))
-
-    name = "config.txt"
-    prev_const_type = "BASE"
-    with open(os.path.join(results_dir, name), "w") as f:
-        for key in config_out:
-            const_type = str(key).split("_")[0]
-            if const_type != prev_const_type:
-                prev_const_type = const_type
-                f.write("\n")
-
-            f.write("{:<50}{}\n".format(key + ":", config_out[key]))
-    logging.info(f"Config saved to {name}.")
-
-
-def add_output_config(config, output_config):
-    config.update(output_config)
-
-
-def create_logger(results_dir):
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)-5s %(name)-20s %(levelname)-15s %(message)s',
-                        datefmt='[%m-%d %H:%M]',
-                        handlers=[logging.FileHandler(os.path.join(results_dir, 'log.log')),
-                                  logging.StreamHandler()])
-    logging.info("Application started.")
-    logging.info("Logging started.")
+def get_summary(module: tf.Module):
+    """
+    Returns a summary of the parameters and variables contained in a tf.Module.
+    """
+    return tabulate_module_summary(module, None)
 
 
 if __name__ == "__main__":
