@@ -228,7 +228,8 @@ class ModelFitter:
         final_result = model.compute_final_result(self.base_signals, optimal_params)
 
         # Compute output signals
-        out_result = self._compute_output(self.base_signals, final_result)
+        #out_result = self._compute_output(self.base_signals, final_result)
+        out_result = None
 
         # Return all together
         return Result(self.base_signals, history_mutual_nn, final_result, out_result)
