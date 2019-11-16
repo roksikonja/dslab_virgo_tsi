@@ -6,11 +6,12 @@ import numpy as np
 from dslab_virgo_tsi.base import ExposureMode, Result, FitResult, ModelFitter, BaseSignals, OutResult, FinalResult, \
     CorrectionMethod
 from dslab_virgo_tsi.constants import Constants as Const
-from dslab_virgo_tsi.data_utils import create_results_dir, create_logger
-from dslab_virgo_tsi.data_utils import load_data, save_modeling_result, save_config
+from dslab_virgo_tsi.data_utils import load_data, create_results_dir, create_logger, save_modeling_result, \
+    save_config, add_output_config
 from dslab_virgo_tsi.model_constants import EnsembleConstants as EnsConsts
 from dslab_virgo_tsi.model_constants import ExpConstants as ExpConsts
 from dslab_virgo_tsi.model_constants import ExpLinConstants as ExpLinConsts
+from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
 from dslab_virgo_tsi.model_constants import IsotonicConstants as IsoConsts
 from dslab_virgo_tsi.model_constants import SmoothMonotoneRegressionConstants as SMRConsts
 from dslab_virgo_tsi.model_constants import SplineConstants as SplConsts
@@ -95,6 +96,28 @@ def plot_results(result_: Result, results_dir, model_name, window_size):
         results_dir, f"TSI_hourly_{model_name}", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7)
 
+    visualizer.plot_signals_mean_std_precompute(
+        [
+            (out_res.t_daily_out, out_res.signal_daily_out, out_res.signal_std_daily_out, f"TSI_daily_{model_name}")
+        ],
+        results_dir, f"TSI_daily_{model_name}_points", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
+        data_points_triplets=[
+            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_raw_corrected"),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_raw_corrected")
+        ],
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7)
+
+    visualizer.plot_signals_mean_std_precompute(
+        [
+            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
+        ],
+        results_dir, f"TSI_hourly_{model_name}_points", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
+        data_points_triplets=[
+            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_raw_corrected"),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_raw_corrected")
+        ],
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7)
+
     visualizer.plot_signals_mean_std(
         [
             (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_corrected_conf_int", window_size)
@@ -132,24 +155,24 @@ if __name__ == "__main__":
     config = None
     if ARGS.model_type == "exp_lin":
         model = ExpLinModel()
-        config = ExpLinConsts.return_config()
+        config = ExpLinConsts.return_config(ExpLinConsts)
     elif ARGS.model_type == "exp":
         model = ExpModel()
-        config = ExpConsts.return_config()
+        config = ExpConsts.return_config(ExpConsts)
     elif ARGS.model_type == "spline":
         model = SplineModel()
-        config = SplConsts.return_config()
+        config = SplConsts.return_config(SplConsts)
     elif ARGS.model_type == "isotonic":
         model = IsotonicModel()
-        config = IsoConsts.return_config()
+        config = IsoConsts.return_config(IsoConsts)
     elif ARGS.model_type == "ensemble":
         models = [ExpLinModel(), ExpModel(), SplineModel(), IsotonicModel()]
         model = EnsembleModel(models=models)
-        config = EnsConsts.return_config()
+        config = EnsConsts.return_config(EnsConsts)
         config["models"] = str(models)
     elif ARGS.model_type == "smooth_monotonic":
         model = SmoothMonotoneRegression()
-        config = SMRConsts.return_config()
+        config = SMRConsts.return_config(SMRConsts)
 
     # Get correction method
     if ARGS.correction_method == "both":
@@ -161,6 +184,9 @@ if __name__ == "__main__":
         exposure_mode = ExposureMode.NUM_MEASUREMENTS
     else:
         exposure_mode = ExposureMode.EXPOSURE_SUM
+
+    # Compute output config
+    add_output_config(config, GPConsts.return_config(GPConsts, "OUTPUT"))
 
     config["correction_method"] = ARGS.correction_method
     config["model_type"] = ARGS.model_type

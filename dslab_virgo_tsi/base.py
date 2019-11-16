@@ -4,10 +4,13 @@ from enum import Enum, auto
 from typing import List, Tuple
 
 import numpy as np
-from sklearn.gaussian_process.kernels import WhiteKernel, Matern
 from sklearn.gaussian_process import GaussianProcessRegressor
 
-from dslab_virgo_tsi.data_utils import notnan_indices, detect_outliers
+from dslab_virgo_tsi.data_utils import notnan_indices, detect_outliers, median_downsample_by_factor, median_downsample_by_max_points
+from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
+from dslab_virgo_tsi.constants import Constants as Const
+
+from sklearn.gaussian_process.kernels import WhiteKernel, Matern
 
 
 # from pykalman import KalmanFilter
@@ -257,98 +260,77 @@ class ModelFitter:
     def _compute_output(self, base_signals: BaseSignals, final_result: FinalResult) -> OutResult:
         logging.info("Computing output ...")
 
-        num_hours, num_days = None, None
+        num_hours, num_hours_in_day = None, None
         min_time, max_time = None, None
+        length_scale = None
         if self.mode == "virgo":
-            # min_time = np.maximum(np.ceil(base_signals.t_a_nn.min()), np.ceil(base_signals.t_b_nn.min()))
             min_time = 0
             max_time = np.minimum(np.floor(base_signals.t_a_nn.max()), np.floor(base_signals.t_b_nn.max()))
 
-            num_days = int(0.01 * (max_time - min_time) + 1)
-            num_hours = int(24 * 0.01 * (max_time - min_time) + 1)
-
-            num_days = int((max_time - min_time) + 1)
             num_hours = int(24 * (max_time - min_time) + 1)
+            num_hours_in_day = 24
+
         elif self.mode == "generator":
-            # min_time = np.maximum(base_signals.t_a_nn.min(), base_signals.t_b_nn.min())
             min_time = 0
             max_time = np.minimum(base_signals.t_a_nn.max(), base_signals.t_b_nn.max())
 
-            num_days = int(1000)
-            num_hours = int(5000)
+            num_hours = int(1000 + 1)
+            num_hours_in_day = 10
+            GPConsts.DOWNSAMPLING_FACTOR_A = 100
+            GPConsts.DOWNSAMPLING_FACTOR_B = 100
 
         t_hourly_out = np.linspace(min_time, max_time, num_hours)
-        t_daily_out = np.linspace(min_time, max_time, num_days)
-
-        def downsample(x, n):
-            return np.array([np.median(x[i:n + i]) for i in range(0, np.size(x), n)])
+        t_daily_out = t_hourly_out[::num_hours_in_day]
 
         mean = np.mean(np.concatenate((final_result.a_nn_corrected, final_result.b_nn_corrected), axis=0))
 
         # Downsample and normalize
-        k_a, k_b = 10000, 100
-        t_a_downsampled = downsample(base_signals.t_a_nn, k_a).reshape(-1, 1)
-        t_b_downsampled = downsample(base_signals.t_b_nn, k_b).reshape(-1, 1)
-
-        a_downsampled = downsample(final_result.a_nn_corrected, k_a) - mean
-        a_label = np.zeros(shape=a_downsampled.shape, dtype=np.bool)
-
-        b_downsampled = downsample(final_result.b_nn_corrected, k_b) - mean
-        b_label = np.ones(shape=b_downsampled.shape, dtype=np.bool)
+        t_a_downsampled = median_downsample_by_factor(base_signals.t_a_nn, GPConsts.DOWNSAMPLING_FACTOR_A).reshape(-1, 1)
+        t_b_downsampled = median_downsample_by_factor(base_signals.t_b_nn, GPConsts.DOWNSAMPLING_FACTOR_B).reshape(-1, 1)
+        a_downsampled = median_downsample_by_factor(final_result.a_nn_corrected, GPConsts.DOWNSAMPLING_FACTOR_A) - mean
+        b_downsampled = median_downsample_by_factor(final_result.b_nn_corrected, GPConsts.DOWNSAMPLING_FACTOR_B) - mean
 
         signal = np.concatenate([a_downsampled, b_downsampled], axis=0)
         t = np.concatenate([t_a_downsampled, t_b_downsampled], axis=0)
-        signal_mask = np.concatenate([a_label, b_label], axis=0)
 
-        kernel = Matern(length_scale=1, length_scale_bounds=(1e-3, 1e3), nu=1.5) + WhiteKernel(1e4, (1e-5, 1e5))
+        matern_kernel = Matern(length_scale=GPConsts.MATERN_LENGTH_SCALE,
+                               length_scale_bounds=GPConsts.MATERN_LENGTH_SCALE_BOUNDS,
+                               nu=GPConsts.MATERN_NU)
 
-        gpr = GaussianProcessRegressor(kernel=kernel, random_state=0, n_restarts_optimizer=1)
+        white_kernel = WhiteKernel(noise_level=GPConsts.WHITE_NOISE_LEVEL,
+                                   noise_level_bounds=GPConsts.WHITE_NOISE_LEVEL_BOUNDS)
+
+        kernel = matern_kernel + white_kernel
+
+        gpr = GaussianProcessRegressor(kernel=kernel,
+                                       random_state=Const.RANDOM_SEED,
+                                       n_restarts_optimizer=GPConsts.N_RESTARTS_OPTIMIZER)
         gpr.fit(t, signal)
 
         logging.info("GP data samples: {:>10}".format(t.shape[0]))
         logging.info("GP log marginal likelihood:\t{:>10}".format(gpr.log_marginal_likelihood()))
+        logging.info("GP parameters:\t{:>10}".format(str(gpr.kernel_)))
 
+        # Prediction
         signal_hourly_out, signal_std_hourly_out = gpr.predict(t_hourly_out.reshape(-1, 1), return_std=True)
-        signal_daily_out, signal_std_daily_out = gpr.predict(t_daily_out.reshape(-1, 1), return_std=True)
+
+        signal_daily_out = signal_hourly_out[::num_hours_in_day]
+        signal_std_daily_out = signal_std_hourly_out[::num_hours_in_day]
 
         return OutResult(t_hourly_out, signal_hourly_out.ravel() + mean, signal_std_hourly_out.ravel(),
                          t_daily_out, signal_daily_out.ravel() + mean, signal_std_daily_out.ravel())
 
-        # a_nn_interpolation_func = interp1d(base_signals.t_a_nn, final_result.a_nn_corrected, kind="linear")
-        # a_nn_hourly_resampled = a_nn_interpolation_func(t_hourly_out)
-        # a_nn_daily_resampled = a_nn_interpolation_func(t_daily_out)
-        #
-        # b_nn_interpolation_func = interp1d(base_signals.t_b_nn, final_result.b_nn_corrected, kind="linear")
-        # b_nn_hourly_resampled = b_nn_interpolation_func(t_hourly_out)
-        # b_nn_daily_resampled = b_nn_interpolation_func(t_daily_out)
-        #
-        # observations_hourly = np.stack((a_nn_hourly_resampled, b_nn_hourly_resampled), axis=1)
-        # observations_daily = np.stack((a_nn_daily_resampled, b_nn_daily_resampled), axis=1)
-        #
-        # mean = np.mean(np.concatenate((final_result.a_nn_corrected, final_result.b_nn_corrected), axis=0))
-        #
-        # kf = KalmanFilter(n_dim_obs=2,
-        #                   initial_state_mean=0,
-        #                   transition_matrices=[[1]],
-        #                   transition_offsets=0,
-        #                   observation_matrices=[[1], [1]],
-        #                   observation_offsets=[0, 0],
-        #                   em_vars=["transition_covariance",
-        #                            "observation_covariance",
-        #                            "initial_state_covariance"])
-        #
-        # logging.info("Running EM for Kalman Filter")
-        # kf.em(observations_daily - mean)
-        #
-        # logging.info("Running Kalman smoothing")
-        # signal_hourly_out, signal_std_hourly_out = kf.smooth(observations_hourly - mean)
-        # signal_daily_out, signal_std_daily_out = kf.smooth(observations_daily - mean)
-        #
-        # # signal_hourly_out, signal_std_hourly_out = kf.filter(observations_hourly - mean)
-        # # signal_daily_out, signal_std_daily_out = kf.filter(observations_daily - mean)
-        #
-        # return OutResult(t_hourly_out, signal_hourly_out.ravel() + mean, np.sqrt(signal_std_hourly_out.ravel()),
-        #                  t_daily_out, signal_daily_out.ravel() + mean, np.sqrt(signal_std_daily_out.ravel()))
+    @staticmethod
+    def _estimate_noise_level(x, y, kernel, white_kernel):
+        logging.info("Estimating noise on {} data samples.".format(x.shape[0]))
+        kernel = kernel + white_kernel
+        gp = GaussianProcessRegressor(kernel=kernel, random_state=Const.RANDOM_SEED,
+                                      n_restarts_optimizer=GPConsts.N_RESTARTS_OPTIMIZER,
+                                      alpha=0.0).fit(x, y)
+        logging.info("GP estimate noise variance:\t{:>10}".format(str(gp.kernel_.get_params()["k2__noise_level"])))
+
+        noise_level = gp.kernel_.get_params()["k2__noise_level"]
+        return noise_level
 
     @staticmethod
     def _compute_exposure(x, mode=ExposureMode.NUM_MEASUREMENTS, mean=1.0, length=None):

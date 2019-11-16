@@ -15,6 +15,9 @@ class Constants(object):
     EA = "EXPOSURE-A"
     EB = "EXPOSURE-B"
 
+    # RANDOMNESS
+    RANDOM_SEED = 0
+
     # MODELS
     SPLINE = "SPLINE"
     GP = "GP"
@@ -38,3 +41,5 @@ class Constants(object):
     OUT_FORMAT = "pdf"
     OUT_BBOX = "tight"
     OUT_DPI = 400
+    MATPLOTLIB_STYLE_MARKER = "x"
+    MATPLOTLIB_STYLE_MARKERSIZE = 3

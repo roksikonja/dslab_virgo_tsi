@@ -4,14 +4,16 @@ import logging
 import numpy as np
 import pandas as pd
 
-from dslab_virgo_tsi.base import ExposureMode, Result, ModelFitter, CorrectionMethod
-from dslab_virgo_tsi.base import FitResult, BaseSignals, OutResult, FinalResult
+from dslab_virgo_tsi.base import ExposureMode, Result, ModelFitter, CorrectionMethod, FitResult, BaseSignals, OutResult, \
+    FinalResult
 from dslab_virgo_tsi.constants import Constants as Const
-from dslab_virgo_tsi.data_utils import create_results_dir, save_config, create_logger, save_modeling_result
+from dslab_virgo_tsi.data_utils import create_results_dir, save_config, create_logger, save_modeling_result, \
+    add_output_config
 from dslab_virgo_tsi.generator import SignalGenerator
 from dslab_virgo_tsi.model_constants import EnsembleConstants as EnsConsts
 from dslab_virgo_tsi.model_constants import ExpConstants as ExpConsts
 from dslab_virgo_tsi.model_constants import ExpLinConstants as ExpLinConsts
+from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
 from dslab_virgo_tsi.model_constants import IsotonicConstants as IsoConsts
 from dslab_virgo_tsi.model_constants import SmoothMonotoneRegressionConstants as SMRConsts
 from dslab_virgo_tsi.model_constants import SplineConstants as SplConsts
@@ -99,6 +101,7 @@ def plot_results(t_, x_, result_: Result, results_dir, model_name):
             (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"gen_hourly_{model_name}")
         ],
         results_dir, f"gen_hourly_{model_name}", ground_truth_triplet=(t_, x_, "ground_truth"),
+
         legend="upper left", x_label="t", y_label="x(t)")
 
     visualizer.plot_signals_mean_std_precompute(
@@ -106,6 +109,28 @@ def plot_results(t_, x_, result_: Result, results_dir, model_name):
             (out_res.t_daily_out, out_res.signal_daily_out, out_res.signal_std_daily_out, f"gen_daily_{model_name}")
         ],
         results_dir, f"gen_daily_{model_name}", ground_truth_triplet=(t_, x_, "ground_truth"),
+        legend="upper left", x_label="t", y_label="x(t)")
+
+    visualizer.plot_signals_mean_std_precompute(
+        [
+            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"gen_hourly_{model_name}")
+        ],
+        results_dir, f"gen_hourly_{model_name}_points", ground_truth_triplet=(t_, x_, "ground_truth"),
+        data_points_triplets=[
+            (base_sig.t_a_nn, final_res.a_nn_corrected, "A_raw_corrected"),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, "B_raw_corrected")
+        ],
+        legend="upper left", x_label="t", y_label="x(t)")
+
+    visualizer.plot_signals_mean_std_precompute(
+        [
+            (out_res.t_daily_out, out_res.signal_daily_out, out_res.signal_std_daily_out, f"gen_daily_{model_name}")
+        ],
+        results_dir, f"gen_daily_{model_name}_points", ground_truth_triplet=(t_, x_, "ground_truth"),
+        data_points_triplets=[
+            (base_sig.t_a_nn, final_res.a_nn_corrected, "A_raw_corrected"),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, "B_raw_corrected")
+        ],
         legend="upper left", x_label="t", y_label="x(t)")
 
 
@@ -125,24 +150,24 @@ if __name__ == "__main__":
     config = None
     if ARGS.model_type == "exp_lin":
         model = ExpLinModel()
-        config = ExpLinConsts.return_config()
+        config = ExpLinConsts.return_config(ExpLinConsts)
     elif ARGS.model_type == "exp":
         model = ExpModel()
-        config = ExpConsts.return_config()
+        config = ExpConsts.return_config(ExpConsts)
     elif ARGS.model_type == "spline":
         model = SplineModel()
-        config = SplConsts.return_config()
+        config = SplConsts.return_config(SplConsts)
     elif ARGS.model_type == "isotonic":
         model = IsotonicModel()
-        config = IsoConsts.return_config()
+        config = IsoConsts.return_config(IsoConsts)
     elif ARGS.model_type == "ensemble":
         models = [ExpLinModel(), ExpModel(), SplineModel(), IsotonicModel()]
         model = EnsembleModel(models=models)
-        config = EnsConsts.return_config()
+        config = EnsConsts.return_config(EnsConsts)
         config["models"] = str(models)
     elif ARGS.model_type == "smooth_monotonic":
         model = SmoothMonotoneRegression()
-        config = SMRConsts.return_config()
+        config = SMRConsts.return_config(SMRConsts)
 
     # Get correction method
     if ARGS.correction_method == "both":
@@ -154,6 +179,9 @@ if __name__ == "__main__":
         exposure_mode = ExposureMode.EXPOSURE_SUM
     else:
         exposure_mode = ExposureMode.NUM_MEASUREMENTS
+
+    # Compute output config
+    add_output_config(config, GPConsts.return_config(GPConsts, "OUTPUT"))
 
     config["correction_method"] = ARGS.correction_method
     config["model_type"] = ARGS.model_type
@@ -192,7 +220,6 @@ if __name__ == "__main__":
 
     result: Result = fitter(model=model,
                             correction_method=correction_method)
-
 
     if ARGS.save_signals:
         save_modeling_result(results_dir_path, result, f"gen_{ARGS.model_type}")
