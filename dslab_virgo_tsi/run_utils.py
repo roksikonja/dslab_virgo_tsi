@@ -25,6 +25,8 @@ from dslab_virgo_tsi.models import ExpModel, ExpLinModel, SplineModel, IsotonicM
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--mode", type=str, default="virgo", help="Set data mode.")
+
     parser.add_argument("--random_seed", type=int, default=0, help="Set generator random seed.")
 
     parser.add_argument("--save_plots", action="store_true", help="Flag for saving plots.")
@@ -162,7 +164,7 @@ def save_config(results_dir, config):
 
     name = "config.txt"
     prev_const_type = "BASE"
-    with open(os.path.join(results_dir, name), "w") as f:
+    with open(os.path.join(results_dir, name), "a+") as f:
         for key in config_out:
             const_type = str(key).split("_")[0]
             if const_type != prev_const_type:
@@ -170,6 +172,7 @@ def save_config(results_dir, config):
                 f.write("\n")
 
             f.write("{:<50}{}\n".format(key + ":", config_out[key]))
+        f.write("\n\n")
     logging.info(f"Config saved to {name}.")
 
 

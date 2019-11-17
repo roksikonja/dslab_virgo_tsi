@@ -10,7 +10,6 @@ from dslab_virgo_tsi.run_utils import setup_run, create_results_dir, create_logg
 from dslab_virgo_tsi.visualizer import Visualizer
 
 """
---random_seed = 0
 --save_plots = store_true
 --save_signals = store_true
 

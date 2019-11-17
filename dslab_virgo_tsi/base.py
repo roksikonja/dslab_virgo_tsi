@@ -228,7 +228,9 @@ class ModelFitter:
         self.base_signals = BaseSignals(a_nn, b_nn, t_a_nn, t_b_nn, exposure_a_nn, exposure_b_nn, a_mutual_nn,
                                         b_mutual_nn, t_mutual_nn, exposure_a_mutual_nn, exposure_b_mutual_nn)
 
-    def __call__(self, model: BaseModel, correction_method: CorrectionMethod, output_method: OutputMethod) -> Result:
+    def __call__(self, model: BaseModel, correction_method: CorrectionMethod, output_method: OutputMethod,
+                 compute_output=True) -> Result:
+
         # Perform initial fit if needed
         initial_params: Params = model.get_initial_params(self.base_signals)
 
@@ -240,7 +242,11 @@ class ModelFitter:
         final_result = model.compute_final_result(self.base_signals, optimal_params)
 
         # Compute output signals
-        out_result = self._compute_output(self.base_signals, final_result, output_method)
+        if compute_output:
+            out_result = self._compute_output(self.base_signals, final_result, output_method)
+        else:
+            # Only in model comparison mode
+            out_result = None
 
         # Return all together
         return Result(self.base_signals, history_mutual_nn, final_result, out_result)
@@ -294,6 +300,7 @@ class ModelFitter:
         mean = np.mean(np.concatenate((final_result.a_nn_corrected, final_result.b_nn_corrected), axis=0))
 
         if output_method == OutputMethod.GP:
+            logging.info(f"{output_method} started.")
             t_a_downsampled = median_downsample_by_factor(base_signals.t_a_nn,
                                                           GPConsts.DOWNSAMPLING_FACTOR_A).reshape(-1, 1)
             t_b_downsampled = median_downsample_by_factor(base_signals.t_b_nn,
@@ -331,6 +338,7 @@ class ModelFitter:
             signal_std_daily_out = signal_std_hourly_out[::num_hours_in_day]
 
         else:
+            logging.info(f"{output_method} started.")
             # t_a_downsampled = base_signals.t_a_nn
             # a_downsampled = final_result.a_nn_corrected
 
@@ -349,7 +357,7 @@ class ModelFitter:
 
             if self.mode == Mode.GENERATOR:
                 kernel = gpflow.kernels.Sum([gpflow.kernels.Linear(),
-                                             gpflow.kernels.Periodic,
+                                             gpflow.kernels.Matern32(),
                                              gpflow.kernels.White()])
             else:
                 kernel = gpflow.kernels.Sum([gpflow.kernels.Matern32(), gpflow.kernels.White()])
@@ -358,7 +366,7 @@ class ModelFitter:
 
             # Inducing variables not trainable
             gpflow.utilities.set_trainable(m.inducing_variable, False)
-            # m.kernel.kernels[0].lengthscale.assign(427)
+            m.kernel.kernels[0].lengthscale.assign(427)
 
             logging.info("Model created.\n\n" + str(get_summary(m)) + "\n")
 
