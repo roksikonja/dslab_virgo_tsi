@@ -1,17 +1,25 @@
-import numpy as np
 import logging
 
-from dslab_virgo_tsi.base import ExposureMode
+import numpy as np
+
+from dslab_virgo_tsi.base import ExposureMethod
 
 
 class SignalGenerator(object):
 
-    def __init__(self, length, random_seed=0, exposure_mode=ExposureMode.NUM_MEASUREMENTS):
+    def __init__(self, length, random_seed=0, exposure_method: ExposureMethod = ExposureMethod.NUM_MEASUREMENTS):
         np.random.seed(random_seed)
 
         self.length = length
         self.time = self.generate_time()
-        self.exposure_mode = exposure_mode
+
+        # Exposure method
+        if exposure_method == "measurements":
+            exposure_method = ExposureMethod.NUM_MEASUREMENTS
+        else:
+            exposure_method = ExposureMethod.EXPOSURE_SUM
+
+        self.exposure_method = exposure_method
 
         # Ground truth signal
         self.x = None
@@ -28,7 +36,7 @@ class SignalGenerator(object):
         """
         a = np.random.rand(5)
         x_ = 10 + a[0] / 10 * np.sin(10 * np.pi * a[2] * (self.time - a[1])) + \
-             (2 * int(a[4] >= 0.5) - 1) * a[3] * self.time
+            (2 * int(a[4] >= 0.5) - 1) * a[3] * self.time
 
         self.x = x_
         self.a = a
@@ -40,14 +48,23 @@ class SignalGenerator(object):
         x_a, t_a = self.remove_measurements(x_.copy(), self.time.copy(), 0.1)
         x_b, t_b = self.remove_measurements(x_.copy(), self.time.copy(), 0.9)
 
+        print("x_a", (~np.isnan(x_a)).sum())
+        print("x_b", (~np.isnan(x_b)).sum())
+
         mean_b = float(np.mean(x_b[~np.isnan(x_b)]))
         length_a = x_a.shape[0]
 
-        exposure_a = self.compute_exposure(x_a, mode=self.exposure_mode, mean=mean_b, length=length_a)
-        exposure_b = self.compute_exposure(x_b, mode=self.exposure_mode, mean=mean_b, length=length_a)
+        exposure_a = self.compute_exposure(x_a, mode=self.exposure_method, mean=mean_b, length=length_a)
+        exposure_b = self.compute_exposure(x_b, mode=self.exposure_method, mean=mean_b, length=length_a)
+
+        print("exposure_a", (~np.isnan(exposure_a)).sum())
+        print("exposure_b", (~np.isnan(exposure_b)).sum())
 
         x_a_raw_, x_b_raw_, params = self.degrade_signal(x_a, x_b, exposure_a, exposure_b,
                                                          degradation_model=degradation_model, rate=rate)
+
+        print("x_a_raw_", (~np.isnan(x_a_raw_)).sum())
+        print("x_b_raw_", (~np.isnan(x_b_raw_)).sum())
 
         noise_std_a = srange * 0.08
         noise_std_b = srange * 0.05
@@ -76,10 +93,10 @@ class SignalGenerator(object):
         return noise
 
     @staticmethod
-    def compute_exposure(x, mode=ExposureMode.NUM_MEASUREMENTS, mean=1.0, length=None):
-        if mode == ExposureMode.NUM_MEASUREMENTS:
+    def compute_exposure(x, mode: ExposureMethod, mean=1.0, length=None):
+        if mode == ExposureMethod.NUM_MEASUREMENTS:
             x = np.nan_to_num(x) > 0
-        elif mode == ExposureMode.EXPOSURE_SUM:
+        elif mode == ExposureMethod.EXPOSURE_SUM:
             x = np.nan_to_num(x)
             x = x / mean
 

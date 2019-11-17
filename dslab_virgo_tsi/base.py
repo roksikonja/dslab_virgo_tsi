@@ -18,11 +18,12 @@ from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
 from dslab_virgo_tsi.model_constants import SVGaussianProcessConstants as SVGPConsts
 
 
-# from pykalman import KalmanFilter
-# from scipy.interpolate import interp1d
+class Mode(Enum):
+    VIRGO = auto()
+    GENERATOR = auto()
 
 
-class ExposureMode(Enum):
+class ExposureMethod(Enum):
     NUM_MEASUREMENTS = auto()
     EXPOSURE_SUM = auto()
 
@@ -193,7 +194,7 @@ class ModelFitter:
     nn -> values taken at times when specific signal is not nan
     """
 
-    def __init__(self, mode, data, a_field_name, b_field_name, t_field_name, exposure_mode, outlier_fraction=0):
+    def __init__(self, mode: Mode, data, a_field_name, b_field_name, t_field_name, exposure_method, outlier_fraction=0):
         self.mode = mode
 
         # Compute all signals and store all relevant to BaseSignals object
@@ -206,8 +207,8 @@ class ModelFitter:
         # Calculate exposure
         b_mean = float(np.mean(b[notnan_indices(b)]))
         a_length = a.shape[0]
-        exposure_a = self._compute_exposure(a, exposure_mode, b_mean, a_length)
-        exposure_b = self._compute_exposure(b, exposure_mode, b_mean, a_length)
+        exposure_a = self._compute_exposure(a, exposure_method, b_mean, a_length)
+        exposure_b = self._compute_exposure(b, exposure_method, b_mean, a_length)
         data["e_a"], data["e_b"] = exposure_a, exposure_b
 
         # Not nan rows (non-mutual)
@@ -227,7 +228,9 @@ class ModelFitter:
         self.base_signals = BaseSignals(a_nn, b_nn, t_a_nn, t_b_nn, exposure_a_nn, exposure_b_nn, a_mutual_nn,
                                         b_mutual_nn, t_mutual_nn, exposure_a_mutual_nn, exposure_b_mutual_nn)
 
-    def __call__(self, model: BaseModel, correction_method: CorrectionMethod, output_method: OutputMethod) -> Result:
+    def __call__(self, model: BaseModel, correction_method: CorrectionMethod, output_method: OutputMethod,
+                 compute_output=True) -> Result:
+
         # Perform initial fit if needed
         initial_params: Params = model.get_initial_params(self.base_signals)
 
@@ -239,7 +242,11 @@ class ModelFitter:
         final_result = model.compute_final_result(self.base_signals, optimal_params)
 
         # Compute output signals
-        out_result = self._compute_output(self.base_signals, final_result, output_method)
+        if compute_output:
+            out_result = self._compute_output(self.base_signals, final_result, output_method)
+        else:
+            # Only in model comparison mode
+            out_result = None
 
         # Return all together
         return Result(self.base_signals, history_mutual_nn, final_result, out_result)
@@ -272,7 +279,7 @@ class ModelFitter:
                         output_method: OutputMethod) -> OutResult:
         logging.info("Computing output ...")
 
-        if self.mode == "gen":
+        if self.mode == Mode.GENERATOR:
             min_time = 0
             max_time = np.minimum(base_signals.t_a_nn.max(), base_signals.t_b_nn.max())
 
@@ -293,6 +300,7 @@ class ModelFitter:
         mean = np.mean(np.concatenate((final_result.a_nn_corrected, final_result.b_nn_corrected), axis=0))
 
         if output_method == OutputMethod.GP:
+            logging.info(f"{output_method} started.")
             t_a_downsampled = median_downsample_by_factor(base_signals.t_a_nn,
                                                           GPConsts.DOWNSAMPLING_FACTOR_A).reshape(-1, 1)
             t_b_downsampled = median_downsample_by_factor(base_signals.t_b_nn,
@@ -330,6 +338,7 @@ class ModelFitter:
             signal_std_daily_out = signal_std_hourly_out[::num_hours_in_day]
 
         else:
+            logging.info(f"{output_method} started.")
             # t_a_downsampled = base_signals.t_a_nn
             # a_downsampled = final_result.a_nn_corrected
 
@@ -344,9 +353,15 @@ class ModelFitter:
             x = b_downsampled[:].reshape(-1, 1) - mean
 
             z = np.linspace(min_time, max_time, SVGPConsts.NUM_INDUCING_POINTS).reshape(-1, 1)
-            z = t[::180].copy()
+            # z = t[::180].copy()
 
-            kernel = gpflow.kernels.Sum([gpflow.kernels.Matern32(), gpflow.kernels.White()])
+            if self.mode == Mode.GENERATOR:
+                kernel = gpflow.kernels.Sum([gpflow.kernels.Linear(),
+                                             gpflow.kernels.Matern32(),
+                                             gpflow.kernels.White()])
+            else:
+                kernel = gpflow.kernels.Sum([gpflow.kernels.Matern32(), gpflow.kernels.White()])
+
             m = gpflow.models.SVGP(kernel, gpflow.likelihoods.Gaussian(), z, num_data=np.size(t))
 
             # Inducing variables not trainable
@@ -370,6 +385,7 @@ class ModelFitter:
 
             end = time.time()
             logging.info("Training finished after: {:>10} sec".format(end - start))
+            logging.info("Trained model.\n\n" + str(get_summary(m)) + "\n")
 
             logging.info("Prediction started.")
             signal_hourly_out, signal_var_hourly_out = m.predict_y(t_hourly_out)
@@ -385,22 +401,10 @@ class ModelFitter:
                          t_daily_out.ravel(), signal_daily_out + mean, signal_std_daily_out)
 
     @staticmethod
-    def _estimate_noise_level(x, y, kernel, white_kernel):
-        logging.info("Estimating noise on {} data samples.".format(x.shape[0]))
-        kernel = kernel + white_kernel
-        gp = GaussianProcessRegressor(kernel=kernel, random_state=Const.RANDOM_SEED,
-                                      n_restarts_optimizer=GPConsts.N_RESTARTS_OPTIMIZER,
-                                      alpha=0.0).fit(x, y)
-        logging.info("GP estimate noise variance:\t{:>10}".format(str(gp.kernel_.get_params()["k2__noise_level"])))
-
-        noise_level = gp.kernel_.get_params()["k2__noise_level"]
-        return noise_level
-
-    @staticmethod
-    def _compute_exposure(x, mode=ExposureMode.NUM_MEASUREMENTS, mean=1.0, length=None):
-        if mode == ExposureMode.NUM_MEASUREMENTS:
+    def _compute_exposure(x, mode=ExposureMethod.NUM_MEASUREMENTS, mean=1.0, length=None):
+        if mode == ExposureMethod.NUM_MEASUREMENTS:
             x = np.nan_to_num(x) > 0
-        elif mode == ExposureMode.EXPOSURE_SUM:
+        elif mode == ExposureMethod.EXPOSURE_SUM:
             x = np.nan_to_num(x)
             x = x / mean
 

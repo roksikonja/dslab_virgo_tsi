@@ -15,6 +15,12 @@ class ModelConstants(object):
         return out_d
 
 
+class GeneratorConstants(ModelConstants):
+    SIGNAL_LENGHT = 100000
+    DEGRADATION_MODEL = "exp"
+    DEGRADATION_RATE = 1.0
+
+
 class SmoothMonotoneRegressionConstants(ModelConstants):
     INCREASING = False
     NUMBER_OF_POINTS = 999
