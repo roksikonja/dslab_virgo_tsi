@@ -81,8 +81,6 @@ def setup_run(args, mode: Mode, results_dir_path):
     # Output method
     if args.output_method == "svgp":
         output_method = OutputMethod.SVGP
-    elif args.output_method == "kf":
-        output_method = OutputMethod.KF
     else:
         output_method = OutputMethod.GP
 

@@ -66,16 +66,18 @@ class GaussianProcessConstants(ModelConstants):
     DOWNSAMPLING_FACTOR_B = 200
 
     MATERN_LENGTH_SCALE = 1
-    MATERN_LENGTH_SCALE_BOUNDS = (1e-3, 1e3)
-    MATERN_NU = 1.5
+    MATERN_LENGTH_SCALE_BOUNDS = (1e-3, 1e4)
+    # MATERN_NU = 1.5
+    MATERN_NU = 0.5
 
     WHITE_NOISE_LEVEL = 1e4
     WHITE_NOISE_LEVEL_BOUNDS = (1e-5, 1e5)
 
-    N_RESTARTS_OPTIMIZER = 4
+    N_RESTARTS_OPTIMIZER = 10
 
-
-class SVGaussianProcessConstants(ModelConstants):
+    NORMALIZE = True
     NUM_INDUCING_POINTS = 200
     MINIBATCH_SIZE = 100
-    MAX_ITERATIONS = 10000
+    MAX_ITERATIONS = 8000
+    NUM_SAMPLES = 20000
+

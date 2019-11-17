@@ -12,10 +12,10 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import WhiteKernel, Matern
 
 from dslab_virgo_tsi.constants import Constants as Const
-from dslab_virgo_tsi.data_utils import notnan_indices, detect_outliers, median_downsample_by_factor, get_summary
+from dslab_virgo_tsi.data_utils import notnan_indices, detect_outliers, median_downsample_by_factor, get_summary, \
+    normalize, unnormalize, find_nearest
 from dslab_virgo_tsi.gpflow_utils import SVGaussianProcess
 from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
-from dslab_virgo_tsi.model_constants import SVGaussianProcessConstants as SVGPConsts
 
 
 class Mode(Enum):
@@ -36,7 +36,6 @@ class CorrectionMethod(Enum):
 class OutputMethod(Enum):
     SVGP = auto()
     GP = auto()
-    KF = auto()
 
 
 class BaseSignals:
@@ -160,6 +159,20 @@ class Result:
         self.out = out
 
 
+class Kernels:
+    matern_kernel = Matern(length_scale=GPConsts.MATERN_LENGTH_SCALE,
+                           length_scale_bounds=GPConsts.MATERN_LENGTH_SCALE_BOUNDS,
+                           nu=GPConsts.MATERN_NU)
+
+    white_kernel = WhiteKernel(noise_level=GPConsts.WHITE_NOISE_LEVEL,
+                               noise_level_bounds=GPConsts.WHITE_NOISE_LEVEL_BOUNDS)
+
+    gpf_matern32 = gpflow.kernels.Matern32()
+    gpf_matern12 = gpflow.kernels.Matern12()
+    gpf_linear = gpflow.kernels.Linear()
+    gpf_white = gpflow.kernels.White()
+
+
 class BaseModel(ABC):
     @abstractmethod
     def get_initial_params(self, base_signals: BaseSignals) -> Params:
@@ -279,126 +292,124 @@ class ModelFitter:
                         output_method: OutputMethod) -> OutResult:
         logging.info("Computing output ...")
 
-        if self.mode == Mode.GENERATOR:
-            min_time = 0
-            max_time = np.minimum(base_signals.t_a_nn.max(), base_signals.t_b_nn.max())
+        t_hourly_out, t_daily_out, num_hours_in_day = self._output_resampling(self.mode, base_signals)
 
-            num_hours = int(1000 + 1)
-            num_hours_in_day = 10
-            GPConsts.DOWNSAMPLING_FACTOR_A = 100
-            GPConsts.DOWNSAMPLING_FACTOR_B = 100
+        # Data standardization parameters
+        x_mean = np.mean(np.concatenate((final_result.a_nn_corrected, final_result.b_nn_corrected), axis=0))
+        x_std = np.std(np.concatenate((final_result.a_nn_corrected, final_result.b_nn_corrected), axis=0))
+        t_mean = np.mean(np.concatenate((base_signals.t_a_nn, base_signals.t_b_nn), axis=0))
+        t_std = np.std(np.concatenate((base_signals.t_a_nn, base_signals.t_b_nn), axis=0))
+
+        # GP samples
+        t, x = self._gp_samples(base_signals, final_result)
+
+        # Normalize data
+        if GPConsts.NORMALIZE:
+            x, t = normalize(x, x_mean, x_std), normalize(t, t_mean, t_std)
         else:
-            min_time = 0
-            max_time = np.minimum(np.floor(base_signals.t_a_nn.max()), np.floor(base_signals.t_b_nn.max()))
+            x = x - x_mean
 
-            num_hours = int(24 * (max_time - min_time) + 1)
-            num_hours_in_day = 24
+        # GP Initial fit kernel
+        kernel = Kernels.matern_kernel + Kernels.white_kernel
 
-        t_hourly_out = np.linspace(min_time, max_time, num_hours).reshape(-1, 1)
-        t_daily_out = t_hourly_out[::num_hours_in_day]
-
-        mean = np.mean(np.concatenate((final_result.a_nn_corrected, final_result.b_nn_corrected), axis=0))
-
+        # Run output method
         if output_method == OutputMethod.GP:
             logging.info(f"{output_method} started.")
-            t_a_downsampled = median_downsample_by_factor(base_signals.t_a_nn,
-                                                          GPConsts.DOWNSAMPLING_FACTOR_A).reshape(-1, 1)
-            t_b_downsampled = median_downsample_by_factor(base_signals.t_b_nn,
-                                                          GPConsts.DOWNSAMPLING_FACTOR_B).reshape(-1, 1)
-            a_downsampled = median_downsample_by_factor(final_result.a_nn_corrected,
-                                                        GPConsts.DOWNSAMPLING_FACTOR_A) - mean
-            b_downsampled = median_downsample_by_factor(final_result.b_nn_corrected,
-                                                        GPConsts.DOWNSAMPLING_FACTOR_B) - mean
-
-            signal = np.concatenate([a_downsampled, b_downsampled], axis=0)
-            t = np.concatenate([t_a_downsampled, t_b_downsampled], axis=0)
-
-            matern_kernel = Matern(length_scale=GPConsts.MATERN_LENGTH_SCALE,
-                                   length_scale_bounds=GPConsts.MATERN_LENGTH_SCALE_BOUNDS,
-                                   nu=GPConsts.MATERN_NU)
-
-            white_kernel = WhiteKernel(noise_level=GPConsts.WHITE_NOISE_LEVEL,
-                                       noise_level_bounds=GPConsts.WHITE_NOISE_LEVEL_BOUNDS)
-
-            kernel = matern_kernel + white_kernel
-
-            gpr = GaussianProcessRegressor(kernel=kernel,
-                                           random_state=Const.RANDOM_SEED,
-                                           n_restarts_optimizer=GPConsts.N_RESTARTS_OPTIMIZER)
-            gpr.fit(t, signal)
-
-            logging.info("GP data samples: {:>10}".format(t.shape[0]))
-            logging.info("GP log marginal likelihood:\t{:>10}".format(gpr.log_marginal_likelihood()))
-            logging.info("GP parameters:\t{:>10}".format(str(gpr.kernel_)))
-
-            # Prediction
-            signal_hourly_out, signal_std_hourly_out = gpr.predict(t_hourly_out, return_std=True)
-
-            signal_daily_out = signal_hourly_out[::num_hours_in_day]
-            signal_std_daily_out = signal_std_hourly_out[::num_hours_in_day]
-
+            gpr = self._gaussian_process(kernel, t, x)
+            signal_hourly_out, signal_std_hourly_out = gpr.predict(normalize(t_hourly_out, t_mean, t_std),
+                                                                   return_std=True)
         else:
             logging.info(f"{output_method} started.")
-            # t_a_downsampled = base_signals.t_a_nn
-            # a_downsampled = final_result.a_nn_corrected
 
-            t_b_downsampled = base_signals.t_b_nn
-            b_downsampled = final_result.b_nn_corrected
+            length_scale_initial = None
+            if self.mode == Mode.VIRGO:
+                logging.info("Running initial fit.")
+                gpr = self._gaussian_process(kernel, t, x)
+                length_scale_initial = gpr.kernel_.get_params()["k1__length_scale"]
 
-            print(t_b_downsampled.shape, b_downsampled.shape)
-            # x = np.concatenate([a_downsampled, b_downsampled], axis=0).reshape(-1, 1)
-            # t = np.concatenate([t_a_downsampled, t_b_downsampled], axis=0).reshape(-1, 1)
+            # SVGP samples
+            t_a_downsampled, a_downsampled = base_signals.t_a_nn, final_result.a_nn_corrected
+            t_b_downsampled, b_downsampled = base_signals.t_b_nn, final_result.b_nn_corrected
 
-            t = t_b_downsampled[:].reshape(-1, 1)
-            x = b_downsampled[:].reshape(-1, 1) - mean
+            if self.mode == Mode.VIRGO and t_a_downsampled.shape[0] > GPConsts.NUM_SAMPLES:
+                a_indices = np.arange(0, t_a_downsampled.shape[0],
+                                      np.ceil(t_a_downsampled.shape[0] / GPConsts.NUM_SAMPLES).astype(int))
+                b_indices = np.arange(0, t_b_downsampled.shape[0],
+                                      np.ceil(t_b_downsampled.shape[0] / GPConsts.NUM_SAMPLES).astype(int))
 
-            z = np.linspace(min_time, max_time, SVGPConsts.NUM_INDUCING_POINTS).reshape(-1, 1)
-            # z = t[::180].copy()
+                # t_a_downsampled, a_downsampled = t_a_downsampled[a_indices], a_downsampled[a_indices]
+                t_a_downsampled, a_downsampled = t_a_downsampled[0:10], a_downsampled[0:10]
+                # t_b_downsampled, b_downsampled = t_b_downsampled[b_indices], b_downsampled[b_indices]
+
+            x = np.concatenate([a_downsampled, b_downsampled], axis=0).reshape(-1, 1)
+            t = np.concatenate([t_a_downsampled, t_b_downsampled], axis=0).reshape(-1, 1)
+
+            if GPConsts.NORMALIZE:
+                x, t = normalize(x, x_mean, x_std), normalize(t, t_mean, t_std)
+            else:
+                x = x - x_mean
+
+            logging.info(f"Running GP on {t.shape[0]} samples.")
+
+            # Induction variables
+            t_uniform = np.linspace(np.min(t), np.max(t), GPConsts.NUM_INDUCING_POINTS)
+            t_uniform_indices = find_nearest(t, t_uniform).astype(int)
+            z = t[t_uniform_indices].copy()
 
             if self.mode == Mode.GENERATOR:
-                kernel = gpflow.kernels.Sum([gpflow.kernels.Linear(),
-                                             gpflow.kernels.Matern32(),
-                                             gpflow.kernels.White()])
+                kernel = gpflow.kernels.Sum([Kernels.gpf_matern32, Kernels.gpf_white, Kernels.gpf_linear])
             else:
-                kernel = gpflow.kernels.Sum([gpflow.kernels.Matern32(), gpflow.kernels.White()])
+                kernel = gpflow.kernels.Sum([Kernels.gpf_matern12, Kernels.gpf_white])
 
+            # Model
             m = gpflow.models.SVGP(kernel, gpflow.likelihoods.Gaussian(), z, num_data=np.size(t))
 
-            # Inducing variables not trainable
+            # Initial guess
+            if length_scale_initial:
+                m.kernel.kernels[0].lengthscale.assign(length_scale_initial)
+
+            # Non-trainable parameters
             gpflow.utilities.set_trainable(m.inducing_variable, False)
-            m.kernel.kernels[0].lengthscale.assign(427)
+            gpflow.utilities.set_trainable(m.kernel.kernels[0].variance, False)
 
             logging.info("Model created.\n\n" + str(get_summary(m)) + "\n")
 
             # Dataset
             train_dataset = tf.data.Dataset.from_tensor_slices((t, x)).repeat().shuffle(buffer_size=np.size(t),
                                                                                         seed=Const.RANDOM_SEED)
-
             # Training
             start = time.time()
-            maxiter = ci_niter(SVGPConsts.MAX_ITERATIONS)
+            maxiter = ci_niter(GPConsts.MAX_ITERATIONS)
 
             SVGaussianProcess.run_adam(model=m,
                                        iterations=maxiter,
                                        train_dataset=train_dataset,
-                                       minibatch_size=SVGPConsts.MINIBATCH_SIZE)
+                                       minibatch_size=GPConsts.MINIBATCH_SIZE)
 
             end = time.time()
             logging.info("Training finished after: {:>10} sec".format(end - start))
             logging.info("Trained model.\n\n" + str(get_summary(m)) + "\n")
 
-            logging.info("Prediction started.")
-            signal_hourly_out, signal_var_hourly_out = m.predict_y(t_hourly_out)
-            signal_std_hourly_out = tf.sqrt(signal_var_hourly_out)
+            if GPConsts.NORMALIZE:
+                signal_hourly_out, signal_var_hourly_out = m.predict_y(normalize(t_hourly_out, t_mean, t_std))
+            else:
+                signal_hourly_out, signal_var_hourly_out = m.predict_y(t_hourly_out)
 
+            signal_std_hourly_out = tf.sqrt(signal_var_hourly_out)
             signal_hourly_out = tf.reshape(signal_hourly_out, [-1]).numpy()
             signal_std_hourly_out = tf.reshape(signal_std_hourly_out, [-1]).numpy()
 
-            signal_daily_out = signal_hourly_out[::num_hours_in_day]
-            signal_std_daily_out = signal_std_hourly_out[::num_hours_in_day]
+        if GPConsts.NORMALIZE:
+            signal_hourly_out = unnormalize(signal_hourly_out, x_mean, x_std)
+            signal_std_hourly_out = signal_std_hourly_out * (x_std ** 2)
+        else:
+            signal_hourly_out = signal_hourly_out + x_mean
 
-        return OutResult(t_hourly_out.ravel(), signal_hourly_out + mean, signal_std_hourly_out,
-                         t_daily_out.ravel(), signal_daily_out + mean, signal_std_daily_out)
+        signal_daily_out = signal_hourly_out[::num_hours_in_day]
+        signal_std_daily_out = signal_std_hourly_out[::num_hours_in_day]
+
+        return OutResult(t_hourly_out.ravel(), signal_hourly_out, signal_std_hourly_out,
+                         t_daily_out.ravel(), signal_daily_out, signal_std_daily_out)
 
     @staticmethod
     def _compute_exposure(x, mode=ExposureMethod.NUM_MEASUREMENTS, mean=1.0, length=None):
@@ -468,3 +479,52 @@ class ModelFitter:
             logging.info("Final fit.")
 
         return history, current_params
+
+    @staticmethod
+    def _gaussian_process(kernel, t, x):
+
+        gpr = GaussianProcessRegressor(kernel=kernel,
+                                       random_state=Const.RANDOM_SEED,
+                                       n_restarts_optimizer=GPConsts.N_RESTARTS_OPTIMIZER)
+
+        logging.info("GP data samples: {:>10}".format(t.shape[0]))
+        logging.info("GP initial parameters:\t{:>10}".format(str(gpr.kernel)))
+        gpr.fit(t, x)
+        logging.info("GP log marginal likelihood:\t{:>10}".format(gpr.log_marginal_likelihood()))
+        logging.info("GP parameters:\t{:>10}".format(str(gpr.kernel_)))
+
+        return gpr
+
+    @staticmethod
+    def _output_resampling(mode, base_signals):
+        if mode == Mode.GENERATOR:
+            min_time = 0
+            max_time = np.minimum(base_signals.t_a_nn.max(), base_signals.t_b_nn.max())
+            num_hours = int(1000 + 1)
+            num_hours_in_day = 10
+        else:
+            min_time = 0
+            max_time = np.minimum(np.floor(base_signals.t_a_nn.max()), np.floor(base_signals.t_b_nn.max()))
+            num_hours = int(24 * (max_time - min_time) + 1)
+            num_hours_in_day = 24
+
+        t_hourly_out = np.linspace(min_time, max_time, num_hours).reshape(-1, 1)
+        t_daily_out = t_hourly_out[::num_hours_in_day]
+
+        return t_hourly_out, t_daily_out, num_hours_in_day
+
+    @staticmethod
+    def _gp_samples(base_signals, final_result):
+        t_a_downsampled = median_downsample_by_factor(base_signals.t_a_nn,
+                                                      GPConsts.DOWNSAMPLING_FACTOR_A).reshape(-1, 1)
+        t_b_downsampled = median_downsample_by_factor(base_signals.t_b_nn,
+                                                      GPConsts.DOWNSAMPLING_FACTOR_B).reshape(-1, 1)
+        a_downsampled = median_downsample_by_factor(final_result.a_nn_corrected,
+                                                    GPConsts.DOWNSAMPLING_FACTOR_A)
+        b_downsampled = median_downsample_by_factor(final_result.b_nn_corrected,
+                                                    GPConsts.DOWNSAMPLING_FACTOR_B)
+
+        x = np.concatenate([a_downsampled, b_downsampled], axis=0)
+        t = np.concatenate([t_a_downsampled, t_b_downsampled], axis=0)
+
+        return t, x

@@ -30,6 +30,24 @@ def plot_results(result_: Result, results_dir, model_name):
     final_res: FinalResult = result_.final
 
     logging.info("Plotting results ...")
+    visualizer.plot_signals_mean_std_precompute(
+        [
+            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
+        ],
+        results_dir, f"TSI_hourly_{model_name}", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7)
+
+    visualizer.plot_signals_mean_std_precompute(
+        [
+            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
+        ],
+        results_dir, f"TSI_hourly_{model_name}_points", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
+        data_points_triplets=[
+            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_raw_corrected"),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_raw_corrected")
+        ],
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7)
+
     visualizer.plot_signals(
         [
             (base_sig.t_a_nn, final_res.degradation_a_nn, f"DEGRADATION_{Const.A}", False),
@@ -68,24 +86,6 @@ def plot_results(result_: Result, results_dir, model_name):
         ],
         results_dir, f"{model_name}_{Const.A}_{Const.B}_raw_corrected_full", x_ticker=1, y_lim=[1357, 1369],
         legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
-
-    visualizer.plot_signals_mean_std_precompute(
-        [
-            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
-        ],
-        results_dir, f"TSI_hourly_{model_name}", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7)
-
-    visualizer.plot_signals_mean_std_precompute(
-        [
-            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
-        ],
-        results_dir, f"TSI_hourly_{model_name}_points", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
-        data_points_triplets=[
-            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_raw_corrected"),
-            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_raw_corrected")
-        ],
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7)
 
     visualizer.plot_signal_history(base_sig.t_mutual_nn, result_.history_mutual_nn,
                                    results_dir, f"{model_name}_history",

@@ -248,6 +248,23 @@ def get_summary(module: tf.Module):
     return tabulate_module_summary(module, None)
 
 
+def normalize(x, mean, std):
+    y = (x - mean) / std
+    return y
+
+
+def unnormalize(y, mean, std):
+    x = std * y + mean
+    return x
+
+
+def find_nearest(array, values):
+    indices = np.zeros(values.shape)
+    for index, value in enumerate(values):
+        indices[index] = np.abs(array - value).argmin()
+    return indices
+
+
 if __name__ == "__main__":
     data_dir = "./data"
     virgo_file = "VIRGO_Level1.txt"
