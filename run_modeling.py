@@ -1,29 +1,25 @@
-import argparse
 import logging
 import os
 
 import numpy as np
-import tensorflow as tf
 
-from dslab_virgo_tsi.base import Result, FitResult, ModelFitter, BaseSignals, OutResult, FinalResult
+from dslab_virgo_tsi.base import Result, FitResult, ModelFitter, BaseSignals, OutResult, FinalResult, Mode
 from dslab_virgo_tsi.constants import Constants as Const
-from dslab_virgo_tsi.data_utils import load_data
-from dslab_virgo_tsi.run_utils import setup_run, create_results_dir, create_logger, save_modeling_result
+from dslab_virgo_tsi.run_utils import setup_run, create_results_dir, create_logger, save_modeling_result, \
+    parse_arguments, load_data_run
 from dslab_virgo_tsi.visualizer import Visualizer
 
+"""
+--random_seed = 0
+--save_plots = store_true
+--save_signals = store_true
 
-def parse_arguments():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--save_plots", action="store_true", help="Flag for saving plots.")
-    parser.add_argument("--save_signals", action="store_true", help="Flag for saving computed signals.")
-
-    parser.add_argument("--model_type", type=str, default="smooth_monotonic", help="Model to train.")
-    parser.add_argument("--correction_method", type=str, default="one", help="Iterative correction method.")
-    parser.add_argument("--outlier_fraction", type=float, default=0, help="Outlier fraction.")
-    parser.add_argument("--exposure_mode", type=str, default="measurements", help="Exposure computing method.")
-    parser.add_argument("--output_method", type=str, default="svgp", help="Exposure computing method.")
-
-    return parser.parse_args()
+--model_type = "smooth_monotonic"
+--correction_method = "one"
+--outlier_fraction = 0.0
+--exposure_method = "measurements"
+--output_method = "svgp
+"""
 
 
 def plot_results(result_: Result, results_dir, model_name):
@@ -99,29 +95,27 @@ def plot_results(result_: Result, results_dir, model_name):
 
 
 if __name__ == "__main__":
-    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+    visualizer = Visualizer()
+    visualizer.set_figsize()
 
     ARGS = parse_arguments()
     results_dir_path = create_results_dir(Const.RESULTS_DIR, ARGS.model_type)
     create_logger(results_dir_path)
 
-    visualizer = Visualizer()
-    visualizer.set_figsize()
+    mode = Mode.VIRGO
 
-    # Load data
-    data_pmo6v = load_data(Const.DATA_DIR, Const.VIRGO_FILE)
-    logging.info(f"Data {Const.VIRGO_FILE} loaded.")
-
-    model, mode, model_type, correction_method, exposure_mode, output_method, outlier_fraction \
-        = setup_run(ARGS, "virgo", results_dir_path)
+    data, t_field_name, a_field_name, b_field_name, _ = load_data_run(ARGS, mode)
+    model, model_type, correction_method, exposure_method, output_method, outlier_fraction \
+        = setup_run(ARGS, mode, results_dir_path)
 
     fitter = ModelFitter(mode=mode,
-                         data=data_pmo6v,
-                         t_field_name=Const.T,
-                         a_field_name=Const.A,
-                         b_field_name=Const.B,
-                         exposure_mode=exposure_mode,
+                         data=data,
+                         t_field_name=t_field_name,
+                         a_field_name=a_field_name,
+                         b_field_name=b_field_name,
+                         exposure_method=exposure_method,
                          outlier_fraction=outlier_fraction)
 
     result: Result = fitter(model=model,

@@ -1,43 +1,37 @@
-import argparse
 import logging
+import os
 
 import numpy as np
-import pandas as pd
 
 from dslab_virgo_tsi.base import Result, ModelFitter, FitResult, BaseSignals, OutResult, \
-    FinalResult
+    FinalResult, Mode
 from dslab_virgo_tsi.constants import Constants as Const
-from dslab_virgo_tsi.generator import SignalGenerator
-from dslab_virgo_tsi.run_utils import setup_run, create_results_dir, create_logger, save_modeling_result
+from dslab_virgo_tsi.run_utils import setup_run, create_results_dir, create_logger, save_modeling_result, \
+    parse_arguments, load_data_run
 from dslab_virgo_tsi.visualizer import Visualizer
 
+"""
+--random_seed = 0
+--save_plots = store_true
+--save_signals = store_true
 
-def parse_arguments():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--signal_length", type=int, default=100000, help="Generated signal length.")
-    parser.add_argument("--degradation_model", type=str, default="exp", help="Model to train.")
-    parser.add_argument("--degradation_rate", type=float, default=1.0, help="Tuning parameter for degradation.")
-    parser.add_argument("--random_seed", type=int, default=0, help="Set random seed.")
-
-    parser.add_argument("--save_plots", action="store_true", help="Flag for saving plots.")
-    parser.add_argument("--save_signals", action="store_true", help="Flag for saving computed signals.")
-
-    parser.add_argument("--model_type", type=str, default="smooth_monotonic", help="Model to train.")
-    parser.add_argument("--correction_method", type=str, default="one", help="Iterative correction method.")
-    parser.add_argument("--outlier_fraction", type=float, default=0, help="Outlier fraction.")
-    parser.add_argument("--exposure_mode", type=str, default="measurements", help="Exposure computing method.")
-    parser.add_argument("--output_method", type=str, default="svgp", help="Exposure computing method.")
-
-    return parser.parse_args()
+--model_type = "smooth_monotonic"
+--correction_method = "one"
+--outlier_fraction = 0.0
+--exposure_mode = "measurements"
+--output_method = "svgp
+"""
 
 
-def plot_results(t_, x_, result_: Result, results_dir, model_name):
+def plot_results(ground_truth_, result_: Result, results_dir, model_name):
     before_fit: FitResult = result_.history_mutual_nn[0]
     last_iter: FitResult = result_.history_mutual_nn[-1]
 
     base_sig: BaseSignals = result_.base_signals
     final_res: FinalResult = result_.final
     out_res: OutResult = result_.out
+
+    t_, x_ = ground_truth_
 
     logging.info("Plotting results ...")
     visualizer.plot_signals(
@@ -96,13 +90,6 @@ def plot_results(t_, x_, result_: Result, results_dir, model_name):
 
     visualizer.plot_signals_mean_std_precompute(
         [
-            (out_res.t_daily_out, out_res.signal_daily_out, out_res.signal_std_daily_out, f"gen_daily_{model_name}")
-        ],
-        results_dir, f"gen_daily_{model_name}", ground_truth_triplet=(t_, x_, "ground_truth"),
-        legend="upper left", x_label="t", y_label="x(t)")
-
-    visualizer.plot_signals_mean_std_precompute(
-        [
             (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"gen_hourly_{model_name}")
         ],
         results_dir, f"gen_hourly_{model_name}_points", ground_truth_triplet=(t_, x_, "ground_truth"),
@@ -112,50 +99,29 @@ def plot_results(t_, x_, result_: Result, results_dir, model_name):
         ],
         legend="upper left", x_label="t", y_label="x(t)")
 
-    visualizer.plot_signals_mean_std_precompute(
-        [
-            (out_res.t_daily_out, out_res.signal_daily_out, out_res.signal_std_daily_out, f"gen_daily_{model_name}")
-        ],
-        results_dir, f"gen_daily_{model_name}_points", ground_truth_triplet=(t_, x_, "ground_truth"),
-        data_points_triplets=[
-            (base_sig.t_a_nn, final_res.a_nn_corrected, "A_raw_corrected"),
-            (base_sig.t_b_nn, final_res.b_nn_corrected, "B_raw_corrected")
-        ],
-        legend="upper left", x_label="t", y_label="x(t)")
-
 
 if __name__ == "__main__":
-    ARGS = parse_arguments()
-
-    data_dir = Const.DATA_DIR
-    results_dir_path = create_results_dir(Const.RESULTS_DIR, f"gen_{ARGS.model_type}")
-    create_logger(results_dir_path)
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
     visualizer = Visualizer()
     visualizer.set_figsize()
 
-    model, mode, model_type, correction_method, exposure_mode, output_method, outlier_fraction \
-        = setup_run(ARGS, "gen", results_dir_path)
+    ARGS = parse_arguments()
+    results_dir_path = create_results_dir(Const.RESULTS_DIR, f"gen_{ARGS.model_type}")
+    create_logger(results_dir_path)
 
-    # Generator
-    Generator = SignalGenerator(ARGS.signal_length, ARGS.random_seed, exposure_mode)
-    t = Generator.time
-    x = Generator.x
-    x_a_raw, x_b_raw, _ = Generator.generate_raw_signal(x, 5, rate=ARGS.degradation_rate)
+    mode = Mode.GENERATOR
 
-    T, X_A, X_B = "t", "x_a", "x_b"
-    data_gen = pd.DataFrame()
-    data_gen[T] = t
-    data_gen[X_A] = x_a_raw
-    data_gen[X_B] = x_b_raw
-    logging.info(f"Data generator loaded.")
+    data, t_field_name, a_field_name, b_field_name, ground_truth = load_data_run(ARGS, mode)
+    model, model_type, correction_method, exposure_method, output_method, outlier_fraction \
+        = setup_run(ARGS, mode, results_dir_path)
 
     fitter = ModelFitter(mode=mode,
-                         data=data_gen,
-                         t_field_name=T,
-                         a_field_name=X_A,
-                         b_field_name=X_B,
-                         exposure_mode=exposure_mode,
+                         data=data,
+                         t_field_name=t_field_name,
+                         a_field_name=a_field_name,
+                         b_field_name=b_field_name,
+                         exposure_method=exposure_method,
                          outlier_fraction=outlier_fraction)
 
     result: Result = fitter(model=model,
@@ -166,6 +132,6 @@ if __name__ == "__main__":
         save_modeling_result(results_dir_path, result, f"gen_{ARGS.model_type}")
 
     if ARGS.save_plots or not ARGS.save_signals:
-        plot_results(t, x, result, results_dir_path, f"gen_{ARGS.model_type}")
+        plot_results(ground_truth, result, results_dir_path, f"gen_{ARGS.model_type}")
 
     logging.info("Application finished.")
