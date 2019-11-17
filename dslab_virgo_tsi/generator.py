@@ -48,23 +48,14 @@ class SignalGenerator(object):
         x_a, t_a = self.remove_measurements(x_.copy(), self.time.copy(), 0.1)
         x_b, t_b = self.remove_measurements(x_.copy(), self.time.copy(), 0.9)
 
-        print("x_a", (~np.isnan(x_a)).sum())
-        print("x_b", (~np.isnan(x_b)).sum())
-
         mean_b = float(np.mean(x_b[~np.isnan(x_b)]))
         length_a = x_a.shape[0]
 
         exposure_a = self.compute_exposure(x_a, mode=self.exposure_method, mean=mean_b, length=length_a)
         exposure_b = self.compute_exposure(x_b, mode=self.exposure_method, mean=mean_b, length=length_a)
 
-        print("exposure_a", (~np.isnan(exposure_a)).sum())
-        print("exposure_b", (~np.isnan(exposure_b)).sum())
-
         x_a_raw_, x_b_raw_, params = self.degrade_signal(x_a, x_b, exposure_a, exposure_b,
                                                          degradation_model=degradation_model, rate=rate)
-
-        print("x_a_raw_", (~np.isnan(x_a_raw_)).sum())
-        print("x_b_raw_", (~np.isnan(x_b_raw_)).sum())
 
         noise_std_a = srange * 0.08
         noise_std_b = srange * 0.05

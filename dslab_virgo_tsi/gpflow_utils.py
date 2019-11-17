@@ -30,6 +30,7 @@ class SVGaussianProcess(object):
         logf = []
         train_it = iter(train_dataset.batch(minibatch_size))
         adam = tf.optimizers.Adam()
+        step, elbo_step = None, None
         for step in range(iterations):
             elbo = - optimization_step(adam, model, next(train_it))
             if step % 10 == 0:
@@ -38,4 +39,6 @@ class SVGaussianProcess(object):
                     logging.info("Step:\t{:<30}ELBO:\t{:>10}".format(step, elbo_step))
 
                 logf.append(elbo_step)
+
+        logging.info("Step:\t{:<30}ELBO:\t{:>10}".format(step, elbo_step))
         return logf
