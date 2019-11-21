@@ -76,7 +76,7 @@ class VirgoWhiteKernel(gpflow.kernels.Kernel):
         return a
 
 
-class VirgoMatern32Kernel(gpflow.kernels.Kernel):
+class VirgoMatern12Kernel(gpflow.kernels.Kernel):
     def __init__(self):
         super().__init__(active_dims=[0, 1])
         self.variance = gpflow.Parameter(1.0, transform=positive())
@@ -104,8 +104,7 @@ class VirgoMatern32Kernel(gpflow.kernels.Kernel):
         return k_diag
 
     def K_r(self, r):
-        sqrt3 = np.sqrt(3.)
-        return self.variance * (1. + sqrt3 * r) * tf.exp(-sqrt3 * r)
+        return self.variance * tf.exp(-r)
 
     def K_r2(self, r2):
         """

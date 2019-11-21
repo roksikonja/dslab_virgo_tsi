@@ -66,7 +66,7 @@ class GaussianProcessConstants(ModelConstants):
     NORMALIZE = True
 
     # Dual white kernel
-    DUAL_KERNEL = False
+    DUAL_KERNEL = True
     LABEL_A = 0
     LABEL_B = 1
     LABEL_OUT = -1

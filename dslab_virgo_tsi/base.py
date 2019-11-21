@@ -14,7 +14,7 @@ from sklearn.gaussian_process.kernels import WhiteKernel, Matern
 from dslab_virgo_tsi.constants import Constants as Const
 from dslab_virgo_tsi.data_utils import notnan_indices, detect_outliers, median_downsample_by_factor, get_summary, \
     normalize, unnormalize, find_nearest
-from dslab_virgo_tsi.gpflow_utils import SVGaussianProcess, VirgoMatern32Kernel, VirgoWhiteKernel
+from dslab_virgo_tsi.gpflow_utils import SVGaussianProcess, VirgoWhiteKernel, VirgoMatern12Kernel
 from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
 from dslab_virgo_tsi.model_constants import OutputTimeConstants as OutTimeConsts
 
@@ -173,7 +173,7 @@ class Kernels:
     gpf_linear = gpflow.kernels.Linear()
     gpf_white = gpflow.kernels.White()
 
-    gpf_dual_matern32 = VirgoMatern32Kernel()
+    gpf_dual_matern12 = VirgoMatern12Kernel()
     gpf_dual_white = VirgoWhiteKernel(label_a=GPConsts.LABEL_A,
                                       label_b=GPConsts.LABEL_B)
 
@@ -322,7 +322,10 @@ class ModelFitter:
         # TODO: RESAMPLING OF BOTH SIGNALS
         t_a_downsampled, a_downsampled = base_signals.t_a_nn, final_result.a_nn_corrected
         t_b_downsampled, b_downsampled = base_signals.t_b_nn, final_result.b_nn_corrected
-        t_a_downsampled, a_downsampled = t_a_downsampled[:10], a_downsampled[:10]
+
+        subsampling_rate_a = a_downsampled.shape[0] // b_downsampled.shape[0]
+
+        t_a_downsampled, a_downsampled = t_a_downsampled[::subsampling_rate_a], a_downsampled[::subsampling_rate_a]
 
         x = np.concatenate([a_downsampled, b_downsampled], axis=0).reshape(-1, 1)
         t = np.concatenate([t_a_downsampled, t_b_downsampled], axis=0).reshape(-1, 1)
@@ -384,7 +387,7 @@ class ModelFitter:
                 kernel = gpflow.kernels.Sum([Kernels.gpf_matern32, Kernels.gpf_white, Kernels.gpf_linear])
             else:
                 if GPConsts.DUAL_KERNEL:
-                    kernel = gpflow.kernels.Sum([Kernels.gpf_dual_matern32, Kernels.gpf_dual_white])
+                    kernel = gpflow.kernels.Sum([Kernels.gpf_dual_matern12, Kernels.gpf_dual_white])
                 else:
                     kernel = gpflow.kernels.Sum([Kernels.gpf_matern12, Kernels.gpf_white])
 
