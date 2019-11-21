@@ -16,7 +16,7 @@ class ModelConstants(object):
 
 
 class GeneratorConstants(ModelConstants):
-    SIGNAL_LENGHT = 100000
+    SIGNAL_LENGTH = 100000
     DEGRADATION_MODEL = "exp"
     DEGRADATION_RATE = 1.0
 
@@ -62,6 +62,7 @@ class EnsembleConstants(ModelConstants):
 
 
 class GaussianProcessConstants(ModelConstants):
+    # scikit-learn parameters
     DOWNSAMPLING_FACTOR_A = 20000
     DOWNSAMPLING_FACTOR_B = 200
 
@@ -75,9 +76,19 @@ class GaussianProcessConstants(ModelConstants):
 
     N_RESTARTS_OPTIMIZER = 10
 
+    # gpflow parameters
     NORMALIZE = True
     NUM_INDUCING_POINTS = 200
     MINIBATCH_SIZE = 100
     MAX_ITERATIONS = 8000
     NUM_SAMPLES = 20000
 
+
+class OutputTimeConstants(ModelConstants):
+    # Generator output
+    GEN_NUM_HOURS = 1001
+    GEN_NUM_HOURS_PER_DAY = 10
+
+    # Virgo output
+    VIRGO_NUM_HOURS_PER_UNIT = 24
+    VIRGO_NUM_HOURS_PER_DAY = 24

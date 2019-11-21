@@ -19,6 +19,7 @@ from dslab_virgo_tsi.model_constants import GeneratorConstants as GenConsts
 from dslab_virgo_tsi.model_constants import IsotonicConstants as IsoConsts
 from dslab_virgo_tsi.model_constants import SmoothMonotoneRegressionConstants as SMRConsts
 from dslab_virgo_tsi.model_constants import SplineConstants as SplConsts
+from dslab_virgo_tsi.model_constants import OutputTimeConstants as OutTimeConsts
 from dslab_virgo_tsi.models import ExpModel, ExpLinModel, SplineModel, IsotonicModel, EnsembleModel, \
     SmoothMonotoneRegression
 
@@ -34,9 +35,9 @@ def parse_arguments():
 
     parser.add_argument("--model_type", type=str, default="smooth_monotonic", help="Model to train.")
     parser.add_argument("--correction_method", type=str, default="one", help="Iterative correction method.")
-    parser.add_argument("--outlier_fraction", type=float, default=0, help="Outlier fraction.")
     parser.add_argument("--exposure_method", type=str, default="measurements", help="Exposure computing method.")
     parser.add_argument("--output_method", type=str, default="svgp", help="Exposure computing method.")
+    parser.add_argument("--outlier_fraction", type=float, default=0, help="Outlier fraction.")
 
     return parser.parse_args()
 
@@ -85,7 +86,8 @@ def setup_run(args, mode: Mode, results_dir_path):
         output_method = OutputMethod.GP
 
     # Compute output config
-    add_output_config(config, GPConsts.return_config(GPConsts, "OUTPUT"))
+    add_output_config(config, GPConsts.return_config(GPConsts, "OUTPUT_GP"))
+    add_output_config(config, OutTimeConsts.return_config(OutTimeConsts, "OUTPUT_TIME"))
 
     config["model_type"] = model_type
     config["mode"] = mode
@@ -108,7 +110,7 @@ def setup_run(args, mode: Mode, results_dir_path):
 
 def load_data_run(args, mode: Mode):
     if mode == Mode.GENERATOR:
-        generator = SignalGenerator(length=GenConsts.SIGNAL_LENGHT,
+        generator = SignalGenerator(length=GenConsts.SIGNAL_LENGTH,
                                     random_seed=args.random_seed,
                                     exposure_method=args.exposure_method)
         t = generator.time

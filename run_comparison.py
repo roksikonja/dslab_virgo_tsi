@@ -21,18 +21,29 @@ from dslab_virgo_tsi.visualizer import Visualizer
 
 def plot_results(results_, results_dir, model_name):
     signal_fourplets = []
+    signal_fourplets_a = []
+    signal_fourplets_b = []
     for result_ in results_:
         model_type_ = result_[0]
         result_ = result_[1]
-        signal_fourplets.extend([
-            (result_.base_signals.t_a_nn, result_.final.degradation_a_nn,
-             f"DEGRADATION_{Const.A}_{model_type_}", False),
-            (result_.base_signals.t_b_nn, result_.final.degradation_b_nn,
-             f"DEGRADATION_{Const.B}_{model_type_}", False)
-        ])
+
+        fourplet_a = (result_.base_signals.t_a_nn, result_.final.degradation_a_nn,
+                      f"DEGRADATION_{Const.A}_{model_type_}", False)
+        fourplet_b = (result_.base_signals.t_b_nn, result_.final.degradation_b_nn,
+                      f"DEGRADATION_{Const.B}_{model_type_}", False)
+
+        signal_fourplets.extend([fourplet_a, fourplet_b])
+        signal_fourplets_a.append(fourplet_a)
+        signal_fourplets_b.append(fourplet_b)
 
     logging.info("Plotting results ...")
     visualizer.plot_signals(signal_fourplets, results_dir, f"DEGRADATION_{Const.A}_{Const.B}_{model_name}",
+                            x_ticker=1, legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+
+    visualizer.plot_signals(signal_fourplets_a, results_dir, f"DEGRADATION_{Const.A}_{model_name}",
+                            x_ticker=1, legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+
+    visualizer.plot_signals(signal_fourplets_b, results_dir, f"DEGRADATION_{Const.B}_{model_name}",
                             x_ticker=1, legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
     signal_fourplets = []

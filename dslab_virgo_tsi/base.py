@@ -16,6 +16,7 @@ from dslab_virgo_tsi.data_utils import notnan_indices, detect_outliers, median_d
     normalize, unnormalize, find_nearest
 from dslab_virgo_tsi.gpflow_utils import SVGaussianProcess
 from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
+from dslab_virgo_tsi.model_constants import OutputTimeConstants as OutTimeConsts
 
 
 class Mode(Enum):
@@ -305,7 +306,7 @@ class ModelFitter:
 
         # Normalize data
         if GPConsts.NORMALIZE:
-            x, t = normalize(x, x_mean, x_std), normalize(t, t_mean, t_std)
+            t, x = normalize(t, t_mean, t_std), normalize(x, x_mean, x_std)
         else:
             x = x - x_mean
 
@@ -500,18 +501,18 @@ class ModelFitter:
         if mode == Mode.GENERATOR:
             min_time = 0
             max_time = np.minimum(base_signals.t_a_nn.max(), base_signals.t_b_nn.max())
-            num_hours = int(1000 + 1)
-            num_hours_in_day = 10
+            num_hours = int(OutTimeConsts.GEN_NUM_HOURS + 1)
+            num_hours_per_day = OutTimeConsts.GEN_NUM_HOURS_PER_DAY
         else:
             min_time = 0
             max_time = np.minimum(np.floor(base_signals.t_a_nn.max()), np.floor(base_signals.t_b_nn.max()))
-            num_hours = int(24 * (max_time - min_time) + 1)
-            num_hours_in_day = 24
+            num_hours = int(OutTimeConsts.VIRGO_NUM_HOURS_PER_UNIT * (max_time - min_time) + 1)
+            num_hours_per_day = OutTimeConsts.VIRGO_NUM_HOURS_PER_DAY
 
         t_hourly_out = np.linspace(min_time, max_time, num_hours).reshape(-1, 1)
-        t_daily_out = t_hourly_out[::num_hours_in_day]
+        t_daily_out = t_hourly_out[::num_hours_per_day]
 
-        return t_hourly_out, t_daily_out, num_hours_in_day
+        return t_hourly_out, t_daily_out, num_hours_per_day
 
     @staticmethod
     def _gp_samples(base_signals, final_result):
