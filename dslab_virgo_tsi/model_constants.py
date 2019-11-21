@@ -62,8 +62,14 @@ class EnsembleConstants(ModelConstants):
 
 
 class GaussianProcessConstants(ModelConstants):
+    # Normalize
+    NORMALIZE = True
+
     # Dual white kernel
-    DUAL_KERNEL = True
+    DUAL_KERNEL = False
+    LABEL_A = 0
+    LABEL_B = 1
+    LABEL_OUT = -1
 
     # scikit-learn parameters
     DOWNSAMPLING_FACTOR_A = 20000
@@ -80,7 +86,7 @@ class GaussianProcessConstants(ModelConstants):
     N_RESTARTS_OPTIMIZER = 10
 
     # gpflow parameters
-    NORMALIZE = True
+    INITIAL_FIT = True
     NUM_INDUCING_POINTS = 200
     MINIBATCH_SIZE = 100
     MAX_ITERATIONS = 8000

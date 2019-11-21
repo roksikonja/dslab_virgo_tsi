@@ -174,7 +174,8 @@ class Kernels:
     gpf_white = gpflow.kernels.White()
 
     gpf_dual_matern32 = VirgoMatern32Kernel()
-    gpf_dual_white = VirgoWhiteKernel()
+    gpf_dual_white = VirgoWhiteKernel(label_a=GPConsts.LABEL_A,
+                                      label_b=GPConsts.LABEL_B)
 
 
 class BaseModel(ABC):
@@ -296,72 +297,83 @@ class ModelFitter:
                         output_method: OutputMethod) -> OutResult:
         logging.info("Computing output ...")
 
-        t_hourly_out, t_daily_out, num_hours_in_day = self._output_resampling(self.mode, base_signals)
-
         # Data standardization parameters
         x_mean = np.mean(np.concatenate((final_result.a_nn_corrected, final_result.b_nn_corrected), axis=0))
         x_std = np.std(np.concatenate((final_result.a_nn_corrected, final_result.b_nn_corrected), axis=0))
         t_mean = np.mean(np.concatenate((base_signals.t_a_nn, base_signals.t_b_nn), axis=0))
         t_std = np.std(np.concatenate((base_signals.t_a_nn, base_signals.t_b_nn), axis=0))
 
-        # GP samples
-        t, x = self._gp_samples(base_signals, final_result)
+        # Output resampling
+        t_hourly_out, num_hours_in_day = self._output_resampling(self.mode, base_signals)
+
+        # Initial fit samples
+        # TODO: Add dual kernels for scikit-learn
+        t_initial, x_initial = self._gp_samples(base_signals, final_result, GPConsts.DUAL_KERNEL)
+        t_initial = t_initial[:, 0].reshape(-1, 1)  # Remove labels
+
+        # Initial fit kernel
+        # TODO: Add dual kernels for scikit-learn
+        if False:
+            kernel = Kernels.matern_kernel + Kernels.white_kernel
+        else:
+            kernel = Kernels.matern_kernel + Kernels.white_kernel
+
+        # Training samples
+        # TODO: RESAMPLING OF BOTH SIGNALS
+        t_a_downsampled, a_downsampled = base_signals.t_a_nn, final_result.a_nn_corrected
+        t_b_downsampled, b_downsampled = base_signals.t_b_nn, final_result.b_nn_corrected
+        t_a_downsampled, a_downsampled = t_a_downsampled[:10], a_downsampled[:10]
+
+        x = np.concatenate([a_downsampled, b_downsampled], axis=0).reshape(-1, 1)
+        t = np.concatenate([t_a_downsampled, t_b_downsampled], axis=0).reshape(-1, 1)
+
+        # Add labels
+        if GPConsts.DUAL_KERNEL:
+            # Training
+            labels = np.concatenate([GPConsts.LABEL_A * np.ones(shape=a_downsampled.shape),
+                                     GPConsts.LABEL_B * np.ones(shape=b_downsampled.shape)])
+            labels = labels.astype(np.int).reshape(-1, 1)
+
+            t = np.concatenate([t, labels], axis=1).reshape(-1, 2)
+
+            # Output
+            labels_out = GPConsts.LABEL_OUT * np.ones(shape=t_hourly_out.shape)
+            labels_out = labels_out.astype(np.int).reshape(-1, 1)
+            t_hourly_out = np.concatenate([t_hourly_out, labels_out], axis=1).reshape(-1, 2)
+
+            logging.info("GP using dual kernel.")
 
         # Normalize data
         if GPConsts.NORMALIZE:
             t, x = normalize(t, t_mean, t_std), normalize(x, x_mean, x_std)
+            t_initial, x_initial = normalize(t_initial, t_mean, t_std), normalize(x_initial, x_mean, x_std)
+            t_hourly_out = normalize(t_hourly_out, t_mean, t_std)
         else:
             x = x - x_mean
 
-        # GP Initial fit kernel
-        kernel = Kernels.matern_kernel + Kernels.white_kernel
+        logging.info(f"Dual kernel is set to {GPConsts.DUAL_KERNEL}. Data shapes are t {t.shape}, "
+                     f"x {x.shape} and t_hourly {t_hourly_out.shape} with t_inital {t_initial.shape} and "
+                     f"x_initial {x_initial.shape}")
 
-        # Run output method
         if output_method == OutputMethod.GP:
             logging.info(f"{output_method} started.")
+
+            t, x = t_initial, x_initial
             gpr = self._gaussian_process(kernel, t, x)
-            signal_hourly_out, signal_std_hourly_out = gpr.predict(normalize(t_hourly_out, t_mean, t_std),
-                                                                   return_std=True)
+
+            # Prediction
+            # TODO: Add for dual kernels, remove [:, 0]
+            signal_hourly_out, signal_std_hourly_out = gpr.predict(t_hourly_out, return_std=True)
         else:
             logging.info(f"{output_method} started.")
 
             length_scale_initial = None
-            if self.mode == Mode.VIRGO:
+            if self.mode == Mode.VIRGO and GPConsts.INITIAL_FIT:
                 logging.info("Running initial fit.")
-                gpr = self._gaussian_process(kernel, t, x)
+                gpr = self._gaussian_process(kernel, t_initial, x_initial)
                 length_scale_initial = gpr.kernel_.get_params()["k1__length_scale"]
 
-            # SVGP samples
-            t_a_downsampled, a_downsampled = base_signals.t_a_nn, final_result.a_nn_corrected
-            t_b_downsampled, b_downsampled = base_signals.t_b_nn, final_result.b_nn_corrected
-
-            # TODO: RESAMPLING OF BOTH SIGNALS
-            if self.mode == Mode.VIRGO and t_a_downsampled.shape[0] > GPConsts.NUM_SAMPLES:
-                a_indices = np.arange(0, t_a_downsampled.shape[0],
-                                      np.ceil(t_a_downsampled.shape[0] / GPConsts.NUM_SAMPLES).astype(int))
-                b_indices = np.arange(0, t_b_downsampled.shape[0],
-                                      np.ceil(t_b_downsampled.shape[0] / GPConsts.NUM_SAMPLES).astype(int))
-
-                # t_a_downsampled, a_downsampled = t_a_downsampled[a_indices], a_downsampled[a_indices]
-                t_a_downsampled, a_downsampled = t_a_downsampled[0:10], a_downsampled[0:10]
-                # t_b_downsampled, b_downsampled = t_b_downsampled[b_indices], b_downsampled[b_indices]
-
-            x = np.concatenate([a_downsampled, b_downsampled], axis=0).reshape(-1, 1)
-            t = np.concatenate([t_a_downsampled, t_b_downsampled], axis=0).reshape(-1, 1)
-
-            if GPConsts.NORMALIZE:
-                x, t = normalize(x, x_mean, x_std), normalize(t, t_mean, t_std)
-            else:
-                x = x - x_mean
-
-            if GPConsts.DUAL_KERNEL and not self.mode == Mode.GENERATOR:
-                labels = np.concatenate([np.zeros(shape=a_downsampled.shape),
-                                         np.ones(shape=b_downsampled.shape)]).reshape(-1, 1)
-
-                t = np.concatenate([t, labels], axis=1).reshape(-1, 2)
-                logging.info("GP using dual kernel.")
-
-            logging.info(f"Running GP on {t.shape} samples.")
+            logging.info(f"Running GP on {t_initial.shape} samples.")
 
             # Induction variables
             t_uniform = np.linspace(np.min(t[:, 0]), np.max(t[:, 0]), GPConsts.NUM_INDUCING_POINTS)
@@ -377,7 +389,7 @@ class ModelFitter:
                     kernel = gpflow.kernels.Sum([Kernels.gpf_matern12, Kernels.gpf_white])
 
             # Model
-            m = gpflow.models.SVGP(kernel, gpflow.likelihoods.Gaussian(), z, num_data=np.size(t))
+            m = gpflow.models.SVGP(kernel, gpflow.likelihoods.Gaussian(), z, num_data=t.shape[0])
 
             # Initial guess
             if length_scale_initial:
@@ -385,12 +397,12 @@ class ModelFitter:
 
             # Non-trainable parameters
             gpflow.utilities.set_trainable(m.inducing_variable, False)
-            gpflow.utilities.set_trainable(m.kernel.kernels[0].variance, False)
+            # gpflow.utilities.set_trainable(m.kernel.kernels[0].variance, False)
 
             logging.info("Model created.\n\n" + str(get_summary(m)) + "\n")
 
             # Dataset
-            train_dataset = tf.data.Dataset.from_tensor_slices((t, x)).repeat().shuffle(buffer_size=np.size(t),
+            train_dataset = tf.data.Dataset.from_tensor_slices((t, x)).repeat().shuffle(buffer_size=t.shape[0],
                                                                                         seed=Const.RANDOM_SEED)
             # Training
             start = time.time()
@@ -405,26 +417,38 @@ class ModelFitter:
             logging.info("Training finished after: {:>10} sec".format(end - start))
             logging.info("Trained model.\n\n" + str(get_summary(m)) + "\n")
 
-            if GPConsts.NORMALIZE:
-                signal_hourly_out, signal_var_hourly_out = m.predict_y(normalize(t_hourly_out, t_mean, t_std))
-            else:
-                signal_hourly_out, signal_var_hourly_out = m.predict_y(t_hourly_out)
-
+            # Prediction
+            signal_hourly_out, signal_var_hourly_out = m.predict_y(t_hourly_out)
             signal_std_hourly_out = tf.sqrt(signal_var_hourly_out)
             signal_hourly_out = tf.reshape(signal_hourly_out, [-1]).numpy()
             signal_std_hourly_out = tf.reshape(signal_std_hourly_out, [-1]).numpy()
 
+        # Compute final output
         if GPConsts.NORMALIZE:
             signal_hourly_out = unnormalize(signal_hourly_out, x_mean, x_std)
             signal_std_hourly_out = signal_std_hourly_out * (x_std ** 2)
+            t_hourly_out = unnormalize(t_hourly_out, t_mean, t_std)
         else:
             signal_hourly_out = signal_hourly_out + x_mean
+            signal_hourly_out = signal_hourly_out
 
+        signal_hourly_out = signal_hourly_out.reshape(-1, 1)
+        signal_std_hourly_out = signal_std_hourly_out.reshape(-1, 1)
+
+        if GPConsts.DUAL_KERNEL:
+            t_hourly_out = t_hourly_out[:, 0].reshape(-1, 1)
+
+        logging.info(f"Dual kernel is set to {GPConsts.DUAL_KERNEL}. Data shapes are t {t.shape}, "
+                     f"x {x.shape} and t_hourly {t_hourly_out.shape} with t_inital {t_initial.shape} and "
+                     f"x_initial {x_initial.shape}. signal_hourly_out {signal_hourly_out.shape} and "
+                     f"signal_std_hourly_out {signal_std_hourly_out.shape}.")
+        # Daily values
+        t_daily_out = t_hourly_out[::num_hours_in_day, :]
         signal_daily_out = signal_hourly_out[::num_hours_in_day]
         signal_std_daily_out = signal_std_hourly_out[::num_hours_in_day]
 
-        return OutResult(t_hourly_out.ravel(), signal_hourly_out, signal_std_hourly_out,
-                         t_daily_out.ravel(), signal_daily_out, signal_std_daily_out)
+        return OutResult(t_hourly_out.ravel(), signal_hourly_out.ravel(), signal_std_hourly_out.ravel(),
+                         t_daily_out.ravel(), signal_daily_out.ravel(), signal_std_daily_out.ravel())
 
     @staticmethod
     def _compute_exposure(x, mode=ExposureMethod.NUM_MEASUREMENTS, mean=1.0, length=None):
@@ -524,22 +548,28 @@ class ModelFitter:
             num_hours_per_day = OutTimeConsts.VIRGO_NUM_HOURS_PER_DAY
 
         t_hourly_out = np.linspace(min_time, max_time, num_hours).reshape(-1, 1)
-        t_daily_out = t_hourly_out[::num_hours_per_day]
 
-        return t_hourly_out, t_daily_out, num_hours_per_day
+        return t_hourly_out, num_hours_per_day
 
     @staticmethod
-    def _gp_samples(base_signals, final_result):
+    def _gp_samples(base_signals, final_result, dual_kernel):
         t_a_downsampled = median_downsample_by_factor(base_signals.t_a_nn,
                                                       GPConsts.DOWNSAMPLING_FACTOR_A).reshape(-1, 1)
         t_b_downsampled = median_downsample_by_factor(base_signals.t_b_nn,
                                                       GPConsts.DOWNSAMPLING_FACTOR_B).reshape(-1, 1)
         a_downsampled = median_downsample_by_factor(final_result.a_nn_corrected,
-                                                    GPConsts.DOWNSAMPLING_FACTOR_A)
+                                                    GPConsts.DOWNSAMPLING_FACTOR_A).reshape(-1, 1)
         b_downsampled = median_downsample_by_factor(final_result.b_nn_corrected,
-                                                    GPConsts.DOWNSAMPLING_FACTOR_B)
+                                                    GPConsts.DOWNSAMPLING_FACTOR_B).reshape(-1, 1)
 
-        x = np.concatenate([a_downsampled, b_downsampled], axis=0)
+        x = np.concatenate([a_downsampled, b_downsampled], axis=0).reshape(-1, 1)
         t = np.concatenate([t_a_downsampled, t_b_downsampled], axis=0)
+
+        if dual_kernel:
+            labels = np.concatenate([GPConsts.LABEL_A * np.ones(shape=a_downsampled.shape),
+                                     GPConsts.LABEL_B * np.ones(shape=b_downsampled.shape)])
+            labels = labels.astype(np.int).reshape(-1, 1)
+
+            t = np.concatenate([t, labels], axis=1).reshape(-1, 2)
 
         return t, x

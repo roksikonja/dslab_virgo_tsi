@@ -249,12 +249,20 @@ def get_summary(module: tf.Module):
 
 
 def normalize(x, mean, std):
-    y = (x - mean) / std
+    if len(x.shape) == 1:
+        y = (x - mean)/std
+    else:
+        y = x
+        y[:, 0] = (x[:, 0] - mean) / std
     return y
 
 
 def unnormalize(y, mean, std):
-    x = std * y + mean
+    if len(y.shape) == 1:
+        x = std * y + mean
+    else:
+        x = y
+        x[:, 0] = std * y[:, 0] + mean
     return x
 
 

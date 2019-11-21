@@ -48,30 +48,30 @@ class SVGaussianProcess(object):
 
 
 class VirgoWhiteKernel(gpflow.kernels.Kernel):
-    def __init__(self):
-        super().__init__(active_dims=[0])
+    def __init__(self, label_a, label_b):
+        super().__init__(active_dims=[0, 1])
         self.variance_a = gpflow.Parameter(1.0, transform=positive())
         self.variance_b = gpflow.Parameter(1.0, transform=positive())
+        self.label_a = label_a
+        self.label_b = label_b
 
     def K(self, X, X2=None, presliced=None):
         if X2 is None:
             d_a = tf.fill((X.shape[0],), tf.squeeze(self.variance_a))
             d_b = tf.fill((X.shape[0],), tf.squeeze(self.variance_b))
-            indices_a = tf.cast(tf.equal(X[:, 1], 0), dtype=tf.float64)
-            indices_b = tf.cast(tf.equal(X[:, 1], 1), dtype=tf.float64)
+            indices_a = tf.cast(tf.equal(X[:, 1], self.label_a), dtype=tf.float64)
+            indices_b = tf.cast(tf.equal(X[:, 1], self.label_b), dtype=tf.float64)
             a = tf.linalg.diag(tf.multiply(d_a, indices_a) + tf.multiply(d_b, indices_b))
-            # print(a.shape)
             return a
         else:
             shape = [X.shape[0], X2.shape[0]]
-            # print(shape)
             return tf.zeros(shape, dtype=X.dtype)
 
     def K_diag(self, X, presliced=None):
         d_a = tf.fill((X.shape[0],), tf.squeeze(self.variance_a))
         d_b = tf.fill((X.shape[0],), tf.squeeze(self.variance_b))
-        indices_a = tf.cast(tf.equal(X[:, 1], 0), dtype=tf.float64)
-        indices_b = tf.cast(tf.equal(X[:, 1], 1), dtype=tf.float64)
+        indices_a = tf.cast(tf.equal(X[:, 1], self.label_a), dtype=tf.float64)
+        indices_b = tf.cast(tf.equal(X[:, 1], self.label_b), dtype=tf.float64)
         a = tf.multiply(d_a, indices_a) + tf.multiply(d_b, indices_b)
         return a
 
@@ -104,7 +104,6 @@ class VirgoMatern32Kernel(gpflow.kernels.Kernel):
         return k_diag
 
     def K_r(self, r):
-        print("r", r.shape)
         sqrt3 = np.sqrt(3.)
         return self.variance * (1. + sqrt3 * r) * tf.exp(-sqrt3 * r)
 
