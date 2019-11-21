@@ -62,6 +62,9 @@ class EnsembleConstants(ModelConstants):
 
 
 class GaussianProcessConstants(ModelConstants):
+    # Dual white kernel
+    DUAL_KERNEL = True
+
     # scikit-learn parameters
     DOWNSAMPLING_FACTOR_A = 20000
     DOWNSAMPLING_FACTOR_B = 200

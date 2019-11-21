@@ -14,7 +14,7 @@ from sklearn.gaussian_process.kernels import WhiteKernel, Matern
 from dslab_virgo_tsi.constants import Constants as Const
 from dslab_virgo_tsi.data_utils import notnan_indices, detect_outliers, median_downsample_by_factor, get_summary, \
     normalize, unnormalize, find_nearest
-from dslab_virgo_tsi.gpflow_utils import SVGaussianProcess
+from dslab_virgo_tsi.gpflow_utils import SVGaussianProcess, VirgoMatern32Kernel, VirgoWhiteKernel
 from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
 from dslab_virgo_tsi.model_constants import OutputTimeConstants as OutTimeConsts
 
@@ -172,6 +172,9 @@ class Kernels:
     gpf_matern12 = gpflow.kernels.Matern12()
     gpf_linear = gpflow.kernels.Linear()
     gpf_white = gpflow.kernels.White()
+
+    gpf_dual_matern32 = VirgoMatern32Kernel()
+    gpf_dual_white = VirgoWhiteKernel()
 
 
 class BaseModel(ABC):
@@ -332,6 +335,7 @@ class ModelFitter:
             t_a_downsampled, a_downsampled = base_signals.t_a_nn, final_result.a_nn_corrected
             t_b_downsampled, b_downsampled = base_signals.t_b_nn, final_result.b_nn_corrected
 
+            # TODO: RESAMPLING OF BOTH SIGNALS
             if self.mode == Mode.VIRGO and t_a_downsampled.shape[0] > GPConsts.NUM_SAMPLES:
                 a_indices = np.arange(0, t_a_downsampled.shape[0],
                                       np.ceil(t_a_downsampled.shape[0] / GPConsts.NUM_SAMPLES).astype(int))
@@ -350,17 +354,27 @@ class ModelFitter:
             else:
                 x = x - x_mean
 
-            logging.info(f"Running GP on {t.shape[0]} samples.")
+            if GPConsts.DUAL_KERNEL and not self.mode == Mode.GENERATOR:
+                labels = np.concatenate([np.zeros(shape=a_downsampled.shape),
+                                         np.ones(shape=b_downsampled.shape)]).reshape(-1, 1)
+
+                t = np.concatenate([t, labels], axis=1).reshape(-1, 2)
+                logging.info("GP using dual kernel.")
+
+            logging.info(f"Running GP on {t.shape} samples.")
 
             # Induction variables
-            t_uniform = np.linspace(np.min(t), np.max(t), GPConsts.NUM_INDUCING_POINTS)
-            t_uniform_indices = find_nearest(t, t_uniform).astype(int)
-            z = t[t_uniform_indices].copy()
+            t_uniform = np.linspace(np.min(t[:, 0]), np.max(t[:, 0]), GPConsts.NUM_INDUCING_POINTS)
+            t_uniform_indices = find_nearest(t[:, 0], t_uniform).astype(int)
+            z = t[t_uniform_indices, :].copy()
 
             if self.mode == Mode.GENERATOR:
                 kernel = gpflow.kernels.Sum([Kernels.gpf_matern32, Kernels.gpf_white, Kernels.gpf_linear])
             else:
-                kernel = gpflow.kernels.Sum([Kernels.gpf_matern12, Kernels.gpf_white])
+                if GPConsts.DUAL_KERNEL:
+                    kernel = gpflow.kernels.Sum([Kernels.gpf_dual_matern32, Kernels.gpf_dual_white])
+                else:
+                    kernel = gpflow.kernels.Sum([Kernels.gpf_matern12, Kernels.gpf_white])
 
             # Model
             m = gpflow.models.SVGP(kernel, gpflow.likelihoods.Gaussian(), z, num_data=np.size(t))

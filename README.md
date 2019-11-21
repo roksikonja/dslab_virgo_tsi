@@ -39,3 +39,12 @@ Generating synthetic dataset.
     
     model ∈ {exp, exp_lin}
     rate ∈ (0.0, inf]
+    
+#### Meeting
+
+* Mentor not responding
+* GP local approximation
+* Questions:
+    * Scalable GP
+    * Dual kernel question? White kernel different variance for both?
+* Proof: Noisy model
