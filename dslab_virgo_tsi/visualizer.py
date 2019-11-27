@@ -139,7 +139,7 @@ class Visualizer(object):
                                          data_points_triplets=None, confidence=0.95, alpha=0.5, max_points=1e5,
                                          max_points_scatter=1e4):
 
-        factor = norm.ppf(confidence) - norm.ppf(1 - confidence)
+        factor = norm.ppf(1 / 2 + confidence / 2)  # 0.95 % -> 1.959963984540054
 
         fig = plt.figure()
         for signal_fourplet in signal_fourplets:
