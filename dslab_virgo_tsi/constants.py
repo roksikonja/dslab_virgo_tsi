@@ -47,7 +47,9 @@ class Constants(object):
 
     # VISUALIZATION
     FIG_SIZE = (16, 8)
-    FONT_SIZE = 22
+    TITLE_FONT_SIZE = 22
+    XTICK_SIZE = 12
+    YTICK_SIZE = 12
     MATPLOTLIB_STYLE = "seaborn"  # "default"
     MATPLOTLIB_STYLE_LINEWIDTH = 0.5
     OUT_FORMAT = "pdf"

@@ -53,7 +53,7 @@ def load_data(data_dir_path, file_name, data_type="virgo"):
         return data
     elif data_type == "virgo_tsi":
         data = []
-        with open(os.path.join("./data/", ), "r") as f:
+        with open(os.path.join("./data/", file_name), "r") as f:
             for idx, line in enumerate(f.readlines()):
                 if line[0] != ";" and idx != 0:
                     line = line.strip().split()

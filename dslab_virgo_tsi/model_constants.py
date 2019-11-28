@@ -89,7 +89,7 @@ class GaussianProcessConstants(ModelConstants):
     INITIAL_FIT = False
     NUM_INDUCING_POINTS = 200
     MINIBATCH_SIZE = 100
-    MAX_ITERATIONS = 8000
+    MAX_ITERATIONS = 10000
     NUM_SAMPLES = 20000
 
 

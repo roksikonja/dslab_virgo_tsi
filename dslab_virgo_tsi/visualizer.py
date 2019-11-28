@@ -20,7 +20,10 @@ class Visualizer(object):
         mpl.rcParams["savefig.format"] = Const.OUT_FORMAT
         mpl.rcParams["savefig.bbox"] = Const.OUT_BBOX
         mpl.rcParams["savefig.dpi"] = Const.OUT_DPI
-        mpl.rcParams.update({'font.size': Const.FONT_SIZE})
+        mpl.rcParams.update({'font.size': Const.TITLE_FONT_SIZE})
+        mpl.rc('xtick', labelsize=Const.XTICK_SIZE)
+        mpl.rc('ytick', labelsize=Const.YTICK_SIZE)
+        mpl.rc('axes', titlesize=Const.TITLE_FONT_SIZE)
 
     @staticmethod
     def set_figsize(size=Const.FIG_SIZE):
@@ -32,6 +35,9 @@ class Visualizer(object):
 
         fig = plt.figure()
         for signal_fourplet in signal_fourplets:
+            if not signal_fourplet:
+                continue
+
             t = signal_fourplet[0]
             x = signal_fourplet[1]
             label = signal_fourplet[2]
