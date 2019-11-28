@@ -51,6 +51,34 @@ def load_data(data_dir_path, file_name, data_type="virgo"):
         # Store to HDF5
         data.to_hdf(h5_file_path, "table")
         return data
+    elif data_type == "virgo_tsi":
+        data = []
+        with open(os.path.join("./data/", ), "r") as f:
+            for idx, line in enumerate(f.readlines()):
+                if line[0] != ";" and idx != 0:
+                    line = line.strip().split()
+
+                    # Time in mission days
+                    date = datetime.datetime.strptime("-".join(line[0:2]), "%Y%m%d-%H%M%S") \
+                        - datetime.datetime(1996, 1, 1, 0, 0, 0)
+                    date = float(date.days) + float(date.seconds) / (3600 * 24.0)
+                    values = line[2:]
+
+                    array = [date]
+                    array.extend(values)
+                    data.append(array)
+
+        data = pd.DataFrame(data, columns=[Const.T,
+                                           Const.VIRGO_TSI_NEW,
+                                           Const.VIRGO_TSI_OLD,
+                                           Const.DIARAD_OLD,
+                                           Const.PMO6V_OLD], dtype=float)
+        # Replace missing values with NaN
+        data[data == Const.VIRGO_TSI_NAN_VALUE] = np.nan
+
+        # Store to HDF5
+        data.to_hdf(h5_file_path, "table")
+        return  data
     return None
 
 
@@ -250,7 +278,7 @@ def get_summary(module: tf.Module):
 
 def normalize(x, mean, std):
     if len(x.shape) == 1:
-        y = (x - mean)/std
+        y = (x - mean) / std
     else:
         y = x
         y[:, 0] = (x[:, 0] - mean) / std

@@ -6,6 +6,7 @@ class Constants(object):
     # Data files
     VIRGO_FILE = "VIRGO_Level1.txt"
     PREMOS_FILE = "PREMOS.dat"
+    VIRGO_TSI_FILE = "virgo_tsi_h_v6_005_1805.dat"
 
     # PMO6V
     A = "PMO6V-A"
@@ -15,6 +16,13 @@ class Constants(object):
     EA = "EXPOSURE-A"
     EB = "EXPOSURE-B"
 
+    # VIRGO TSI
+    VIRGO_TSI_NEW = "VIRGO-NEW"
+    VIRGO_TSI_OLD = "VIRGO-OLD"
+    DIARAD_OLD = "DIARAD-OLD"
+    PMO6V_OLD = "PMO6V-OLD"
+    VIRGO_TSI_NAN_VALUE = -99.0
+
     # RANDOMNESS
     RANDOM_SEED = 0
 
@@ -23,6 +31,9 @@ class Constants(object):
     GP = "GP"
     EXP = "EXP"
     EXP_LIN = "EXP_LIN"
+    ISOTONIC = "ISOTONIC"
+    SMOOTH_MONOTONIC = "SMOOTH_MONOTONIC"
+    ENSEMBLE = "ENSEMBLE"
 
     # UNITS
     DAY_UNIT = "TIME [mission days]"
@@ -36,6 +47,7 @@ class Constants(object):
 
     # VISUALIZATION
     FIG_SIZE = (16, 8)
+    FONT_SIZE = 22
     MATPLOTLIB_STYLE = "seaborn"  # "default"
     MATPLOTLIB_STYLE_LINEWIDTH = 0.5
     OUT_FORMAT = "pdf"

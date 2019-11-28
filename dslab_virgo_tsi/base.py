@@ -324,6 +324,7 @@ class ModelFitter:
         t_b_downsampled, b_downsampled = base_signals.t_b_nn, final_result.b_nn_corrected
 
         subsampling_rate_a = a_downsampled.shape[0] // b_downsampled.shape[0]
+        subsampling_rate_a *= 1000
 
         t_a_downsampled, a_downsampled = t_a_downsampled[::subsampling_rate_a], a_downsampled[::subsampling_rate_a]
 
@@ -372,11 +373,10 @@ class ModelFitter:
 
             length_scale_initial = None
             if self.mode == Mode.VIRGO and GPConsts.INITIAL_FIT:
-                logging.info("Running initial fit.")
+                logging.info(f"Running GP initial fit on {t_initial.shape} samples.")
                 gpr = self._gaussian_process(kernel, t_initial, x_initial)
                 length_scale_initial = gpr.kernel_.get_params()["k1__length_scale"]
-
-            logging.info(f"Running GP on {t_initial.shape} samples.")
+                noise_level_initial = gpr.kernel_.get_params()["k2__noise_level"]
 
             # Induction variables
             t_uniform = np.linspace(np.min(t[:, 0]), np.max(t[:, 0]), GPConsts.NUM_INDUCING_POINTS)
@@ -397,10 +397,15 @@ class ModelFitter:
             # Initial guess
             if length_scale_initial:
                 m.kernel.kernels[0].lengthscale.assign(length_scale_initial)
+                if GPConsts.DUAL_KERNEL:
+                    m.kernel.kernels[1].variance_a.assign(noise_level_initial)
+                    m.kernel.kernels[1].variance_b.assign(noise_level_initial)
+                else:
+                    m.kernel.kernels[1].variance.assign(noise_level_initial)
 
             # Non-trainable parameters
             gpflow.utilities.set_trainable(m.inducing_variable, False)
-            # gpflow.utilities.set_trainable(m.kernel.kernels[0].variance, False)
+            gpflow.utilities.set_trainable(m.kernel.kernels[0].variance, False)
 
             logging.info("Model created.\n\n" + str(get_summary(m)) + "\n")
 

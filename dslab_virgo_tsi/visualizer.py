@@ -20,6 +20,7 @@ class Visualizer(object):
         mpl.rcParams["savefig.format"] = Const.OUT_FORMAT
         mpl.rcParams["savefig.bbox"] = Const.OUT_BBOX
         mpl.rcParams["savefig.dpi"] = Const.OUT_DPI
+        mpl.rcParams.update({'font.size': Const.FONT_SIZE})
 
     @staticmethod
     def set_figsize(size=Const.FIG_SIZE):
