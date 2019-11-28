@@ -48,6 +48,7 @@ class Constants(object):
     # VISUALIZATION
     FIG_SIZE = (16, 8)
     TITLE_FONT_SIZE = 22
+    AXES_FONT_SIZE = 15
     XTICK_SIZE = 12
     YTICK_SIZE = 12
     MATPLOTLIB_STYLE = "seaborn"  # "default"
