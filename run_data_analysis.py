@@ -8,10 +8,12 @@ import pandas as pd
 from matplotlib import ticker
 from scipy.interpolate import interp1d
 
-from dslab_virgo_tsi.base import ExposureMode, ModelFitter, BaseSignals
+from dslab_virgo_tsi.base import ExposureMethod, ModelFitter, BaseSignals
 from dslab_virgo_tsi.constants import Constants as Const
-from dslab_virgo_tsi.data_utils import load_data, create_results_dir, create_logger, notnan_indices, \
+from dslab_virgo_tsi.data_utils import load_data, notnan_indices, \
     get_sampling_intervals, fft_spectrum
+
+from dslab_virgo_tsi.run_utils import create_logger, create_results_dir
 from dslab_virgo_tsi.visualizer import Visualizer
 
 
@@ -201,16 +203,16 @@ if __name__ == "__main__":
         logging.info(f"Data {Const.VIRGO_FILE} loaded.")
 
     if ARGS.exposure_mode == "measurements":
-        exposure_mode = ExposureMode.NUM_MEASUREMENTS
+        exposure_mode = ExposureMethod.NUM_MEASUREMENTS
     else:
-        exposure_mode = ExposureMode.EXPOSURE_SUM
+        exposure_mode = ExposureMethod.EXPOSURE_SUM
 
     fitter = ModelFitter(mode=ARGS.data_file,
                          data=data,
                          t_field_name=Const.T,
                          a_field_name=Const.A,
                          b_field_name=Const.B,
-                         exposure_mode=ExposureMode.NUM_MEASUREMENTS,
+                         exposure_method=ExposureMethod.NUM_MEASUREMENTS,
                          outlier_fraction=ARGS.outlier_fraction)
 
     if ARGS.data_file == "premos":
