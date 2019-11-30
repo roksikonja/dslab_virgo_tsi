@@ -4,10 +4,13 @@ import numpy as np
 from matplotlib import pyplot as plt
 from numba import njit
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import WhiteKernel, Matern
+from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
 
 from dslab_virgo_tsi.base import Result
-# from dslab_virgo_tsi.kernels import DualWhiteKernel, Matern
+from dslab_virgo_tsi.kernels import DualWhiteKernel, Matern
+
+
+# from sklearn.gaussian_process.kernels import Matern, WhiteKernel
 
 
 @njit(cache=True)
@@ -40,7 +43,7 @@ def interleave(t_a_, t_b_, a_, b_):
     return t_together_, values_together_, mask_
 
 
-def gp_target_time(t_, val_, mask_, t_target_, window_: float = 10, points_in_window=50):
+def gp_target_time(t_, val_, mask_, t_target_, window_: float = 10, points_in_window=500):
     """
     :param t_: Time of all signals.
     :param val_: Signal.
@@ -104,16 +107,35 @@ def gp_target_time(t_, val_, mask_, t_target_, window_: float = 10, points_in_wi
                         length_scale_bounds=(scale, scale),
                         nu=1.5)
 
-        # kernel += DualWhiteKernel(cur_mask_down, 1, 1, (1e-5, 1e5), (1e-5, 1e5))
-        kernel += WhiteKernel(1, (1e-5, 1e5))
+        # kernel += WhiteKernel(1, (1e-5, 1e5))
+
+        # TODO
+        kernel += DualWhiteKernel()
         gpr = GaussianProcessRegressor(kernel=kernel, random_state=0, n_restarts_optimizer=10)
 
-        gpr.fit(cur_t_down_norm, cur_values_down_norm)
+        # TODO
+        gpr.fit(np.hstack((cur_t_down_norm, cur_mask_down)), cur_values_down_norm)
+        # gpr.fit(cur_t_down_norm, cur_values_down_norm)
+
+        print(gpr.kernel_)
+        print(gpr.kernel_.get_params())
 
         # Result
-        time_to_predict = np.linspace(cur_t_down_norm[0], cur_t_down_norm[-1], 1000).reshape(-1, 1)
-        predict_values, sigma = gpr.predict(time_to_predict, return_std=True)
+        # time_to_predict = np.linspace(cur_t_down_norm[0], cur_t_down_norm[-1], 20).reshape(-1, 1)
+        time_to_predict = cur_t_down_norm
+        time_to_predict_with_mask = np.hstack((cur_t_down_norm, cur_mask_down))
+        np.hstack((cur_t_down_norm, cur_mask_down))
+        # time_to_predict_with_mask = np.hstack((time_to_predict, np.full_like(time_to_predict, GPConsts.LABEL_A)))
+
+        # TODO
+        predict_values, sigma = gpr.predict(time_to_predict_with_mask, return_std=True)
+        # predict_values, sigma = gpr.predict(time_to_predict, return_std=True)
+
+        print(sigma)
+        print("Predict shape: ", predict_values.shape)
+        print("Sigma before: ", sigma.shape)
         sigma = sigma.reshape(-1, 1)
+        print("Sigma shape: ", sigma.shape)
 
         # Project to non-standardized setting
         time_to_predict = (time_to_predict * std_t) + mean_t
@@ -126,6 +148,12 @@ def gp_target_time(t_, val_, mask_, t_target_, window_: float = 10, points_in_wi
         plt.plot(cur_t_down, cur_values_down, 'k.', markersize=5, label='Downscaled')
         plt.plot(time_to_predict, predict_values, 'b-', label='Prediction')
         plt.axvline(x=cur_target_t)
+
+        temp1 = predict_values - 1.9600 * sigma
+        temp2 = (predict_values + 1.9600 * sigma)[::-1]
+
+        print(temp1.shape)
+        print(temp2.shape)
         plt.fill(np.concatenate([time_to_predict, time_to_predict[::-1]]),
                  np.concatenate([predict_values - 1.9600 * sigma,
                                  (predict_values + 1.9600 * sigma)[::-1]]),

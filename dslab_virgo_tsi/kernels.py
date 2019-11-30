@@ -4,8 +4,8 @@ from typing import Tuple
 import numpy as np
 from scipy.spatial.distance import pdist, cdist, squareform
 from scipy.special import kv, gamma
-from sklearn.gaussian_process.kernels import StationaryKernelMixin, Kernel, Hyperparameter, RBF
-from sklearn.gaussian_process.kernels import _approx_fprime, _check_length_scale
+from sklearn.gaussian_process.kernels import StationaryKernelMixin, Kernel, Hyperparameter, _check_length_scale, RBF, \
+    _approx_fprime
 
 from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
 
@@ -15,29 +15,29 @@ class DualWhiteKernel(StationaryKernelMixin, Kernel):
     This is generalization of White Kernel to two separate noise levels.
     Parameters
     ----------
-    mask : array_like
-        Value True at position i denotes b signal and value False a signal.
     noise_level_a : float, default: 1.0
         Parameter controlling the noise level of first signal (variance)
     noise_level_b : float, default: 1.0
         Parameter controlling the noise level of second signal (variance)
-    noise_level_a_bounds : Tuple[float], default: (1e-5, 1e5)
+    noise_level_a_bounds : Tuple[float, float], default: (1e-5, 1e5)
         The lower and upper bound on noise_level_a
-    noise_level_a_bounds : Tuple[float], default: (1e-5, 1e5)
+    noise_level_a_bounds : Tuple[float, float], default: (1e-5, 1e5)
         The lower and upper bound on noise_level_a
     """
 
-    def __init__(self, mask,
+    def __init__(self,
+                 label_a=GPConsts.LABEL_A,
+                 label_b=GPConsts.LABEL_B,
                  noise_level_a: float = GPConsts.WHITE_NOISE_LEVEL,
                  noise_level_b: float = GPConsts.WHITE_NOISE_LEVEL,
                  noise_level_a_bounds: Tuple[float] = GPConsts.WHITE_NOISE_LEVEL_BOUNDS,
                  noise_level_b_bounds: Tuple[float] = GPConsts.WHITE_NOISE_LEVEL_BOUNDS):
-        self.mask = mask
+        self.label_a = label_a
+        self.label_b = label_b
         self.noise_level_a = noise_level_a
         self.noise_level_b = noise_level_b
         self.noise_level_a_bounds = noise_level_a_bounds
         self.noise_level_b_bounds = noise_level_b_bounds
-        self.diag_K = self.noise_level_b * self.mask + self.noise_level_a * np.logical_not(self.mask)
 
     @property
     def hyperparameter_noise_level_a(self):
@@ -70,21 +70,29 @@ class DualWhiteKernel(StationaryKernelMixin, Kernel):
             hyperparameter of the kernel. Only returned when eval_gradient
             is True.
         """
-        X = np.atleast_2d(X)
+        X_values = X[:, 0].reshape(-1, 1)
+        X_mask = X[:, 1].reshape(-1, 1)
+
         if Y is not None and eval_gradient:
             raise ValueError("Gradient can only be evaluated when Y is None.")
 
         if Y is None:
-            K = np.diag(self.diag_K)
+            diag_a = (X_mask == self.label_a) * self.noise_level_a
+            diag_b = (X_mask == self.label_b) * self.noise_level_b
+            K1 = np.diag(np.squeeze(diag_a))
+            K2 = np.diag(np.squeeze(diag_b))
+            K = K1 + K2
             if eval_gradient:
                 if not self.hyperparameter_noise_level_a.fixed and not self.hyperparameter_noise_level_b.fixed:
-                    return K, K[:, :, np.newaxis]
+                    return K, np.dstack((K1[:, :, np.newaxis], K2[:, :, np.newaxis]))
                 else:
-                    return K, np.empty((X.shape[0], X.shape[0], 0))
+                    return K, np.dstack((np.empty((X_values.shape[0], X_values.shape[0], 0)),
+                                         np.empty((X_values.shape[0], X_values.shape[0], 0))))
             else:
                 return K
         else:
-            return np.zeros((X.shape[0], Y.shape[0]))
+            Y_values = Y[:, 0].reshape(-1, 1)
+            return np.zeros((X_values.shape[0], Y_values.shape[0]))
 
     def diag(self, X):
         """Returns the diagonal of the kernel k(X, X).
@@ -100,82 +108,10 @@ class DualWhiteKernel(StationaryKernelMixin, Kernel):
         K_diag : array, shape (n_samples_X,)
             Diagonal of kernel k(X, X)
         """
-        return self.diag_K
-
-
-class DualWhiteKernelTest(StationaryKernelMixin, Kernel):
-    """Dual White kernel.
-    This is generalization of White Kernel to two separate noise levels.
-    Parameters
-    ----------
-    noise_level_a : float, default: 1.0
-        Parameter controlling the noise level of first signal (variance)
-    noise_level_b : float, default: 1.0
-        Parameter controlling the noise level of second signal (variance)
-    noise_level_a_bounds : Tuple[float], default: (1e-5, 1e5)
-        The lower and upper bound on noise_level_a
-    noise_level_a_bounds : Tuple[float], default: (1e-5, 1e5)
-        The lower and upper bound on noise_level_a
-    """
-
-    def __init__(self,
-                 noise_level_a: float = GPConsts.WHITE_NOISE_LEVEL,
-                 noise_level_b: float = GPConsts.WHITE_NOISE_LEVEL,
-                 noise_level_a_bounds: Tuple[float] = GPConsts.WHITE_NOISE_LEVEL_BOUNDS,
-                 noise_level_b_bounds: Tuple[float] = GPConsts.WHITE_NOISE_LEVEL_BOUNDS):
-
-        self.noise_level_a = noise_level_a
-        self.noise_level_b = noise_level_b
-        self.noise_level_a_bounds = noise_level_a_bounds
-        self.noise_level_b_bounds = noise_level_b_bounds
-
-    @property
-    def hyperparameter_noise_level_a(self):
-        return Hyperparameter(
-            "noise_level_a", "numeric", self.noise_level_a_bounds)
-
-    @property
-    def hyperparameter_noise_level_b(self):
-        return Hyperparameter(
-            "noise_level_b", "numeric", self.noise_level_b_bounds)
-
-    def __call__(self, X, Y=None, eval_gradient=False):
-        """Return the kernel k(X, Y) and optionally its gradient.
-        Parameters
-        ----------
-        X : array, shape (n_samples_X, n_features)
-            Left argument of the returned kernel k(X, Y)
-        Y : array, shape (n_samples_Y, n_features), (optional, default=None)
-            Right argument of the returned kernel k(X, Y). If None, k(X, X)
-            if evaluated instead.
-        eval_gradient : bool (optional, default=False)
-            Determines whether the gradient with respect to the kernel
-            hyperparameter is determined. Only supported when Y is None.
-        Returns
-        -------
-        K : array, shape (n_samples_X, n_samples_Y)
-            Kernel k(X, Y)
-        K_gradient : array (opt.), shape (n_samples_X, n_samples_X, n_dims)
-            The gradient of the kernel k(X, X) with respect to the
-            hyperparameter of the kernel. Only returned when eval_gradient
-            is True.
-        """
-        mask = X[:, ]
-        X = np.atleast_2d(X)
-        if Y is not None and eval_gradient:
-            raise ValueError("Gradient can only be evaluated when Y is None.")
-
-        if Y is None:
-            K = np.diag(self.diag_K)
-            if eval_gradient:
-                if not self.hyperparameter_noise_level_a.fixed and not self.hyperparameter_noise_level_b.fixed:
-                    return K, K[:, :, np.newaxis]
-                else:
-                    return K, np.empty((X.shape[0], X.shape[0], 0))
-            else:
-                return K
-        else:
-            return np.zeros((X.shape[0], Y.shape[0]))
+        X_mask = X[:, 1].reshape(-1, 1)
+        diag_a = (X_mask == self.label_a) * self.noise_level_a
+        diag_b = (X_mask == self.label_b) * self.noise_level_b
+        return np.squeeze(diag_a + diag_b)
 
 
 class Matern(RBF):
@@ -249,15 +185,17 @@ class Matern(RBF):
             hyperparameter of the kernel. Only returned when eval_gradient
             is True.
         """
-        X = np.atleast_2d(X)
-        length_scale = _check_length_scale(X, self.length_scale)
+        X_values = X[:, 0].reshape(-1, 1)
+
+        length_scale = _check_length_scale(X_values, self.length_scale)
         if Y is None:
-            dists = pdist(X / length_scale, metric='euclidean')
+            dists = pdist(X_values / length_scale, metric='euclidean')
         else:
+            Y_values = Y[:, 0].reshape(-1, 1)
             if eval_gradient:
                 raise ValueError(
                     "Gradient can only be evaluated when Y is None.")
-            dists = cdist(X / length_scale, Y / length_scale,
+            dists = cdist(X_values / length_scale, Y_values / length_scale,
                           metric='euclidean')
 
         if self.nu == 0.5:
@@ -284,12 +222,12 @@ class Matern(RBF):
         if eval_gradient:
             if self.hyperparameter_length_scale.fixed:
                 # Hyperparameter l kept fixed
-                K_gradient = np.empty((X.shape[0], X.shape[0], 0))
+                K_gradient = np.empty((X_values.shape[0], X_values.shape[0], 0))
                 return K, K_gradient
 
             # We need to recompute the pairwise dimension-wise distances
             if self.anisotropic:
-                D = (X[:, np.newaxis, :] - X[np.newaxis, :, :]) ** 2 \
+                D = (X_values[:, np.newaxis, :] - X_values[np.newaxis, :, :]) ** 2 \
                     / (length_scale ** 2)
             else:
                 D = squareform(dists ** 2)[:, :, np.newaxis]
@@ -307,7 +245,7 @@ class Matern(RBF):
             else:
                 # approximate gradient numerically
                 def f(theta):  # helper function
-                    return self.clone_with_theta(theta)(X, Y)
+                    return self.clone_with_theta(theta)(X_values, Y_values)
 
                 return K, _approx_fprime(self.theta, f, 1e-10)
 
@@ -317,14 +255,3 @@ class Matern(RBF):
                 return K, K_gradient
         else:
             return K
-
-    def __repr__(self):
-        if self.anisotropic:
-            return "{0}(length_scale=[{1}], nu={2:.3g})".format(
-                self.__class__.__name__,
-                ", ".join(map("{0:.3g}".format, self.length_scale)),
-                self.nu)
-        else:
-            return "{0}(length_scale={1:.3g}, nu={2:.3g})".format(
-                self.__class__.__name__, np.ravel(self.length_scale)[0],
-                self.nu)
