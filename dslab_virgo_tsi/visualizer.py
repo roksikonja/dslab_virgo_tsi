@@ -85,7 +85,7 @@ class Visualizer(object):
     def plot_signals_mean_std(signal_fourplets, results_dir, title, x_ticker=None, legend=None, y_lim=None,
                               x_label=None, y_label=None, confidence=0.95, alpha=0.5, max_points=1e5):
 
-        factor = norm.ppf(confidence) - norm.ppf(1 - confidence)
+        factor = norm.ppf(1 / 2 + confidence / 2)  # 0.95 % -> 1.959963984540054
 
         fig = plt.figure()
         for signal_fourplet in signal_fourplets:

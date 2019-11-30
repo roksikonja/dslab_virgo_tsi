@@ -324,7 +324,7 @@ class ModelFitter:
         t_b_downsampled, b_downsampled = base_signals.t_b_nn, final_result.b_nn_corrected
 
         subsampling_rate_a = a_downsampled.shape[0] // b_downsampled.shape[0]
-        subsampling_rate_a *= 1000
+        # subsampling_rate_a *= 1000
 
         t_a_downsampled, a_downsampled = t_a_downsampled[::subsampling_rate_a], a_downsampled[::subsampling_rate_a]
 
@@ -404,7 +404,7 @@ class ModelFitter:
                     m.kernel.kernels[1].variance.assign(noise_level_initial)
 
             # Non-trainable parameters
-            gpflow.utilities.set_trainable(m.inducing_variable, False)
+            # gpflow.utilities.set_trainable(m.inducing_variable, False)
             gpflow.utilities.set_trainable(m.kernel.kernels[0].variance, False)
 
             logging.info("Model created.\n\n" + str(get_summary(m)) + "\n")

@@ -88,7 +88,7 @@ class GaussianProcessConstants(ModelConstants):
     # gpflow parameters
     INITIAL_FIT = False
     NUM_INDUCING_POINTS = 200
-    MINIBATCH_SIZE = 100
+    MINIBATCH_SIZE = 1000
     MAX_ITERATIONS = 10000
     NUM_SAMPLES = 20000
 
