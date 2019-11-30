@@ -47,23 +47,29 @@ def setup_run(args, mode: Mode, results_dir_path):
 
     # Perform modeling
     if model_type == "exp_lin":
+        model_type = Const.EXP_LIN
         model = ExpLinModel()
         config = ExpLinConsts.return_config(ExpLinConsts)
     elif model_type == "exp":
+        model_type = Const.EXP
         model = ExpModel()
         config = ExpConsts.return_config(ExpConsts)
     elif model_type == "spline":
+        model_type = Const.SPLINE
         model = SplineModel()
         config = SplConsts.return_config(SplConsts)
     elif model_type == "isotonic":
+        model_type = Const.ISOTONIC
         model = IsotonicModel()
         config = IsoConsts.return_config(IsoConsts)
     elif model_type == "ensemble":
+        model_type = Const.ENSEMBLE
         models = [ExpLinModel(), ExpModel(), SplineModel(), IsotonicModel()]
         model = EnsembleModel(models=models)
         config = EnsConsts.return_config(EnsConsts)
         config["models"] = str(models)
     else:
+        model_type = Const.SMOOTH_MONOTONIC
         model = SmoothMonotoneRegression()
         config = SMRConsts.return_config(SMRConsts)
 

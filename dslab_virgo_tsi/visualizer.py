@@ -20,6 +20,10 @@ class Visualizer(object):
         mpl.rcParams["savefig.format"] = Const.OUT_FORMAT
         mpl.rcParams["savefig.bbox"] = Const.OUT_BBOX
         mpl.rcParams["savefig.dpi"] = Const.OUT_DPI
+        mpl.rcParams.update({'font.size': Const.TITLE_FONT_SIZE})
+        mpl.rc('xtick', labelsize=Const.XTICK_SIZE)
+        mpl.rc('ytick', labelsize=Const.YTICK_SIZE)
+        mpl.rc('axes', labelsize=Const.AXES_FONT_SIZE)
 
     @staticmethod
     def set_figsize(size=Const.FIG_SIZE):
@@ -31,6 +35,9 @@ class Visualizer(object):
 
         fig = plt.figure()
         for signal_fourplet in signal_fourplets:
+            if not signal_fourplet:
+                continue
+
             t = signal_fourplet[0]
             x = signal_fourplet[1]
             label = signal_fourplet[2]
@@ -139,7 +146,7 @@ class Visualizer(object):
                                          data_points_triplets=None, confidence=0.95, alpha=0.5, max_points=1e5,
                                          max_points_scatter=1e4):
 
-        factor = norm.ppf(confidence) - norm.ppf(1 - confidence)
+        factor = norm.ppf(1 / 2 + confidence / 2)  # 0.95 % -> 1.959963984540054
 
         fig = plt.figure()
         for signal_fourplet in signal_fourplets:
