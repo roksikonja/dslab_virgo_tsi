@@ -384,7 +384,7 @@ class ModelFitter:
             logging.info(f"{output_method} started.")
 
             length_scale_initial = None
-            if self.mode == Mode.VIRGO and GPConsts.INITIAL_FIT:
+            if GPConsts.INITIAL_FIT:
                 logging.info(f"Running GP initial fit on {t_initial.shape} samples.")
                 gpr = self._gaussian_process(kernel, t_initial, x_initial)
                 length_scale_initial = gpr.kernel_.get_params()["k1__length_scale"]
@@ -395,13 +395,10 @@ class ModelFitter:
             t_uniform_indices = find_nearest(t[:, 0], t_uniform).astype(int)
             z = t[t_uniform_indices, :].copy()
 
-            if self.mode == Mode.GENERATOR:
-                kernel = gpflow.kernels.Sum([Kernels.gpf_matern32, Kernels.gpf_white, Kernels.gpf_linear])
+            if GPConsts.DUAL_KERNEL:
+                kernel = gpflow.kernels.Sum([Kernels.gpf_dual_matern12, Kernels.gpf_dual_white])
             else:
-                if GPConsts.DUAL_KERNEL:
-                    kernel = gpflow.kernels.Sum([Kernels.gpf_dual_matern12, Kernels.gpf_dual_white])
-                else:
-                    kernel = gpflow.kernels.Sum([Kernels.gpf_matern12, Kernels.gpf_white])
+                kernel = gpflow.kernels.Sum([Kernels.gpf_matern12, Kernels.gpf_white])
 
             # Model
             m = gpflow.models.SVGP(kernel, gpflow.likelihoods.Gaussian(), z, num_data=t.shape[0])
@@ -426,10 +423,8 @@ class ModelFitter:
                                                                                         seed=Const.RANDOM_SEED)
             # Training
             start = time.time()
-            maxiter = ci_niter(GPConsts.MAX_ITERATIONS)
-
             iter_loglikelihood = SVGaussianProcess.run_adam(model=m,
-                                                            iterations=maxiter,
+                                                            iterations=ci_niter(GPConsts.MAX_ITERATIONS),
                                                             train_dataset=train_dataset,
                                                             minibatch_size=GPConsts.MINIBATCH_SIZE)
             inducing_points = z
