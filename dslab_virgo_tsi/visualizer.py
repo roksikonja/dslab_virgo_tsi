@@ -24,6 +24,7 @@ class Visualizer(object):
         mpl.rc('xtick', labelsize=Const.XTICK_SIZE)
         mpl.rc('ytick', labelsize=Const.YTICK_SIZE)
         mpl.rc('axes', labelsize=Const.AXES_FONT_SIZE)
+        mpl.rc('legend', fontsize=Const.LEGEND_FONT_SIZE)
 
     @staticmethod
     def set_figsize(size=Const.FIG_SIZE):
