@@ -63,7 +63,7 @@ class EnsembleConstants(ModelConstants):
 
 class GaussianProcessConstants(ModelConstants):
     # Normalize
-    NORMALIZE = False
+    NORMALIZE = True
 
     # Clip values
     CLIP = True
