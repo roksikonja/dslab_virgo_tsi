@@ -34,6 +34,11 @@ def plot_results(ground_truth_, result_: Result, results_dir, model_name):
     t_, x_ = ground_truth_
 
     logging.info("Plotting results ...")
+    if out_res.svgp_iter_loglikelihood:
+        visualizer.plot_iter_loglikelihood(out_res.svgp_iter_loglikelihood, results_dir,
+                                           f"SVGP_iter_loglikelihood_{model_name}", legend="lower left",
+                                           x_label=Const.ITERATION_UNIT, y_label=Const.LOG_LIKELIHOOD_UNIT)
+
     visualizer.plot_signals(
         [
             (base_sig.t_a_nn, final_res.degradation_a_nn, "DEGRADATION_A", False),
@@ -86,7 +91,7 @@ def plot_results(ground_truth_, result_: Result, results_dir, model_name):
         ],
         results_dir, f"gen_hourly_{model_name}", ground_truth_triplet=(t_, x_, "ground_truth"),
 
-        legend="upper left", x_label="t", y_label="x(t)")
+        legend="upper left", x_label="t", y_label="x(t)", inducing_points=out_res.svgp_inducing_points)
 
     visualizer.plot_signals_mean_std_precompute(
         [

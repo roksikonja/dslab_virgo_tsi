@@ -43,13 +43,19 @@ def plot_results(result_: Result, results_dir, model_name, other_tsi_file=None):
     final_res: FinalResult = result_.final
 
     logging.info("Plotting results ...")
+
+    if out_res.svgp_iter_loglikelihood:
+        visualizer.plot_iter_loglikelihood(out_res.svgp_iter_loglikelihood, results_dir,
+                                           f"SVGP_iter_loglikelihood_{model_name}", legend="lower left",
+                                           x_label=Const.ITERATION_UNIT, y_label=Const.LOG_LIKELIHOOD_UNIT)
+
     visualizer.plot_signals_mean_std_precompute(
         [
             (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
         ],
         results_dir, f"TSI_hourly_{model_name}", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
         ground_truth_triplet=other_triplet,
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7)
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7, inducing_points=out_res.svgp_inducing_points)
 
     visualizer.plot_signals_mean_std_precompute(
         [

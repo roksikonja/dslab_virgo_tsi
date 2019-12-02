@@ -1,7 +1,6 @@
 import logging
 
 import gpflow
-import numpy as np
 import tensorflow as tf
 from gpflow.utilities import positive
 from gpflow.utilities.ops import square_distance
@@ -41,7 +40,7 @@ class SVGaussianProcess(object):
                 if step % 1000 == 0:
                     logging.info("Step:\t{:<30}ELBO:\t{:>10}".format(step, elbo_step))
 
-                logf.append(elbo_step)
+                logf.append((step, elbo_step))
 
         logging.info("Step:\t{:<30}ELBO:\t{:>10}".format(step, elbo_step))
         return logf

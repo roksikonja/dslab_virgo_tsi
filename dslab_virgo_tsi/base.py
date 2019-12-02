@@ -79,7 +79,7 @@ class BaseSignals:
 
 class OutResult:
     def __init__(self, t_hourly_out, signal_hourly_out, signal_std_hourly_out, t_daily_out, signal_daily_out,
-                 signal_std_daily_out):
+                 signal_std_daily_out, svgp_iter_loglikelihood=None, svgp_inducing_points=None):
         """
 
         Parameters
@@ -96,6 +96,10 @@ class OutResult:
             Final signal sampled every day.
         signal_std_daily_out : array_like
             Standard deviation of final signal sampled every day.
+        svgp_iter_loglikelihood : array of tuples (iteration, log_likelihood)
+            Log likelihood per training step of SVGP.
+        svgp_inducing_points : array_like
+            Inducing points of SVGP.
         """
         self.t_hourly_out = t_hourly_out
         self.signal_hourly_out = signal_hourly_out
@@ -103,6 +107,8 @@ class OutResult:
         self.t_daily_out = t_daily_out
         self.signal_daily_out = signal_daily_out
         self.signal_std_daily_out = signal_std_daily_out
+        self.svgp_iter_loglikelihood = svgp_iter_loglikelihood
+        self.svgp_inducing_points = svgp_inducing_points
 
 
 class Params:
@@ -319,13 +325,11 @@ class ModelFitter:
             kernel = Kernels.matern_kernel + Kernels.white_kernel
 
         # Training samples
-        # TODO: RESAMPLING OF BOTH SIGNALS
         t_a_downsampled, a_downsampled = base_signals.t_a_nn, final_result.a_nn_corrected
         t_b_downsampled, b_downsampled = base_signals.t_b_nn, final_result.b_nn_corrected
 
+        # Subsample a
         subsampling_rate_a = a_downsampled.shape[0] // b_downsampled.shape[0]
-        subsampling_rate_a *= 1000
-
         t_a_downsampled, a_downsampled = t_a_downsampled[::subsampling_rate_a], a_downsampled[::subsampling_rate_a]
 
         x = np.concatenate([a_downsampled, b_downsampled], axis=0).reshape(-1, 1)
@@ -355,10 +359,18 @@ class ModelFitter:
         else:
             x = x - x_mean
 
+        # Clip values to -5 * std <= x <= 5 * std
+        clip_std = np.std(x)
+        clip_indices = np.multiply(np.greater_equal(x[:], -5 * clip_std),
+                                   np.less_equal(x[:], 5 * clip_std)).astype(np.bool).flatten()
+        t, x = t[clip_indices, :], x[clip_indices]
+
         logging.info(f"Dual kernel is set to {GPConsts.DUAL_KERNEL}. Data shapes are t {t.shape}, "
                      f"x {x.shape} and t_hourly {t_hourly_out.shape} with t_inital {t_initial.shape} and "
-                     f"x_initial {x_initial.shape}")
+                     f"x_initial {x_initial.shape}. {clip_indices.shape[0] - clip_indices.sum()} were clipped.")
 
+        inducing_points = None
+        iter_loglikelihood = None
         if output_method == OutputMethod.GP:
             logging.info(f"{output_method} started.")
 
@@ -372,7 +384,7 @@ class ModelFitter:
             logging.info(f"{output_method} started.")
 
             length_scale_initial = None
-            if self.mode == Mode.VIRGO and GPConsts.INITIAL_FIT:
+            if GPConsts.INITIAL_FIT:
                 logging.info(f"Running GP initial fit on {t_initial.shape} samples.")
                 gpr = self._gaussian_process(kernel, t_initial, x_initial)
                 length_scale_initial = gpr.kernel_.get_params()["k1__length_scale"]
@@ -383,13 +395,10 @@ class ModelFitter:
             t_uniform_indices = find_nearest(t[:, 0], t_uniform).astype(int)
             z = t[t_uniform_indices, :].copy()
 
-            if self.mode == Mode.GENERATOR:
-                kernel = gpflow.kernels.Sum([Kernels.gpf_matern32, Kernels.gpf_white, Kernels.gpf_linear])
+            if GPConsts.DUAL_KERNEL:
+                kernel = gpflow.kernels.Sum([Kernels.gpf_dual_matern12, Kernels.gpf_dual_white])
             else:
-                if GPConsts.DUAL_KERNEL:
-                    kernel = gpflow.kernels.Sum([Kernels.gpf_dual_matern12, Kernels.gpf_dual_white])
-                else:
-                    kernel = gpflow.kernels.Sum([Kernels.gpf_matern12, Kernels.gpf_white])
+                kernel = gpflow.kernels.Sum([Kernels.gpf_matern12, Kernels.gpf_white])
 
             # Model
             m = gpflow.models.SVGP(kernel, gpflow.likelihoods.Gaussian(), z, num_data=t.shape[0])
@@ -404,8 +413,8 @@ class ModelFitter:
                     m.kernel.kernels[1].variance.assign(noise_level_initial)
 
             # Non-trainable parameters
-            gpflow.utilities.set_trainable(m.inducing_variable, False)
-            gpflow.utilities.set_trainable(m.kernel.kernels[0].variance, False)
+            if not GPConsts.TRAIN_INDUCING_VARIBLES:
+                gpflow.utilities.set_trainable(m.inducing_variable, False)
 
             logging.info("Model created.\n\n" + str(get_summary(m)) + "\n")
 
@@ -414,12 +423,11 @@ class ModelFitter:
                                                                                         seed=Const.RANDOM_SEED)
             # Training
             start = time.time()
-            maxiter = ci_niter(GPConsts.MAX_ITERATIONS)
-
-            SVGaussianProcess.run_adam(model=m,
-                                       iterations=maxiter,
-                                       train_dataset=train_dataset,
-                                       minibatch_size=GPConsts.MINIBATCH_SIZE)
+            iter_loglikelihood = SVGaussianProcess.run_adam(model=m,
+                                                            iterations=ci_niter(GPConsts.MAX_ITERATIONS),
+                                                            train_dataset=train_dataset,
+                                                            minibatch_size=GPConsts.MINIBATCH_SIZE)
+            inducing_points = z
 
             end = time.time()
             logging.info("Training finished after: {:>10} sec".format(end - start))
@@ -436,6 +444,7 @@ class ModelFitter:
             signal_hourly_out = unnormalize(signal_hourly_out, x_mean, x_std)
             signal_std_hourly_out = signal_std_hourly_out * (x_std ** 2)
             t_hourly_out = unnormalize(t_hourly_out, t_mean, t_std)
+            inducing_points = unnormalize(inducing_points, t_mean, t_std)
         else:
             signal_hourly_out = signal_hourly_out + x_mean
             signal_hourly_out = signal_hourly_out
@@ -456,7 +465,8 @@ class ModelFitter:
         signal_std_daily_out = signal_std_hourly_out[::num_hours_in_day]
 
         return OutResult(t_hourly_out.ravel(), signal_hourly_out.ravel(), signal_std_hourly_out.ravel(),
-                         t_daily_out.ravel(), signal_daily_out.ravel(), signal_std_daily_out.ravel())
+                         t_daily_out.ravel(), signal_daily_out.ravel(), signal_std_daily_out.ravel(),
+                         iter_loglikelihood, inducing_points)
 
     @staticmethod
     def _compute_exposure(x, mode=ExposureMethod.NUM_MEASUREMENTS, mean=1.0, length=None):

@@ -85,7 +85,7 @@ class Visualizer(object):
     def plot_signals_mean_std(signal_fourplets, results_dir, title, x_ticker=None, legend=None, y_lim=None,
                               x_label=None, y_label=None, confidence=0.95, alpha=0.5, max_points=1e5):
 
-        factor = norm.ppf(confidence) - norm.ppf(1 - confidence)
+        factor = norm.ppf(1 / 2 + confidence / 2)  # 0.95 % -> 1.959963984540054
 
         fig = plt.figure()
         for signal_fourplet in signal_fourplets:
@@ -144,10 +144,11 @@ class Visualizer(object):
     def plot_signals_mean_std_precompute(signal_fourplets, results_dir, title, x_ticker=None, legend=None, y_lim=None,
                                          x_label=None, y_label=None, ground_truth_triplet=None,
                                          data_points_triplets=None, confidence=0.95, alpha=0.5, max_points=1e5,
-                                         max_points_scatter=1e4):
+                                         max_points_scatter=1e4, inducing_points=None):
 
         factor = norm.ppf(1 / 2 + confidence / 2)  # 0.95 % -> 1.959963984540054
 
+        x_mean = None
         fig = plt.figure()
         for signal_fourplet in signal_fourplets:
             t = signal_fourplet[0]
@@ -167,6 +168,15 @@ class Visualizer(object):
             plt.plot(t, x_mean, label=label)
             plt.fill_between(t, x_mean - factor * x_std, x_mean + factor * x_std, alpha=alpha,
                              label='{}_{}_conf_interval'.format(label, confidence))
+
+        if isinstance(inducing_points, np.ndarray):
+            inducing_points = inducing_points[:, 0]
+            inducing_points_positions = x_mean.mean() * np.ones_like(inducing_points)
+
+            if x_label == Const.YEAR_UNIT:
+                inducing_points = np.array(list(map(mission_day_to_year, inducing_points)))
+
+            plt.plot(inducing_points, inducing_points_positions, 'k|', mew=1, label="SVGP_INDUCING_POINTS")
 
         if data_points_triplets:
             for data_points_triplet in data_points_triplets:
@@ -304,3 +314,33 @@ class Visualizer(object):
             logging.info(f"Plot {title} generated.")
 
         return fig
+
+    @staticmethod
+    def plot_iter_loglikelihood(iter_loglikelihood, results_dir, title, legend=None, x_label=None, y_label=None):
+
+        iterations = [pair[0] for pair in iter_loglikelihood]
+        loglikelihood = [pair[1] for pair in iter_loglikelihood]
+
+        fig = plt.figure()
+        plt.plot(iterations, loglikelihood, label="LOG_LIKELIHOOD_SVGP")
+        plt.title(title)
+
+        if legend:
+            plt.legend(loc=legend)
+        else:
+            plt.legend()
+
+        if x_label:
+            plt.xlabel(x_label)
+
+        if y_label:
+            plt.ylabel(y_label)
+
+        if results_dir:
+            plt.savefig(os.path.join(results_dir, title))
+            logging.info(f"Plot {title} generated.")
+
+        return fig
+
+
+

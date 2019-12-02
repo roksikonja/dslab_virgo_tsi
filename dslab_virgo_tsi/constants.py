@@ -41,6 +41,8 @@ class Constants(object):
     FREQ_DAY_UNIT = "FREQ [1/day]"
 
     RATIO_UNIT = "RATIO [1]"
+    ITERATION_UNIT = "ITERATIONS"
+    LOG_LIKELIHOOD_UNIT = "LOG_LIKELIHOOD [1]"
     TSI_UNIT = "TSI [W/m^2]"
     TEMP_UNIT = "TEMPERATURE [C]"
     SPECTRUM_UNIT = "POWER SPECTRUM [1]"
