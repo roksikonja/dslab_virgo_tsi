@@ -65,6 +65,9 @@ class GaussianProcessConstants(ModelConstants):
     # Normalize
     NORMALIZE = True
 
+    # Clip values
+    CLIP = True
+
     # Dual white kernel
     DUAL_KERNEL = True
     LABEL_A = 0
@@ -87,7 +90,7 @@ class GaussianProcessConstants(ModelConstants):
 
     # gpflow parameters
     TRAIN_INDUCING_VARIBLES = False
-    INITIAL_FIT = False
+    INITIAL_FIT = True
     NUM_INDUCING_POINTS = 200
     MINIBATCH_SIZE = 200
     MAX_ITERATIONS = 16000

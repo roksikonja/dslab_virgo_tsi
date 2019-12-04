@@ -9,12 +9,12 @@ import numpy as np
 import tensorflow as tf
 from gpflow.ci_utils import ci_niter
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import WhiteKernel, Matern
 
 from dslab_virgo_tsi.constants import Constants as Const
 from dslab_virgo_tsi.data_utils import notnan_indices, detect_outliers, median_downsample_by_factor, get_summary, \
     normalize, unnormalize, find_nearest
-from dslab_virgo_tsi.gpflow_utils import SVGaussianProcess, VirgoWhiteKernel, VirgoMatern12Kernel
+from dslab_virgo_tsi.gp_utils import SVGaussianProcess
+from dslab_virgo_tsi.kernels import Kernels
 from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
 from dslab_virgo_tsi.model_constants import OutputTimeConstants as OutTimeConsts
 
@@ -166,24 +166,6 @@ class Result:
         self.out = out
 
 
-class Kernels:
-    matern_kernel = Matern(length_scale=GPConsts.MATERN_LENGTH_SCALE,
-                           length_scale_bounds=GPConsts.MATERN_LENGTH_SCALE_BOUNDS,
-                           nu=GPConsts.MATERN_NU)
-
-    white_kernel = WhiteKernel(noise_level=GPConsts.WHITE_NOISE_LEVEL,
-                               noise_level_bounds=GPConsts.WHITE_NOISE_LEVEL_BOUNDS)
-
-    gpf_matern32 = gpflow.kernels.Matern32()
-    gpf_matern12 = gpflow.kernels.Matern12()
-    gpf_linear = gpflow.kernels.Linear()
-    gpf_white = gpflow.kernels.White()
-
-    gpf_dual_matern12 = VirgoMatern12Kernel()
-    gpf_dual_white = VirgoWhiteKernel(label_a=GPConsts.LABEL_A,
-                                      label_b=GPConsts.LABEL_B)
-
-
 class BaseModel(ABC):
     @abstractmethod
     def get_initial_params(self, base_signals: BaseSignals) -> Params:
@@ -312,18 +294,6 @@ class ModelFitter:
         # Output resampling
         t_hourly_out, num_hours_in_day = self._output_resampling(self.mode, base_signals)
 
-        # Initial fit samples
-        # TODO: Add dual kernels for scikit-learn
-        t_initial, x_initial = self._gp_samples(base_signals, final_result, GPConsts.DUAL_KERNEL)
-        t_initial = t_initial[:, 0].reshape(-1, 1)  # Remove labels
-
-        # Initial fit kernel
-        # TODO: Add dual kernels for scikit-learn
-        if False:
-            kernel = Kernels.matern_kernel + Kernels.white_kernel
-        else:
-            kernel = Kernels.matern_kernel + Kernels.white_kernel
-
         # Training samples
         t_a_downsampled, a_downsampled = base_signals.t_a_nn, final_result.a_nn_corrected
         t_b_downsampled, b_downsampled = base_signals.t_b_nn, final_result.b_nn_corrected
@@ -332,10 +302,11 @@ class ModelFitter:
         subsampling_rate_a = a_downsampled.shape[0] // b_downsampled.shape[0]
         t_a_downsampled, a_downsampled = t_a_downsampled[::subsampling_rate_a], a_downsampled[::subsampling_rate_a]
 
+        # Concatenate
         x = np.concatenate([a_downsampled, b_downsampled], axis=0).reshape(-1, 1)
         t = np.concatenate([t_a_downsampled, t_b_downsampled], axis=0).reshape(-1, 1)
 
-        # Add labels
+        # Add labels for dual kernel
         if GPConsts.DUAL_KERNEL:
             # Training
             labels = np.concatenate([GPConsts.LABEL_A * np.ones(shape=a_downsampled.shape),
@@ -349,52 +320,57 @@ class ModelFitter:
             labels_out = labels_out.astype(np.int).reshape(-1, 1)
             t_hourly_out = np.concatenate([t_hourly_out, labels_out], axis=1).reshape(-1, 2)
 
-            logging.info("GP using dual kernel.")
-
         # Normalize data
         if GPConsts.NORMALIZE:
+            logging.info(f"Data normalized with t_mean = {t_mean}, t_std = {t_std}, "
+                         f"x_mean = {x_mean} and x_std = {x_std}.")
             t, x = normalize(t, t_mean, t_std), normalize(x, x_mean, x_std)
-            t_initial, x_initial = normalize(t_initial, t_mean, t_std), normalize(x_initial, x_mean, x_std)
             t_hourly_out = normalize(t_hourly_out, t_mean, t_std)
         else:
             x = x - x_mean
 
-        # Clip values to -5 * std <= x <= 5 * std
-        clip_std = np.std(x)
-        clip_indices = np.multiply(np.greater_equal(x[:], -5 * clip_std),
-                                   np.less_equal(x[:], 5 * clip_std)).astype(np.bool).flatten()
-        t, x = t[clip_indices, :], x[clip_indices]
+        # Clip values to mean - 5 * std <= x <= mean + 5 * std
+        clip_indices = np.zeros(1)
+        if GPConsts.CLIP:
+            clip_std = np.std(x)
+            clip_mean = np.mean(x)
+            clip_indices = np.multiply(np.greater_equal(x[:], clip_mean - 5 * clip_std),
+                                       np.less_equal(x[:], clip_mean + 5 * clip_std)).astype(np.bool).flatten()
+            t, x = t[clip_indices, :], x[clip_indices]
 
         logging.info(f"Dual kernel is set to {GPConsts.DUAL_KERNEL}. Data shapes are t {t.shape}, "
-                     f"x {x.shape} and t_hourly {t_hourly_out.shape} with t_inital {t_initial.shape} and "
-                     f"x_initial {x_initial.shape}. {clip_indices.shape[0] - clip_indices.sum()} were clipped.")
+                     f"x {x.shape} and t_hourly {t_hourly_out.shape}. "
+                     f"{clip_indices.shape[0] - clip_indices.sum()} were clipped.")
 
         inducing_points = None
         iter_loglikelihood = None
         if output_method == OutputMethod.GP:
             logging.info(f"{output_method} started.")
 
-            t, x = t_initial, x_initial
-            gpr = self._gaussian_process(kernel, t, x)
+            gpr = self._gp_initial_fit(self.mode, base_signals, final_result, t_mean, t_std, x_mean, x_std)
 
             # Prediction
-            # TODO: Add for dual kernels, remove [:, 0]
             signal_hourly_out, signal_std_hourly_out = gpr.predict(t_hourly_out, return_std=True)
         else:
             logging.info(f"{output_method} started.")
 
-            length_scale_initial = None
+            # Initial fit
+            length_scale_initial, noise_level_a_initial, noise_level_b_initial = None, None, None
             if GPConsts.INITIAL_FIT:
-                logging.info(f"Running GP initial fit on {t_initial.shape} samples.")
-                gpr = self._gaussian_process(kernel, t_initial, x_initial)
+                gpr = self._gp_initial_fit(self.mode, base_signals, final_result, t_mean, t_std, x_mean, x_std)
                 length_scale_initial = gpr.kernel_.get_params()["k1__length_scale"]
-                noise_level_initial = gpr.kernel_.get_params()["k2__noise_level"]
+                if GPConsts.DUAL_KERNEL:
+                    noise_level_a_initial = gpr.kernel_.get_params()["k2__noise_level_a"]
+                    noise_level_b_initial = gpr.kernel_.get_params()["k2__noise_level_b"]
+                else:
+                    noise_level_a_initial = gpr.kernel_.get_params()["k2__noise_level"]
 
             # Induction variables
             t_uniform = np.linspace(np.min(t[:, 0]), np.max(t[:, 0]), GPConsts.NUM_INDUCING_POINTS)
             t_uniform_indices = find_nearest(t[:, 0], t_uniform).astype(int)
             z = t[t_uniform_indices, :].copy()
 
+            # Select kernel
             if GPConsts.DUAL_KERNEL:
                 kernel = gpflow.kernels.Sum([Kernels.gpf_dual_matern12, Kernels.gpf_dual_white])
             else:
@@ -404,13 +380,16 @@ class ModelFitter:
             m = gpflow.models.SVGP(kernel, gpflow.likelihoods.Gaussian(), z, num_data=t.shape[0])
 
             # Initial guess
-            if length_scale_initial:
+            if GPConsts.INITIAL_FIT:
+                # Initialize length scale
                 m.kernel.kernels[0].lengthscale.assign(length_scale_initial)
+
+                # Initialize noise level
                 if GPConsts.DUAL_KERNEL:
-                    m.kernel.kernels[1].variance_a.assign(noise_level_initial)
-                    m.kernel.kernels[1].variance_b.assign(noise_level_initial)
+                    m.kernel.kernels[1].variance_a.assign(noise_level_a_initial)
+                    m.kernel.kernels[1].variance_b.assign(noise_level_b_initial)
                 else:
-                    m.kernel.kernels[1].variance.assign(noise_level_initial)
+                    m.kernel.kernels[1].variance.assign(noise_level_a_initial)
 
             # Non-trainable parameters
             if not GPConsts.TRAIN_INDUCING_VARIBLES:
@@ -440,6 +419,7 @@ class ModelFitter:
             signal_std_hourly_out = tf.reshape(signal_std_hourly_out, [-1]).numpy()
 
         # Compute final output
+        # Revert normalization
         if GPConsts.NORMALIZE:
             signal_hourly_out = unnormalize(signal_hourly_out, x_mean, x_std)
             signal_std_hourly_out = signal_std_hourly_out * (x_std ** 2)
@@ -455,9 +435,8 @@ class ModelFitter:
         if GPConsts.DUAL_KERNEL:
             t_hourly_out = t_hourly_out[:, 0].reshape(-1, 1)
 
-        logging.info(f"Dual kernel is set to {GPConsts.DUAL_KERNEL}. Data shapes are t {t.shape}, "
-                     f"x {x.shape} and t_hourly {t_hourly_out.shape} with t_inital {t_initial.shape} and "
-                     f"x_initial {x_initial.shape}. signal_hourly_out {signal_hourly_out.shape} and "
+        logging.info(f"Data shapes are t {t.shape}, x {x.shape} and t_hourly {t_hourly_out.shape}, "
+                     f"signal_hourly_out {signal_hourly_out.shape} and "
                      f"signal_std_hourly_out {signal_std_hourly_out.shape}.")
         # Daily values
         t_daily_out = t_hourly_out[::num_hours_in_day, :]
@@ -485,7 +464,7 @@ class ModelFitter:
     @staticmethod
     def _iterative_correction(model: BaseModel, base_signals: BaseSignals, initial_params: Params,
                               method: CorrectionMethod, eps=1e-7, max_iter=100) -> Tuple[
-        List[FitResult], Params]:
+         List[FitResult], Params]:
         """Note that we here deal only with mutual_nn data. Variable ratio_a_b_mutual_nn_corrected has different
         definitions based on the correction method used."""
         logging.info("Iterative correction started.")
@@ -538,21 +517,6 @@ class ModelFitter:
         return history, current_params
 
     @staticmethod
-    def _gaussian_process(kernel, t, x):
-
-        gpr = GaussianProcessRegressor(kernel=kernel,
-                                       random_state=Const.RANDOM_SEED,
-                                       n_restarts_optimizer=GPConsts.N_RESTARTS_OPTIMIZER)
-
-        logging.info("GP data samples: {:>10}".format(t.shape[0]))
-        logging.info("GP initial parameters:\t{:>10}".format(str(gpr.kernel)))
-        gpr.fit(t, x)
-        logging.info("GP log marginal likelihood:\t{:>10}".format(gpr.log_marginal_likelihood()))
-        logging.info("GP parameters:\t{:>10}".format(str(gpr.kernel_)))
-
-        return gpr
-
-    @staticmethod
     def _output_resampling(mode, base_signals):
         if mode == Mode.GENERATOR:
             min_time = 0
@@ -570,7 +534,27 @@ class ModelFitter:
         return t_hourly_out, num_hours_per_day
 
     @staticmethod
-    def _gp_samples(base_signals, final_result, dual_kernel):
+    def _gaussian_process(kernel, t, x):
+        logging.info(f"Running GP on data with t = {t.shape} and x = {x.shape}.")
+
+        gpr = GaussianProcessRegressor(kernel=kernel,
+                                       random_state=Const.RANDOM_SEED,
+                                       n_restarts_optimizer=GPConsts.N_RESTARTS_OPTIMIZER)
+
+        logging.info("GP data samples: {:>10}".format(t.shape[0]))
+        logging.info("GP initial parameters:\t{:>10}".format(str(gpr.kernel)))
+        gpr.fit(t, x)
+        logging.info("GP log marginal likelihood:\t{:>10}".format(gpr.log_marginal_likelihood()))
+        logging.info("GP parameters:\t{:>10}".format(str(gpr.kernel_)))
+
+        return gpr
+
+    @staticmethod
+    def _gp_samples(mode, base_signals, final_result, dual_kernel):
+        if mode == Mode.GENERATOR:
+            GPConsts.DOWNSAMPLING_FACTOR_A = int(GPConsts.DOWNSAMPLING_FACTOR_A / 10)
+            GPConsts.DOWNSAMPLING_FACTOR_B = int(GPConsts.DOWNSAMPLING_FACTOR_B / 10)
+
         t_a_downsampled = median_downsample_by_factor(base_signals.t_a_nn,
                                                       GPConsts.DOWNSAMPLING_FACTOR_A).reshape(-1, 1)
         t_b_downsampled = median_downsample_by_factor(base_signals.t_b_nn,
@@ -591,3 +575,23 @@ class ModelFitter:
             t = np.concatenate([t, labels], axis=1).reshape(-1, 2)
 
         return t, x
+
+    def _gp_initial_fit(self, mode, base_signals, final_result, t_mean, t_std, x_mean, x_std):
+
+        # Initial fit samples
+        t_initial, x_initial = self._gp_samples(mode, base_signals, final_result, GPConsts.DUAL_KERNEL)
+
+        # Initial fit kernel
+        if GPConsts.DUAL_KERNEL:
+            kernel = Kernels.dual_matern_kernel + Kernels.dual_white_kernel
+        else:
+            kernel = Kernels.matern_kernel + Kernels.white_kernel
+
+        if GPConsts.NORMALIZE:
+            t_initial, x_initial = normalize(t_initial, t_mean, t_std), normalize(x_initial, x_mean, x_std)
+        else:
+            x_initial = x_initial - x_mean
+
+        gpr = self._gaussian_process(kernel, t_initial, x_initial)
+
+        return gpr
