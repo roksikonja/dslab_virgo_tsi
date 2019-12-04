@@ -4,6 +4,20 @@ Data Science Lab Project - VIRGO Total Solar Irradiance
 
 Project by **Luka Kolar, Rok Šikonja and Lenart Treven**.
 
+### Installation
+* Install Miniconda from [Miniconda website](https://docs.conda.io/en/latest/miniconda.html)
+* Run following commands within Miniconda terminal (**DO NOT** use `sudo` or `Run as administrator`):
+    * *Optionally*:
+    ```
+    conda create --name virgo
+    conda activate virgo
+    ```
+    * In any case
+    ```
+    conda install numpy pandas matplotlib ipykernel jupyter scipy scikit-learn numba pytables flask flask-wtf tensorflow=2.0.0 pykalman cvxpy
+    pip install gpflow==2.0.0rc1
+    ```
+
 ### Dataset
 
 Dataset was downloaded from publicly available server: ```ftp://ftp.pmodwrc.ch/pub/virgo/dsl2019/```.
