@@ -80,7 +80,7 @@ class GaussianProcessConstants(ModelConstants):
     # MATERN_NU = 1.5
     MATERN_NU = 0.5
 
-    WHITE_NOISE_LEVEL = 1e4
+    WHITE_NOISE_LEVEL = 1
     WHITE_NOISE_LEVEL_BOUNDS = (1e-5, 1e5)
 
     N_RESTARTS_OPTIMIZER = 10

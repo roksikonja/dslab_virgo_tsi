@@ -1,6 +1,7 @@
 import datetime
 import logging
 import os
+from numbers import Real
 
 import numpy as np
 import pandas as pd
@@ -60,7 +61,7 @@ def load_data(data_dir_path, file_name, data_type="virgo"):
 
                     # Time in mission days
                     date = datetime.datetime.strptime("-".join(line[0:2]), "%Y%m%d-%H%M%S") \
-                        - datetime.datetime(1996, 1, 1, 0, 0, 0)
+                           - datetime.datetime(1996, 1, 1, 0, 0, 0)
                     date = float(date.days) + float(date.seconds) / (3600 * 24.0)
                     values = line[2:]
 
@@ -78,7 +79,7 @@ def load_data(data_dir_path, file_name, data_type="virgo"):
 
         # Store to HDF5
         data.to_hdf(h5_file_path, "table")
-        return  data
+        return data
     return None
 
 
@@ -277,7 +278,7 @@ def get_summary(module: tf.Module):
 
 
 def normalize(x, mean, std):
-    if len(x.shape) == 1:
+    if isinstance(x, Real) or len(x.shape) <= 1:
         y = (x - mean) / std
     else:
         y = x
@@ -286,7 +287,7 @@ def normalize(x, mean, std):
 
 
 def unnormalize(y, mean, std):
-    if len(y.shape) == 1:
+    if isinstance(y, Real) or len(y.shape) <= 1:
         x = std * y + mean
     else:
         x = y
