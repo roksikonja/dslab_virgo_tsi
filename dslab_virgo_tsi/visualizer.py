@@ -251,7 +251,7 @@ class Visualizer(object):
             signal_ground_truth = ground_truth_triplet[1]
             label_ground_truth = ground_truth_triplet[2]
 
-        max_plots = 10
+        max_plots = 1
 
         if len(history_fitresults) > max_plots:
             selected_triplet_indices = np.arange(1, len(history_fitresults) - 1,

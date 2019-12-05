@@ -10,6 +10,7 @@ from sklearn.linear_model import LinearRegression
 
 from dslab_virgo_tsi.base import BaseModel, BaseSignals, Params, FinalResult, FitResult, Corrections, CorrectionMethod
 from dslab_virgo_tsi.model_constants import EnsembleConstants as EnsConsts
+from dslab_virgo_tsi.model_constants import ExpConstants as ExpConsts
 from dslab_virgo_tsi.model_constants import IsotonicConstants as IsoConsts
 from dslab_virgo_tsi.model_constants import SmoothMonotoneRegressionConstants as SMRConsts
 from dslab_virgo_tsi.model_constants import SplineConstants as SplConsts
@@ -170,7 +171,7 @@ class DegradationSpline:
 
         """
         spline_derivative = spline.derivative()
-        return np.all(spline_derivative(x.ravel()) < 0)
+        return np.all(spline_derivative(x.ravel()) <= 0)
 
     @staticmethod
     def _is_convex(spline, x):
@@ -217,12 +218,11 @@ class DegradationSpline:
         while step <= self.steps:
             if self._is_decreasing(spline, x):
                 end = mid
-                mid = (end - start) / 2
-                spline = self._spline_dirichlet(x.ravel(), y.ravel(), k=self.k, s=mid)
             else:
                 start = mid
-                mid = (end - start) / 2
-                spline = self._spline_dirichlet(x.ravel(), y.ravel(), k=self.k, s=mid)
+
+            mid = (end + start) / 2
+            spline = self._spline_dirichlet(x.ravel(), y.ravel(), k=self.k, s=mid)
             step += 1
         spline = self._spline_dirichlet(x.ravel(), y.ravel(), k=self.k, s=end)
         if not self._is_convex(spline, x):
@@ -277,7 +277,7 @@ class ExpModel(BaseModel, ExpFamilyMixin):
                         initial_params: Params, method: CorrectionMethod) -> Tuple[Corrections, Params]:
         params, _ = curve_fit(self._exp, base_signals.exposure_a_mutual_nn,
                               fit_result.ratio_a_b_mutual_nn_corrected,
-                              p0=initial_params.kwargs.get('all'))
+                              p0=initial_params.kwargs.get('all'), maxfev=ExpConsts.MAX_FEVAL)
 
         a_correction = self._exp(base_signals.exposure_a_mutual_nn, *params)
         b_correction = self._exp(base_signals.exposure_b_mutual_nn, *params)
@@ -329,7 +329,7 @@ class ExpLinModel(BaseModel, ExpFamilyMixin):
                         initial_params: Params, method: CorrectionMethod) -> Tuple[Corrections, Params]:
         params, _ = curve_fit(self._exp_lin, base_signals.exposure_a_mutual_nn,
                               fit_result.ratio_a_b_mutual_nn_corrected,
-                              p0=initial_params.kwargs.get('all'))
+                              p0=initial_params.kwargs.get('all'), maxfev=ExpConsts.MAX_FEVAL)
 
         a_correction = self._exp_lin(base_signals.exposure_a_mutual_nn, *params)
         b_correction = self._exp_lin(base_signals.exposure_b_mutual_nn, *params)

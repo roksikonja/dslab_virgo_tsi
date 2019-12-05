@@ -30,6 +30,8 @@ def parse_arguments():
 
     parser.add_argument("--random_seed", type=int, default=0, help="Set generator random seed.")
 
+    parser.add_argument("--virgo_days", type=int, default=-1, help="Use data of first n days of virgo. -1 for all.")
+
     parser.add_argument("--save_plots", action="store_true", help="Flag for saving plots.")
     parser.add_argument("--save_signals", action="store_true", help="Flag for saving computed signals.")
 
@@ -109,6 +111,10 @@ def setup_run(args, mode: Mode, results_dir_path):
     logging.info(f"Output method {output_method} selected.")
     logging.info(f"Outlier fraction {args.outlier_fraction} selected.")
 
+    if mode == Mode.VIRGO and args.virgo_days > 0:
+        config["virgo_days"] = args.virgo_days
+        logging.info(f"Dataset of first {args.virgo_days} VIRGO days selected.")
+
     save_config(results_dir_path, config)
 
     return model, model_type, correction_method, exposure_method, output_method, args.outlier_fraction
@@ -137,6 +143,10 @@ def load_data_run(args, mode: Mode):
         logging.info(f"Dataset Generator of size {data.shape} loaded.")
     else:
         data = load_data(Const.DATA_DIR, Const.VIRGO_FILE)
+
+        if args.virgo_days > 0:
+            data = data[data[Const.T] <= args.virgo_days]
+
         t_field_name, a_field_name, b_field_name = Const.T, Const.A, Const.B
         ground_truth = None
         logging.info(f"Dataset {Const.VIRGO_FILE} of size {data.shape} loaded.")

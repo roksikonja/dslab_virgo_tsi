@@ -49,11 +49,11 @@ class SplineConstants(ModelConstants):
 
 
 class ExpConstants(ModelConstants):
-    pass
+    MAX_FEVAL = 10000
 
 
 class ExpLinConstants(ModelConstants):
-    pass
+    MAX_FEVAL = 10000
 
 
 class EnsembleConstants(ModelConstants):
@@ -90,7 +90,7 @@ class GaussianProcessConstants(ModelConstants):
 
     # gpflow parameters
     TRAIN_INDUCING_VARIBLES = False
-    INITIAL_FIT = True
+    INITIAL_FIT = False
     NUM_INDUCING_POINTS = 200
     MINIBATCH_SIZE = 200
     MAX_ITERATIONS = 16000

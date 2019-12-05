@@ -5,14 +5,16 @@ import numpy as np
 
 from dslab_virgo_tsi.base import Result, FitResult, ModelFitter, BaseSignals, OutResult, FinalResult, Mode
 from dslab_virgo_tsi.constants import Constants as Const
+from dslab_virgo_tsi.data_utils import load_data
 from dslab_virgo_tsi.run_utils import setup_run, create_results_dir, create_logger, save_modeling_result, \
     parse_arguments, load_data_run
-from dslab_virgo_tsi.data_utils import load_data
 from dslab_virgo_tsi.visualizer import Visualizer
 
 """
 --save_plots = store_true
 --save_signals = store_true
+
+--virgo_days = -1
 
 --model_type = "smooth_monotonic"
 --correction_method = "one"
@@ -23,7 +25,6 @@ from dslab_virgo_tsi.visualizer import Visualizer
 
 
 def plot_results(result_: Result, results_dir, model_name, other_tsi_file=None):
-
     if other_tsi_file:
         logging.info(f"Loading additional data from {other_tsi_file}.")
         other_res = load_data(Const.DATA_DIR, other_tsi_file, "virgo_tsi")
@@ -54,8 +55,15 @@ def plot_results(result_: Result, results_dir, model_name, other_tsi_file=None):
             (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
         ],
         results_dir, f"TSI_hourly_{model_name}", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
-        ground_truth_triplet=other_triplet,
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7, inducing_points=out_res.svgp_inducing_points)
+
+    visualizer.plot_signals_mean_std_precompute(
+        [
+            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
+        ],
+        results_dir, f"TSI_hourly_{model_name}_other", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
+        ground_truth_triplet=other_triplet,
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7)
 
     visualizer.plot_signals_mean_std_precompute(
         [
@@ -63,8 +71,8 @@ def plot_results(result_: Result, results_dir, model_name, other_tsi_file=None):
         ],
         results_dir, f"TSI_hourly_{model_name}_points", x_ticker=1, legend="upper left", y_lim=[1362, 1369],
         data_points_triplets=[
-            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_raw_corrected"),
-            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_raw_corrected")
+            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_corrected"),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_corrected")
         ],
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7)
 
@@ -101,11 +109,19 @@ def plot_results(result_: Result, results_dir, model_name, other_tsi_file=None):
         [
             (base_sig.t_a_nn, base_sig.a_nn, f"{Const.A}_raw", False),
             (base_sig.t_b_nn, base_sig.b_nn, f"{Const.B}_raw", False),
-            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_raw_corrected", False),
-            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_raw_corrected", False),
-            other_fourplet
+            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_corrected", False),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_corrected", False),
         ],
         results_dir, f"{model_name}_{Const.A}_{Const.B}_raw_corrected_full", x_ticker=1, y_lim=[1357, 1369],
+        legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+
+    visualizer.plot_signals(
+        [
+            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_corrected", False),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_corrected", False),
+            other_fourplet
+        ],
+        results_dir, f"{model_name}_{Const.A}_{Const.B}_other_corrected_full", x_ticker=1, y_lim=[1362, 1369],
         legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
     visualizer.plot_signal_history(base_sig.t_mutual_nn, result_.history_mutual_nn,
@@ -127,6 +143,7 @@ if __name__ == "__main__":
     mode = Mode.VIRGO
 
     data, t_field_name, a_field_name, b_field_name, _ = load_data_run(ARGS, mode)
+
     model, model_type, correction_method, exposure_method, output_method, outlier_fraction \
         = setup_run(ARGS, mode, results_dir_path)
 
