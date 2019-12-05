@@ -424,7 +424,7 @@ class ModelFitter:
             signal_hourly_out = unnormalize(signal_hourly_out, x_mean, x_std)
             signal_std_hourly_out = signal_std_hourly_out * (x_std ** 2)
             t_hourly_out = unnormalize(t_hourly_out, t_mean, t_std)
-            if inducing_points:
+            if isinstance(inducing_points, np.ndarray):
                 inducing_points = unnormalize(inducing_points, t_mean, t_std)
         else:
             signal_hourly_out = signal_hourly_out + x_mean
