@@ -794,25 +794,26 @@ class LocalGPModel(BaseOutputModel):
                 signal_hourly_out[i], signal_std_hourly_out[i] = np.nan, np.nan
                 continue
 
-            downsampling_factor = int(np.ceil(cur_x.size / points_in_window))
-            cur_t_down, cur_x_down = np.copy(cur_t)[::downsampling_factor], np.copy(cur_x)[::downsampling_factor]
-
             # Normalize data
-            x_mean, x_std = np.mean(cur_x_down), np.std(cur_x_down)
-            t_mean, t_std = np.mean(cur_t_down), np.std(cur_t_down)
+            x_mean, x_std = np.mean(cur_x), np.std(cur_x)
+            t_mean, t_std = np.mean(cur_t), np.std(cur_t)
 
             if self.normalization:
-                cur_t_down, cur_x_down = normalize(cur_t_down, t_mean, t_std), normalize(cur_x_down, x_mean, x_std)
+                cur_t, cur_x = normalize(cur_t, t_mean, t_std), normalize(cur_x, x_mean, x_std)
                 cur_target_t = normalize(cur_target_t, t_mean, t_std)
             else:
-                cur_x_down -= x_mean
+                cur_x -= x_mean
 
             # Clip values to 5 * std <= x <= 5 * std
             if self.clipping:
-                clip_std = np.std(cur_x_down)
-                clip_indices = np.logical_and(np.greater_equal(cur_x_down[:], -5 * clip_std),
-                                              np.less_equal(cur_x_down[:], 5 * clip_std)).astype(np.bool).flatten()
-                cur_t_down, cur_x_down = cur_t_down[clip_indices], cur_x_down[clip_indices]
+                clip_std = np.std(cur_x)
+                clip_indices = np.logical_and(np.greater_equal(cur_x, -5 * clip_std),
+                                              np.less_equal(cur_x, 5 * clip_std)).astype(np.bool).flatten()
+                cur_t, cur_x = cur_t[clip_indices], cur_x[clip_indices]
+
+            # Downsample data
+            downsampling_factor = int(np.ceil(cur_x.size / points_in_window))
+            cur_t_down, cur_x_down = np.copy(cur_t)[::downsampling_factor], np.copy(cur_x)[::downsampling_factor]
 
             # Fit GP on transformed points
             scale = window / (t_std * 6)

@@ -286,7 +286,7 @@ class ModelFitter:
         t_hourly_out, num_hours_in_day = self._output_resampling(self.mode, base_signals)
 
         # ONLY FOR LOCAL GP TESTING
-        # t_hourly_out = t_hourly_out[::24*50]
+        t_hourly_out = t_hourly_out[::24*50]
 
         # Training samples
         signal_hourly_out, signal_std_hourly_out, params_out = output_model.fit_and_predict(self.mode, base_signals,
