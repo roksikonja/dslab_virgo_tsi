@@ -6,19 +6,6 @@ from dslab_virgo_tsi.run_utils import setup_run, create_results_dir, create_logg
     parse_arguments, load_data_run, ignore_warnings
 from dslab_virgo_tsi.visualizer import Visualizer
 
-"""
---mode="virgo"
-
---random_seed = 0
---save_plots = store_true
---save_signals = store_true
-
---correction_method = "one"
---outlier_fraction = 0.0
---exposure_method = "measurements"
---output_method = "svgp"
-"""
-
 
 def plot_results(ground_truth_, results_, results_dir, model_name):
     t_, x_ = None, None

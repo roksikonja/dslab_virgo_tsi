@@ -9,18 +9,6 @@ from dslab_virgo_tsi.run_utils import setup_run, create_results_dir, create_logg
     parse_arguments, load_data_run, ignore_warnings
 from dslab_virgo_tsi.visualizer import Visualizer
 
-"""
---random_seed = 0
---save_plots = store_true
---save_signals = store_true
-
---model_type = "smooth_monotonic"
---correction_method = "one"
---outlier_fraction = 0.0
---exposure_mode = "measurements"
---output_method = "svgp
-"""
-
 
 def plot_results(ground_truth_, result_: Result, results_dir, model_name):
     before_fit: FitResult = result_.history_mutual_nn[0]
@@ -33,9 +21,9 @@ def plot_results(ground_truth_, result_: Result, results_dir, model_name):
     t_, x_ = ground_truth_
 
     logging.info("Plotting results ...")
-    if out_res.svgp_iter_loglikelihood:
-        visualizer.plot_iter_loglikelihood(out_res.svgp_iter_loglikelihood, results_dir,
-                                           f"SVGP_iter_loglikelihood_{model_name}", legend="lower left",
+    if out_res.params_out.svgp_iter_loglikelihood:
+        visualizer.plot_iter_loglikelihood(out_res.params_out.svgp_iter_loglikelihood, results_dir,
+                                           f"{model_name}_ITER_LOGLIKELIHOOD", legend="lower left",
                                            x_label=Const.ITERATION_UNIT, y_label=Const.LOG_LIKELIHOOD_UNIT)
 
     visualizer.plot_signals(
@@ -43,7 +31,7 @@ def plot_results(ground_truth_, result_: Result, results_dir, model_name):
             (base_sig.t_a_nn, final_res.degradation_a_nn, "DEGRADATION_A", False),
             (base_sig.t_b_nn, final_res.degradation_b_nn, "DEGRADATION_B", False)
         ],
-        results_dir, f"DEGRADATION_{model_name}", legend="upper right",
+        results_dir, f"{model_name}_DEGRADATION", legend="upper right",
         x_label="t", y_label="d(t)")
 
     visualizer.plot_signals(
@@ -88,15 +76,15 @@ def plot_results(ground_truth_, result_: Result, results_dir, model_name):
         [
             (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"gen_hourly_{model_name}")
         ],
-        results_dir, f"gen_hourly_{model_name}", ground_truth_triplet=(t_, x_, "ground_truth"),
+        results_dir, f"{model_name}_hourly", ground_truth_triplet=(t_, x_, "ground_truth"),
 
-        legend="upper left", x_label="t", y_label="x(t)", inducing_points=out_res.svgp_inducing_points)
+        legend="upper left", x_label="t", y_label="x(t)", inducing_points=out_res.params_out.svgp_inducing_points)
 
     visualizer.plot_signals_mean_std_precompute(
         [
             (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"gen_hourly_{model_name}")
         ],
-        results_dir, f"gen_hourly_{model_name}_points", ground_truth_triplet=(t_, x_, "ground_truth"),
+        results_dir, f"{model_name}_hourly_points", ground_truth_triplet=(t_, x_, "ground_truth"),
         data_points_triplets=[
             (base_sig.t_a_nn, final_res.a_nn_corrected, "A_raw_corrected"),
             (base_sig.t_b_nn, final_res.b_nn_corrected, "B_raw_corrected")
@@ -111,13 +99,13 @@ if __name__ == "__main__":
     visualizer.set_figsize()
 
     ARGS = parse_arguments()
-    results_dir_path = create_results_dir(Const.RESULTS_DIR, f"gen_{ARGS.model_type}")
+    results_dir_path = create_results_dir(Const.RESULTS_DIR, f"gen_{ARGS.model_type}_{ARGS.output_method}")
     create_logger(results_dir_path)
 
     mode = Mode.GENERATOR
 
     data, t_field_name, a_field_name, b_field_name, ground_truth = load_data_run(ARGS, mode)
-    model, model_type, correction_method, exposure_method, output_method, outlier_fraction \
+    model, model_type, correction_method, exposure_method, output_model, output_method, outlier_fraction \
         = setup_run(ARGS, mode, results_dir_path)
 
     fitter = ModelFitter(mode=mode,
@@ -130,12 +118,12 @@ if __name__ == "__main__":
 
     result: Result = fitter(model=model,
                             correction_method=correction_method,
-                            output_method=output_method)
+                            output_model=output_model)
 
     if ARGS.save_signals:
-        save_modeling_result(results_dir_path, result, f"gen_{ARGS.model_type}")
+        save_modeling_result(results_dir_path, result, f"gen_{model_type}")
 
     if ARGS.save_plots or not ARGS.save_signals:
-        plot_results(ground_truth, result, results_dir_path, f"gen_{ARGS.model_type}")
+        plot_results(ground_truth, result, results_dir_path, f"gen_{model_type}_{output_method}")
 
     logging.info("Application finished.")

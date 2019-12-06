@@ -28,12 +28,16 @@ class Constants(object):
 
     # MODELS
     SPLINE = "SPLINE"
-    GP = "GP"
     EXP = "EXP"
     EXP_LIN = "EXP_LIN"
     ISOTONIC = "ISOTONIC"
     SMOOTH_MONOTONIC = "SMOOTH_MONOTONIC"
     ENSEMBLE = "ENSEMBLE"
+
+    # OUTPUT MODELS
+    SVGP = "SVGP"
+    GP = "GP"
+    LOCALGP = "LOCALGP"
 
     # UNITS
     DAY_UNIT = "TIME [mission days]"

@@ -8,7 +8,7 @@ import warnings
 
 import pandas as pd
 
-from dslab_virgo_tsi.base import ExposureMethod, CorrectionMethod, OutputMethod, Mode
+from dslab_virgo_tsi.base import ExposureMethod, CorrectionMethod, Mode
 from dslab_virgo_tsi.constants import Constants as Const
 from dslab_virgo_tsi.data_utils import make_dir, load_data
 from dslab_virgo_tsi.generator import SignalGenerator
@@ -18,11 +18,11 @@ from dslab_virgo_tsi.model_constants import ExpLinConstants as ExpLinConsts
 from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
 from dslab_virgo_tsi.model_constants import GeneratorConstants as GenConsts
 from dslab_virgo_tsi.model_constants import IsotonicConstants as IsoConsts
+from dslab_virgo_tsi.model_constants import OutputTimeConstants as OutTimeConsts
 from dslab_virgo_tsi.model_constants import SmoothMonotoneRegressionConstants as SMRConsts
 from dslab_virgo_tsi.model_constants import SplineConstants as SplConsts
-from dslab_virgo_tsi.model_constants import OutputTimeConstants as OutTimeConsts
 from dslab_virgo_tsi.models import ExpModel, ExpLinModel, SplineModel, IsotonicModel, EnsembleModel, \
-    SmoothMonotoneRegression
+    SmoothMonotonicModel, SVGPModel, GPModel, LocalGPModel
 
 
 def parse_arguments():
@@ -73,7 +73,7 @@ def setup_run(args, mode: Mode, results_dir_path):
         config["models"] = str(models)
     else:
         model_type = Const.SMOOTH_MONOTONIC
-        model = SmoothMonotoneRegression()
+        model = SmoothMonotonicModel()
         config = SMRConsts.return_config(SMRConsts)
 
     # Correction method
@@ -90,11 +90,14 @@ def setup_run(args, mode: Mode, results_dir_path):
 
     # Output method
     if args.output_method == "gp":
-        output_method = OutputMethod.GP
+        output_method = Const.GP
+        output_model = GPModel()
     elif args.output_method == "localgp":
-        output_method = OutputMethod.LOCAL_GP
+        output_method = Const.LOCALGP
+        output_model = LocalGPModel()
     else:
-        output_method = OutputMethod.SVGP
+        output_method = Const.SVGP
+        output_model = SVGPModel()
 
     # Compute output config
     add_output_config(config, GPConsts.return_config(GPConsts, "OUTPUT_GP"))
@@ -120,7 +123,7 @@ def setup_run(args, mode: Mode, results_dir_path):
 
     save_config(results_dir_path, config)
 
-    return model, model_type, correction_method, exposure_method, output_method, args.outlier_fraction
+    return model, model_type, correction_method, exposure_method, output_model, output_method, args.outlier_fraction
 
 
 def load_data_run(args, mode: Mode):

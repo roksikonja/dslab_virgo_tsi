@@ -63,10 +63,10 @@ class EnsembleConstants(ModelConstants):
 
 class GaussianProcessConstants(ModelConstants):
     # Normalize
-    NORMALIZE = True
+    NORMALIZATION = True
 
     # Clip values
-    CLIP = True
+    CLIPPING = True
 
     # Dual white kernel
     DUAL_KERNEL = True

@@ -34,7 +34,7 @@ class Visualizer(object):
     def plot_signals(signal_fourplets, results_dir, title, x_ticker=None, legend=None, y_lim=None,
                      x_label=None, y_label=None, max_points=1e5):
 
-        fig = plt.figure()
+        _ = plt.figure()
         for signal_fourplet in signal_fourplets:
             if not signal_fourplet:
                 continue
@@ -80,15 +80,13 @@ class Visualizer(object):
             plt.savefig(os.path.join(results_dir, title))
             logging.info(f"Plot {title} generated.")
 
-        # return fig
-
     @staticmethod
     def plot_signals_mean_std(signal_fourplets, results_dir, title, x_ticker=None, legend=None, y_lim=None,
                               x_label=None, y_label=None, confidence=0.95, alpha=0.5, max_points=1e5):
 
         factor = norm.ppf(1 / 2 + confidence / 2)  # 0.95 % -> 1.959963984540054
 
-        fig = plt.figure()
+        _ = plt.figure()
         for signal_fourplet in signal_fourplets:
 
             t = signal_fourplet[0]
@@ -139,8 +137,6 @@ class Visualizer(object):
             plt.savefig(os.path.join(results_dir, title))
             logging.info(f"Plot {title} generated.")
 
-        return fig
-
     @staticmethod
     def plot_signals_mean_std_precompute(signal_fourplets, results_dir, title, x_ticker=None, legend=None, y_lim=None,
                                          x_label=None, y_label=None, ground_truth_triplet=None,
@@ -150,7 +146,7 @@ class Visualizer(object):
         factor = norm.ppf(1 / 2 + confidence / 2)  # 0.95 % -> 1.959963984540054
 
         x_mean = None
-        fig = plt.figure()
+        _ = plt.figure()
         for signal_fourplet in signal_fourplets:
             t = signal_fourplet[0]
             x_mean = signal_fourplet[1]
@@ -233,8 +229,6 @@ class Visualizer(object):
             plt.savefig(os.path.join(results_dir, name))
             logging.info(f"Plot {name} generated.")
 
-        return fig
-
     @staticmethod
     def plot_signal_history(t_mutual, history_fitresults, results_dir, title, ground_truth_triplet=None, x_ticker=None,
                             legend=None, y_lim=None, x_label=None, y_label=None):
@@ -314,15 +308,13 @@ class Visualizer(object):
             plt.savefig(os.path.join(results_dir, title))
             logging.info(f"Plot {title} generated.")
 
-        return fig
-
     @staticmethod
     def plot_iter_loglikelihood(iter_loglikelihood, results_dir, title, legend=None, x_label=None, y_label=None):
 
         iterations = [pair[0] for pair in iter_loglikelihood]
         loglikelihood = [pair[1] for pair in iter_loglikelihood]
 
-        fig = plt.figure()
+        _ = plt.figure()
         plt.plot(iterations, loglikelihood, label="LOG_LIKELIHOOD_SVGP")
         plt.title(title)
 
@@ -340,8 +332,3 @@ class Visualizer(object):
         if results_dir:
             plt.savefig(os.path.join(results_dir, title))
             logging.info(f"Plot {title} generated.")
-
-        return fig
-
-
-
