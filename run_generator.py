@@ -1,5 +1,4 @@
 import logging
-import os
 
 import numpy as np
 
@@ -7,7 +6,7 @@ from dslab_virgo_tsi.base import Result, ModelFitter, FitResult, BaseSignals, Ou
     FinalResult, Mode
 from dslab_virgo_tsi.constants import Constants as Const
 from dslab_virgo_tsi.run_utils import setup_run, create_results_dir, create_logger, save_modeling_result, \
-    parse_arguments, load_data_run
+    parse_arguments, load_data_run, ignore_warnings
 from dslab_virgo_tsi.visualizer import Visualizer
 
 """
@@ -106,7 +105,7 @@ def plot_results(ground_truth_, result_: Result, results_dir, model_name):
 
 
 if __name__ == "__main__":
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+    ignore_warnings()
 
     visualizer = Visualizer()
     visualizer.set_figsize()

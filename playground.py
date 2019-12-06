@@ -182,11 +182,11 @@ class LocalGPMerger:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    with open('./results/2019-12-04_20-04-43_smooth_monotonic/SMOOTH_MONOTONIC_modeling_result.pkl', 'rb') as handle:
+    with open('./results/2019-12-05_13-53-46_smooth_monotonic/SMOOTH_MONOTONIC_modeling_result.pkl', 'rb') as handle:
         res: Result = pickle.load(handle)
 
     merger = LocalGPMerger(res)
     # 0.5 value of window means half a day before prediction time and half a day after it
     # predictions_ = merger.merge(res.out.t_daily_out[300:1500:100], window=50, points_in_window=50, plot=True)
-    predictions_ = merger.merge(res.out.t_daily_out[0:4000:200], window=463, points_in_window=400, plot=True)
+    predictions_ = merger.merge(res.out.t_daily_out[0::200], window=100, points_in_window=200, plot=True)
     print(predictions_)

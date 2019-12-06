@@ -80,7 +80,7 @@ class Visualizer(object):
             plt.savefig(os.path.join(results_dir, title))
             logging.info(f"Plot {title} generated.")
 
-        return fig
+        # return fig
 
     @staticmethod
     def plot_signals_mean_std(signal_fourplets, results_dir, title, x_ticker=None, legend=None, y_lim=None,

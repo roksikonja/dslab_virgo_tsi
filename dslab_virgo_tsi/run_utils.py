@@ -4,6 +4,7 @@ import datetime
 import logging
 import os
 import pickle
+import warnings
 
 import pandas as pd
 
@@ -88,10 +89,12 @@ def setup_run(args, mode: Mode, results_dir_path):
         exposure_method = ExposureMethod.EXPOSURE_SUM
 
     # Output method
-    if args.output_method == "svgp":
-        output_method = OutputMethod.SVGP
-    else:
+    if args.output_method == "gp":
         output_method = OutputMethod.GP
+    elif args.output_method == "localgp":
+        output_method = OutputMethod.LOCAL_GP
+    else:
+        output_method = OutputMethod.SVGP
 
     # Compute output config
     add_output_config(config, GPConsts.return_config(GPConsts, "OUTPUT_GP"))
@@ -204,3 +207,8 @@ def create_logger(results_dir):
                                   logging.StreamHandler()])
     logging.info("Application started.")
     logging.info("Logging started.")
+
+
+def ignore_warnings():
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+    warnings.filterwarnings("ignore", category=RuntimeWarning)

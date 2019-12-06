@@ -96,6 +96,10 @@ class GaussianProcessConstants(ModelConstants):
     MAX_ITERATIONS = 16000
     NUM_SAMPLES = 20000
 
+    # local gp
+    WINDOW = 100
+    POINTS_IN_WINDOW = 50
+
 
 class OutputTimeConstants(ModelConstants):
     # Generator output

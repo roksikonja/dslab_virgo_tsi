@@ -1,10 +1,9 @@
 import logging
-import os
 
 from dslab_virgo_tsi.base import Result, ModelFitter, Mode
 from dslab_virgo_tsi.constants import Constants as Const
 from dslab_virgo_tsi.run_utils import setup_run, create_results_dir, create_logger, save_modeling_result, \
-    parse_arguments, load_data_run
+    parse_arguments, load_data_run, ignore_warnings
 from dslab_virgo_tsi.visualizer import Visualizer
 
 """
@@ -44,7 +43,7 @@ def plot_results(ground_truth_, results_, results_dir, model_name):
 
     if ground_truth_:
         signal_fourplets_a.append((t_, x_, "ground_truth", False))
-        signal_fourplets_b.append((t_, x_, "ground_truth", False),)
+        signal_fourplets_b.append((t_, x_, "ground_truth", False), )
 
     logging.info("Plotting results ...")
     visualizer.plot_signals(signal_fourplets, results_dir, f"DEGRADATION_{Const.A}_{Const.B}_{model_name}",
@@ -79,7 +78,7 @@ def plot_results(ground_truth_, results_, results_dir, model_name):
 
 
 if __name__ == "__main__":
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+    ignore_warnings()
 
     visualizer = Visualizer()
     visualizer.set_figsize()
