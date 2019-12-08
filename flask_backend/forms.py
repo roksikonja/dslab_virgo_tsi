@@ -1,17 +1,14 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField, FileField, SelectField, FloatField, IntegerField
-from wtforms.validators import InputRequired, NumberRange
+from wtforms import StringField, SubmitField, FileField, SelectField, FloatField
+from wtforms.validators import InputRequired, NumberRange, Length
 
 
 class NewDataForm(FlaskForm):
-    name = StringField("Dataset Name")
+    name = StringField("Dataset Name", validators=[Length(max=100)])
     file = FileField("Dataset File", validators=[InputRequired()])
-    a_field = StringField("A Field Name", validators=[InputRequired()])
-    b_field = StringField("B Field Name", validators=[InputRequired()])
-    time_field = StringField("Time Field Name", validators=[InputRequired()])
     exposure_mode = SelectField("Exposure Mode",
-                                choices=[("EXPOSURE SUM", "Exposure sum"),
-                                         ("NUM_MEASUREMENTS", "Number of measurements")])
+                                choices=[("Exposure sum", "Exposure sum"),
+                                         ("Num. measurements", "Number of measurements")])
     outlier_fraction = FloatField("Outlier Fraction", validators=[NumberRange(0.0, 1.0), InputRequired()], default=0.0)
     submit = SubmitField("Import")
 
@@ -27,5 +24,7 @@ class AnalysisForm(FlaskForm):
     correction = SelectField("Correction method",
                              choices=[("CORRECT_ONE", "Correct one"),
                                       ("CORRECT_BOTH", "Correct both")])
-    window = IntegerField("Moving Average Window", validators=[InputRequired(), NumberRange(min=1)], default=81)
+    output = SelectField("Output method",
+                         choices=[("GP", "Local Gaussian process"),
+                                  ("SVGP", "Sparse variational Gaussian process")])
     submit = SubmitField("Submit")

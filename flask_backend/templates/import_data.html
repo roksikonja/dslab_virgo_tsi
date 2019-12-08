@@ -33,54 +33,6 @@
                 </div>
 
                 <div class="form-group row">
-                    {{ form.a_field.label(class="col-sm-4 col-form-label") }}
-                    <div class="col-sm-8">
-                        {% if form.a_field.errors %}
-                            {{ form.a_field(class="form-control is-invalid") }}
-                            <div class="invalid-feedback">
-                                <div class="invalid-feedback">
-                                    <span>{{ form.a_field.errors|join(', ') }}</span>
-                                </div>
-                            </div>
-                        {% else %}
-                            {{ form.a_field(class="form-control") }}
-                        {% endif %}
-                    </div>
-                </div>
-
-                <div class="form-group row">
-                    {{ form.b_field.label(class="col-sm-4 col-form-label") }}
-                    <div class="col-sm-8">
-                        {% if form.b_field.errors %}
-                            {{ form.b_field(class="form-control is-invalid") }}
-                            <div class="invalid-feedback">
-                                <div class="invalid-feedback">
-                                    <span>{{ form.b_field.errors|join(', ') }}</span>
-                                </div>
-                            </div>
-                        {% else %}
-                            {{ form.b_field(class="form-control") }}
-                        {% endif %}
-                    </div>
-                </div>
-
-                <div class="form-group row">
-                    {{ form.time_field.label(class="col-sm-4 col-form-label") }}
-                    <div class="col-sm-8">
-                        {% if form.time_field.errors %}
-                            {{ form.time_field(class="form-control is-invalid") }}
-                            <div class="invalid-feedback">
-                                <div class="invalid-feedback">
-                                    <span>{{ form.time_field.errors|join(', ') }}</span>
-                                </div>
-                            </div>
-                        {% else %}
-                            {{ form.time_field(class="form-control") }}
-                        {% endif %}
-                    </div>
-                </div>
-
-                <div class="form-group row">
                     {{ form.exposure_mode.label(class="col-sm-4 col-form-label") }}
                     <div class="col-sm-8">
                         {% if form.exposure_mode.errors %}

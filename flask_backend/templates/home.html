@@ -24,8 +24,9 @@
         </div>
     </div>
 
-    <div class="row">
+    <div class="row mt-4">
         <div class="col-12">
+        {% if datasets|length > 0 %}
             <table class="table table-hover table-responsive-sm">
                 <thead>
                 <tr>
@@ -37,29 +38,27 @@
                 </tr>
                 </thead>
                 <tbody>
-                <tr>
-                    <th scope="row">1</th>
-                    <td>DIARAD</td>
-                    <td>Exposure sum</td>
-                    <td>0.0</td>
-                    <td><a class="text-primary float-right" href="{{ url_for('analysis', dataset_id=1) }}">Select</a></td>
-                </tr>
-                <tr>
-                    <th scope="row">2</th>
-                    <td>PMVO6</td>
-                    <td>Exposure sum</td>
-                    <td>0.2</td>
-                    <td><a class="text-primary float-right" href="{{ url_for('analysis', dataset_id=2) }}">Select</a></td>
-                </tr>
-                <tr>
-                    <th scope="row">3</th>
-                    <td>TIM</td>
-                    <td>Exposure sum</td>
-                    <td>0.01</td>
-                    <td><a class="text-primary float-right" href="{{ url_for('analysis', dataset_id=3) }}">Select</a></td>
-                </tr>
+                {% for dataset in datasets %}
+                    <tr>
+                        <th scope="row">{{ loop.index }}</th>
+                        <td>{{ dataset.name|truncate(40) }}</td>
+                        <td>{{ dataset.exposure_mode }}</td>
+                        <td>{{ dataset.outlier_fraction|round(5, 'common') }}</td>
+                        <td style="min-width: 120px">
+                            <form action="{{ url_for('delete_data', dataset_id=dataset.id) }}" method="POST">
+                                <a class="text-danger float-right" href="#" onclick="parentNode.submit()">Delete</a>
+                            </form>
+                            <span class="text-secondary float-right">/</span>
+                            <a class="text-primary float-right" href="{{ url_for('analysis', dataset_id=dataset.id) }}">Select</a>
+                        </td>
+                    </tr>
+                {% endfor %}
                 </tbody>
             </table>
+        {% else %}
+            <img style="width: 40%" src="{{ url_for('static', filename='empty.svg') }}" class="rounded mx-auto d-block" alt="No data available">
+            <p class="text-center text-secondary">No data imported</p>
+        {% endif %}
         </div>
     </div>
 
