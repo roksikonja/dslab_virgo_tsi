@@ -8,10 +8,10 @@ import numpy as np
 import tensorflow as tf
 from gpflow.ci_utils import ci_niter
 from numba import njit
+from scipy import interpolate
 from scipy.interpolate import UnivariateSpline, splev, splrep, interp1d
 from scipy.optimize import curve_fit, minimize
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import WhiteKernel, Matern
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LinearRegression
 
@@ -772,7 +772,7 @@ class LocalGPModel(BaseOutputModel):
 
         # Iterate through target times
         for i in range(t_hourly_out.shape[0]):
-            if i % 100 == 0:
+            if i % 20 == 0:
                 logging.info(f"Local GP merging currently at {int(100 * i / t_hourly_out.size)} %.")
 
             cur_target_t = t_hourly_out[i, 0]
@@ -815,19 +815,37 @@ class LocalGPModel(BaseOutputModel):
             downsampling_factor = int(np.ceil(cur_x.size / points_in_window))
             cur_t_down, cur_x_down = np.copy(cur_t)[::downsampling_factor], np.copy(cur_x)[::downsampling_factor]
 
+            # SKLEARN
             # Fit GP on transformed points
-            scale = window / (t_std * 6)
+            # scale = window / (t_std * 6)
+            #
+            # kernel = Matern(length_scale=scale, length_scale_bounds=(scale, scale), nu=GPConsts.MATERN_NU) \
+            #          + WhiteKernel(GPConsts.WHITE_NOISE_LEVEL, GPConsts.WHITE_NOISE_LEVEL_BOUNDS)
+            #
+            # gpr = GaussianProcessRegressor(kernel=kernel,
+            #                                n_restarts_optimizer=GPConsts.N_RESTARTS_OPTIMIZER)
+            #
+            # gpr.fit(cur_t_down.reshape(-1, 1), cur_x_down.reshape(-1, 1))
+            #
+            # # Predict value at target time
+            # cur_x_pred, cur_std_pred = gpr.predict(np.array([cur_target_t]).reshape(-1, 1), return_std=True)
 
-            kernel = Matern(length_scale=scale, length_scale_bounds=(scale, scale), nu=GPConsts.MATERN_NU) \
-                     + WhiteKernel(GPConsts.WHITE_NOISE_LEVEL, GPConsts.WHITE_NOISE_LEVEL_BOUNDS)
+            # GPFLOW
+            kernel = gpflow.kernels.Sum([Kernels.gpf_matern12, Kernels.gpf_white])
+            gpr = gpflow.models.GPR(data=(cur_t_down.reshape(-1, 1), cur_x_down.reshape(-1, 1)), kernel=kernel)
 
-            gpr = GaussianProcessRegressor(kernel=kernel,
-                                           n_restarts_optimizer=GPConsts.N_RESTARTS_OPTIMIZER)
+            # logging.info("Model created.\n\n" + str(get_summary(gpr)) + "\n")
 
-            gpr.fit(cur_t_down.reshape(-1, 1), cur_x_down.reshape(-1, 1))
+            def objective_closure():
+                return - gpr.log_marginal_likelihood()
 
-            # Predict value at target time
-            cur_x_pred, cur_std_pred = gpr.predict(np.array([cur_target_t]).reshape(-1, 1), return_std=True)
+            opt = gpflow.optimizers.Scipy()
+            opt.minimize(objective_closure, gpr.trainable_variables, options=dict(maxiter=20))
+
+            # logging.info("Model created.\n\n" + str(get_summary(gpr)) + "\n")
+
+            cur_x_pred, cur_var_pred = gpr.predict_f(np.array([cur_target_t]).reshape(-1, 1))
+            cur_x_pred, cur_std_pred = cur_x_pred.numpy(), np.sqrt(cur_var_pred.numpy())
 
             # Project back
             if self.normalization:
@@ -907,7 +925,7 @@ class SVGPModel(GPFamilyMixin, BaseOutputModel):
         # Data standardization parameters
         self.x_mean, self.x_std = np.mean(np.concatenate((a, b), axis=0)), np.std(np.concatenate((a, b), axis=0))
         self.t_mean, self.t_std = np.mean(np.concatenate((t_a, t_b), axis=0)), \
-            np.std(np.concatenate((t_a, t_b), axis=0))
+                                  np.std(np.concatenate((t_a, t_b), axis=0))
 
         # Downsample a
         downsampling_rate_a = a.shape[0] // b.shape[0]
@@ -967,15 +985,14 @@ class SVGPModel(GPFamilyMixin, BaseOutputModel):
         t_uniform_indices = find_nearest(t[:, 0], t_uniform).astype(int)
         inducing_points = t[t_uniform_indices, :].copy()
 
-        # Select kernel
+        # Kernel
         if self.dual_kernel:
             kernel = gpflow.kernels.Sum([Kernels.gpf_dual_matern12, Kernels.gpf_dual_white])
         else:
             kernel = gpflow.kernels.Sum([Kernels.gpf_matern12, Kernels.gpf_white])
 
-        # Model
-        m = gpflow.models.SVGP(kernel, gpflow.likelihoods.Gaussian(),
-                               inducing_points, num_data=t.shape[0])
+        # Global trends
+        m = gpflow.models.SVGP(kernel, gpflow.likelihoods.Gaussian(), inducing_points, num_data=t.shape[0])
 
         # Initial fit
         if self.initial_fit:
@@ -996,28 +1013,42 @@ class SVGPModel(GPFamilyMixin, BaseOutputModel):
 
         logging.info("Model created.\n\n" + str(get_summary(m)) + "\n")
 
-        # Dataset
-        train_dataset = tf.data.Dataset.from_tensor_slices((t, x)).repeat().shuffle(buffer_size=t.shape[0],
-                                                                                    seed=Const.RANDOM_SEED)
-        # Training
-        start = time.time()
-        iter_loglikelihood = SVGaussianProcess.run_adam(model=m,
-                                                        iterations=ci_niter(self.max_iterations),
-                                                        train_dataset=train_dataset,
-                                                        minibatch_size=self.minibatch_size)
-        end = time.time()
+        # Train
+        signal_hourly_out, signal_std_hourly_out, iter_loglikelihood = self.train_model(m, t, x, t_hourly_out)
 
-        logging.info("Training finished after: {:>10} sec".format(end - start))
-        logging.info("Trained model.\n\n" + str(get_summary(m)) + "\n")
-
-        # Prediction
-        signal_hourly_out, signal_var_hourly_out = m.predict_y(t_hourly_out)
-        signal_std_hourly_out = tf.sqrt(signal_var_hourly_out)
-
-        signal_hourly_out = tf.reshape(signal_hourly_out, [-1]).numpy()
-        signal_std_hourly_out = tf.reshape(signal_std_hourly_out, [-1]).numpy()
-
-        signal_hourly_out, signal_std_hourly_out = signal_hourly_out.flatten(), signal_std_hourly_out.flatten()
+        # Comment: gp_utils.py @tf.function(autograph=False)
+        # t_uniform = np.linspace(np.min(t[:, 0]), np.max(t[:, 0]), self.num_inducing_points)
+        # t_uniform_indices = find_nearest(t[:, 0], t_uniform).astype(int)
+        # inducing_points_loc = t[t_uniform_indices, :].copy()
+        #
+        # # Local Trends
+        # m_loc = gpflow.models.SVGP(kernel, gpflow.likelihoods.Gaussian(), inducing_points_loc, num_data=t.shape[0])
+        #
+        # # ReInitialize
+        # m_loc.kernel.kernels[0].lengthscale.assign(1.0)
+        # m_loc.kernel.kernels[0].variance.assign(1.0)
+        # if self.dual_kernel:
+        #     m_loc.kernel.kernels[1].variance_a.assign(1.0)
+        #     m_loc.kernel.kernels[1].variance_b.assign(1.0)
+        # else:
+        #     m_loc.kernel.kernels[1].variance.assign(1.0)
+        #
+        # if not self.train_inducing_variables:
+        #     gpflow.utilities.set_trainable(m_loc.inducing_variable, False)
+        #
+        # logging.info("Model created.\n\n" + str(get_summary(m_loc)) + "\n")
+        #
+        # # Subtract global trend
+        # f_signal_out = interpolate.interp1d(t_hourly_out[:, 0].flatten(), signal_hourly_out.flatten(),
+        #                                     fill_value="extrapolate")
+        #
+        # x = x.flatten() - f_signal_out(t[:, 0].flatten())
+        # x = x.reshape(-1, 1)
+        #
+        # signal_hourly_out_loc, signal_std_hourly_out_loc, iter_loglikelihood = self.train_model(m_loc, t, x,
+        #                                                                                         t_hourly_out)
+        #
+        # signal_hourly_out = signal_hourly_out + signal_hourly_out_loc
 
         # Revert normalization
         if self.normalization:
@@ -1029,4 +1060,28 @@ class SVGPModel(GPFamilyMixin, BaseOutputModel):
 
         params_out = OutParams(iter_loglikelihood, inducing_points)
 
-        return signal_hourly_out.reshape(-1, 1), signal_std_hourly_out.reshape(-1, 1), params_out
+        return signal_hourly_out, signal_std_hourly_out, params_out
+
+    def train_model(self, model, t, x, t_hourly_out):
+        # Dataset
+        train_dataset = tf.data.Dataset.from_tensor_slices((t, x)).repeat().shuffle(buffer_size=t.shape[0],
+                                                                                    seed=Const.RANDOM_SEED)
+        # Training
+        start = time.time()
+        iter_loglikelihood = SVGaussianProcess.run_optimization(model=model,
+                                                                iterations=ci_niter(self.max_iterations),
+                                                                train_dataset=train_dataset,
+                                                                minibatch_size=self.minibatch_size)
+        end = time.time()
+
+        logging.info("Training finished after: {:>10} sec".format(end - start))
+        logging.info("Trained model.\n\n" + str(get_summary(model)) + "\n")
+
+        # Prediction
+        signal_hourly_out, signal_var_hourly_out = model.predict_y(t_hourly_out)
+        signal_std_hourly_out = tf.sqrt(signal_var_hourly_out)
+
+        signal_hourly_out = tf.reshape(signal_hourly_out, [-1]).numpy()
+        signal_std_hourly_out = tf.reshape(signal_std_hourly_out, [-1]).numpy()
+
+        return signal_hourly_out.reshape(-1, 1), signal_std_hourly_out.reshape(-1, 1), iter_loglikelihood

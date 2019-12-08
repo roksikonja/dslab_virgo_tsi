@@ -91,14 +91,15 @@ class GaussianProcessConstants(ModelConstants):
     # gpflow parameters
     TRAIN_INDUCING_VARIBLES = False
     INITIAL_FIT = False
-    NUM_INDUCING_POINTS = 200
+    NUM_INDUCING_POINTS = 500
     MINIBATCH_SIZE = 200
-    MAX_ITERATIONS = 16000
+    MAX_ITERATIONS = 10000
     NUM_SAMPLES = 20000
+    LEARNING_RATE = 0.005
 
     # local gp
     WINDOW = 100
-    POINTS_IN_WINDOW = 50
+    POINTS_IN_WINDOW = 300
 
 
 class OutputTimeConstants(ModelConstants):

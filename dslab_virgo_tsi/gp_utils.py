@@ -1,7 +1,10 @@
 import logging
+import time
 
 import gpflow
 import tensorflow as tf
+
+from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
 
 
 @tf.function(autograph=False)
@@ -17,31 +20,37 @@ def optimization_step(optimizer, model: gpflow.models.SVGP, batch):
 class SVGaussianProcess(object):
 
     @staticmethod
-    def run_adam(model, iterations, train_dataset, minibatch_size):
+    def run_optimization(model, iterations, train_dataset, minibatch_size):
         """
-        Utility function running the Adam optimiser
+        Utility function running the optimization
 
-        :param model: GPflow model
+        :param model: gpflow model
         :param iterations: number of iterations
-        :param train_dataset: Tensorflow Dataset placeholder
+        :param train_dataset: tensorflow Dataset placeholder
         :param minibatch_size: size of mini batch
         """
         # Create an Adam Optimiser action
         logf = []
         train_it = iter(train_dataset.batch(minibatch_size))
-        adam = tf.optimizers.Adam()
+        optimizer = tf.optimizers.Adam(learning_rate=GPConsts.LEARNING_RATE)
         step, elbo_step = None, None
+        start = time.time()
         for step in range(iterations):
-            elbo = - optimization_step(adam, model, next(train_it))
+            elbo = - optimization_step(optimizer, model, next(train_it))
+
             if step % 10 == 0:
                 elbo_step = elbo.numpy()
                 if step % 1000 == 0:
-                    logging.info("Step:\t{:<30}ELBO:\t{:>10}".format(step, elbo_step))
+                    end = time.time()
+                    if step != 0:
+                        logging.info("Step:\t{:<30}ELBO:\t{:>10}\t{:>10} second remaining"
+                                     .format(step, elbo_step, int((iterations - step) / 1000) * (end - start)))
+                    else:
+                        logging.info("Step:\t{:<30}ELBO:\t{:>10}"
+                                     .format(step, elbo_step))
+                    start = time.time()
 
                 logf.append((step, elbo_step))
 
         logging.info("Step:\t{:<30}ELBO:\t{:>10}".format(step, elbo_step))
         return logf
-
-
-

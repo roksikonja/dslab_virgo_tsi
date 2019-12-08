@@ -286,7 +286,10 @@ class ModelFitter:
         t_hourly_out, num_hours_in_day = self._output_resampling(self.mode, base_signals)
 
         # ONLY FOR LOCAL GP TESTING
-        t_hourly_out = t_hourly_out[::24*50]
+        # t_hourly_out = t_hourly_out[::24]
+        # t_hourly_out = t_hourly_out[1250:2000]
+
+        logging.info(f"Data shapes are t_hourly {t_hourly_out.shape}.")
 
         # Training samples
         signal_hourly_out, signal_std_hourly_out, params_out = output_model.fit_and_predict(self.mode, base_signals,
@@ -322,7 +325,7 @@ class ModelFitter:
     @staticmethod
     def _iterative_correction(model: BaseModel, base_signals: BaseSignals, initial_params: Params,
                               method: CorrectionMethod, eps=1e-7, max_iter=100) -> Tuple[
-         List[FitResult], Params]:
+        List[FitResult], Params]:
         """Note that we here deal only with mutual_nn data. Variable ratio_a_b_mutual_nn_corrected has different
         definitions based on the correction method used."""
         logging.info("Iterative correction started.")
