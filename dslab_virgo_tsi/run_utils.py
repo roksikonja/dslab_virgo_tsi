@@ -31,7 +31,8 @@ def parse_arguments():
 
     parser.add_argument("--random_seed", type=int, default=0, help="Set generator random seed.")
 
-    parser.add_argument("--virgo_days", type=int, default=-1, help="Use data of first n days of virgo. -1 for all.")
+    parser.add_argument("--virgo_days_start", type=int, default=-1, help="Use data from this day on. -1 for all.")
+    parser.add_argument("--virgo_days_end", type=int, default=-1, help="Use data up to this day. -1 for all.")
 
     parser.add_argument("--save_plots", action="store_true", help="Flag for saving plots.")
     parser.add_argument("--save_signals", action="store_true", help="Flag for saving computed signals.")
@@ -117,9 +118,14 @@ def setup_run(args, mode: Mode, results_dir_path):
     logging.info(f"Output method {output_method} selected.")
     logging.info(f"Outlier fraction {args.outlier_fraction} selected.")
 
-    if mode == Mode.VIRGO and args.virgo_days > 0:
-        config["virgo_days"] = args.virgo_days
-        logging.info(f"Dataset of first {args.virgo_days} VIRGO days selected.")
+    if mode == Mode.VIRGO:
+        config["virgo_days_start"] = args.virgo_days_start
+        config["virgo_days_end"] = args.virgo_days_end
+        if args.virgo_days_start > 0:
+            logging.info(f"Data from VIRGO day {args.virgo_days_start} on used.")
+
+        if args.virgo_days_end > 0:
+            logging.info(f"Data up to VIRGO day {args.virgo_days_end}.")
 
     save_config(results_dir_path, config)
 
@@ -150,8 +156,11 @@ def load_data_run(args, mode: Mode):
     else:
         data = load_data(Const.DATA_DIR, Const.VIRGO_FILE)
 
-        if args.virgo_days > 0:
-            data = data[data[Const.T] <= args.virgo_days]
+        if args.virgo_days_end > 0:
+            data = data[data[Const.T] <= args.virgo_days_end]
+
+        if args.virgo_days_start > 0:
+            data = data[data[Const.T] >= args.virgo_days_start]
 
         t_field_name, a_field_name, b_field_name = Const.T, Const.A, Const.B
         ground_truth = None

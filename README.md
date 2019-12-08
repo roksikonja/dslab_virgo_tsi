@@ -41,7 +41,8 @@ Parameter values. The first element of the set is the default.
 
     mode ∈ {"virgo", "gen"}
 
-    virgo_days ∈ {-1, 0, 1, ...}
+    virgo_days_end ∈ {-1, 0, 1, ...}                   
+
     outlier_fraction ∈ [0, 1]
     
     exposure_method ∈ {"measurements", "cumsum"}
@@ -55,7 +56,7 @@ Other model parameters are treated as constants and are specified in ```model_co
 ### Run Modeling on VIRGO dataset
 
     python run_modeling.py
-        --virgo_days = -1                           // Use data from first n days, -1 for all
+        --virgo_days = -1                           // Use data up to this day
         
         --outlier_fraction = 0.0                    // Outlier fraction
         --exposure_method = "measurements"          // Method for computing exposure
