@@ -1,11 +1,6 @@
 from flask_backend import db
 
 
-class DBConsts:
-    IMPORT_RUNNING = 1
-    ANALYSIS_RUNNING = 2
-
-
 class Dataset(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
@@ -19,27 +14,55 @@ class Dataset(db.Model):
 class Constant(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.Integer, nullable=False)
-    value = db.Column(db.Boolean, nullable=False)
+    value = db.Column(db.String(100))
+
+
+class DBConsts:
+    RUNNING = 1
+    JOB_NAME = 2
+    JOB_PERCENTAGE = 3
+    JOB_DESCRIPTION = 4
 
 
 class ConstantsAccess:
     @staticmethod
-    def get_import():
-        return Constant.query.filter_by(key=DBConsts.IMPORT_RUNNING).first().value
+    def get(key):
+        return Constant.query.filter_by(key=key).first().value
 
     @staticmethod
-    def get_analysis():
-        return Constant.query.filter_by(key=DBConsts.ANALYSIS_RUNNING).first().value
-
-    @staticmethod
-    def set_import(value: bool):
-        c = Constant.query.filter_by(key=DBConsts.IMPORT_RUNNING).first()
+    def set(key, value):
+        c = Constant.query.filter_by(key=key).first()
         c.value = value
         db.session.commit()
 
     @staticmethod
-    def set_analysis(value: bool):
-        c = Constant.query.filter_by(key=DBConsts.ANALYSIS_RUNNING).first()
-        c.value = value
-        db.session.commit()
+    def get_running():
+        return ConstantsAccess.get(DBConsts.RUNNING)
 
+    @staticmethod
+    def set_running(value: str):
+        ConstantsAccess.set(DBConsts.RUNNING, value)
+
+    @staticmethod
+    def get_job_name():
+        return ConstantsAccess.get(DBConsts.JOB_NAME)
+
+    @staticmethod
+    def set_job_name(value: str):
+        ConstantsAccess.set(DBConsts.JOB_NAME, value)
+
+    @staticmethod
+    def get_job_percentage():
+        return ConstantsAccess.get(DBConsts.JOB_PERCENTAGE)
+
+    @staticmethod
+    def set_job_percentage(value: str):
+        ConstantsAccess.set(DBConsts.JOB_PERCENTAGE, value)
+
+    @staticmethod
+    def get_job_description():
+        return ConstantsAccess.get(DBConsts.JOB_DESCRIPTION)
+
+    @staticmethod
+    def set_job_description(value: str):
+        ConstantsAccess.set(DBConsts.JOB_DESCRIPTION, value)
