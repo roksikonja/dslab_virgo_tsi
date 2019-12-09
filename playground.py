@@ -165,8 +165,8 @@ class LocalGPMerger:
                 # Plot the function, the prediction and the 95% confidence interval
                 sigma = sigma.reshape(-1, 1)
                 plt.figure(5, figsize=(16, 8))
-                plt.plot(cur_t, cur_x, 'r.', markersize=1, label='Observations', alpha=0.1)
-                plt.plot(cur_t_down, cur_x_down, 'k.', markersize=5, label='Downscaled')
+                # plt.plot(cur_t, cur_x, 'r.', markersize=1, label='Observations', alpha=0.1)
+                # plt.plot(cur_t_down, cur_x_down, 'k.', markersize=5, label='Downscaled')
                 plt.plot(time_to_predict, predict_values, 'b-', label='Prediction')
                 plt.axvline(x=cur_target_t)
                 plt.fill(np.concatenate([time_to_predict, time_to_predict[::-1]]),
@@ -182,11 +182,11 @@ class LocalGPMerger:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    with open('./../results/2019-11-04_12-20-59_smooth_monotonic/smooth_monotonic_modeling_result.pkl', 'rb') as handle:
+    with open('./results/2019-12-05_13-53-46_smooth_monotonic/SMOOTH_MONOTONIC_modeling_result.pkl', 'rb') as handle:
         res: Result = pickle.load(handle)
 
     merger = LocalGPMerger(res)
     # 0.5 value of window means half a day before prediction time and half a day after it
     # predictions_ = merger.merge(res.out.t_daily_out[300:1500:100], window=50, points_in_window=50, plot=True)
-    predictions_ = merger.merge(res.out.t_daily_out[100:500:50], window=25, points_in_window=50, plot=True)
+    predictions_ = merger.merge(res.out.t_daily_out[0::200], window=100, points_in_window=200, plot=True)
     print(predictions_)

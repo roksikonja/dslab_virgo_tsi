@@ -20,7 +20,7 @@ setup(
         "scipy",
         "sklearn",
         "cvxpy",
-        "pykalman",
+        "statsmodels",
         "numba",
         "pytables>=3.2",
         "flask",

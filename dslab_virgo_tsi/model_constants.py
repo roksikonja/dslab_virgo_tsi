@@ -49,11 +49,11 @@ class SplineConstants(ModelConstants):
 
 
 class ExpConstants(ModelConstants):
-    pass
+    MAX_FEVAL = 10000
 
 
 class ExpLinConstants(ModelConstants):
-    pass
+    MAX_FEVAL = 10000
 
 
 class EnsembleConstants(ModelConstants):
@@ -63,10 +63,10 @@ class EnsembleConstants(ModelConstants):
 
 class GaussianProcessConstants(ModelConstants):
     # Normalize
-    NORMALIZE = True
+    NORMALIZATION = True
 
     # Clip values
-    CLIP = True
+    CLIPPING = True
 
     # Dual white kernel
     DUAL_KERNEL = True
@@ -90,11 +90,16 @@ class GaussianProcessConstants(ModelConstants):
 
     # gpflow parameters
     TRAIN_INDUCING_VARIBLES = False
-    INITIAL_FIT = True
-    NUM_INDUCING_POINTS = 200
+    INITIAL_FIT = False
+    NUM_INDUCING_POINTS = 500
     MINIBATCH_SIZE = 200
-    MAX_ITERATIONS = 16000
+    MAX_ITERATIONS = 10000
     NUM_SAMPLES = 20000
+    LEARNING_RATE = 0.005
+
+    # local gp
+    WINDOW = 100
+    POINTS_IN_WINDOW = 300
 
 
 class OutputTimeConstants(ModelConstants):

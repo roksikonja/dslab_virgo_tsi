@@ -1,15 +1,30 @@
 import logging
+import time
 from typing import List, Tuple
 
 import cvxpy as cp
+import gpflow
 import numpy as np
+import tensorflow as tf
+from gpflow.ci_utils import ci_niter
+from numba import njit
+from scipy import interpolate
 from scipy.interpolate import UnivariateSpline, splev, splrep, interp1d
 from scipy.optimize import curve_fit, minimize
+from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LinearRegression
 
-from dslab_virgo_tsi.base import BaseModel, BaseSignals, Params, FinalResult, FitResult, Corrections, CorrectionMethod
+from dslab_virgo_tsi.base import BaseModel, BaseOutputModel, BaseSignals, Params, FinalResult, FitResult, Corrections, \
+    CorrectionMethod, Mode, OutParams
+from dslab_virgo_tsi.constants import Constants as Const
+from dslab_virgo_tsi.data_utils import median_downsample_by_factor, get_summary, \
+    normalize, unnormalize, find_nearest
+from dslab_virgo_tsi.gp_utils import SVGaussianProcess
+from dslab_virgo_tsi.kernels import Kernels
 from dslab_virgo_tsi.model_constants import EnsembleConstants as EnsConsts
+from dslab_virgo_tsi.model_constants import ExpConstants as ExpConsts
+from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
 from dslab_virgo_tsi.model_constants import IsotonicConstants as IsoConsts
 from dslab_virgo_tsi.model_constants import SmoothMonotoneRegressionConstants as SMRConsts
 from dslab_virgo_tsi.model_constants import SplineConstants as SplConsts
@@ -170,7 +185,7 @@ class DegradationSpline:
 
         """
         spline_derivative = spline.derivative()
-        return np.all(spline_derivative(x.ravel()) < 0)
+        return np.all(spline_derivative(x.ravel()) <= 0)
 
     @staticmethod
     def _is_convex(spline, x):
@@ -217,12 +232,11 @@ class DegradationSpline:
         while step <= self.steps:
             if self._is_decreasing(spline, x):
                 end = mid
-                mid = (end - start) / 2
-                spline = self._spline_dirichlet(x.ravel(), y.ravel(), k=self.k, s=mid)
             else:
                 start = mid
-                mid = (end - start) / 2
-                spline = self._spline_dirichlet(x.ravel(), y.ravel(), k=self.k, s=mid)
+
+            mid = (end + start) / 2
+            spline = self._spline_dirichlet(x.ravel(), y.ravel(), k=self.k, s=mid)
             step += 1
         spline = self._spline_dirichlet(x.ravel(), y.ravel(), k=self.k, s=end)
         if not self._is_convex(spline, x):
@@ -277,7 +291,7 @@ class ExpModel(BaseModel, ExpFamilyMixin):
                         initial_params: Params, method: CorrectionMethod) -> Tuple[Corrections, Params]:
         params, _ = curve_fit(self._exp, base_signals.exposure_a_mutual_nn,
                               fit_result.ratio_a_b_mutual_nn_corrected,
-                              p0=initial_params.kwargs.get('all'))
+                              p0=initial_params.kwargs.get('all'), maxfev=ExpConsts.MAX_FEVAL)
 
         a_correction = self._exp(base_signals.exposure_a_mutual_nn, *params)
         b_correction = self._exp(base_signals.exposure_b_mutual_nn, *params)
@@ -329,7 +343,7 @@ class ExpLinModel(BaseModel, ExpFamilyMixin):
                         initial_params: Params, method: CorrectionMethod) -> Tuple[Corrections, Params]:
         params, _ = curve_fit(self._exp_lin, base_signals.exposure_a_mutual_nn,
                               fit_result.ratio_a_b_mutual_nn_corrected,
-                              p0=initial_params.kwargs.get('all'))
+                              p0=initial_params.kwargs.get('all'), maxfev=ExpConsts.MAX_FEVAL)
 
         a_correction = self._exp_lin(base_signals.exposure_a_mutual_nn, *params)
         b_correction = self._exp_lin(base_signals.exposure_b_mutual_nn, *params)
@@ -469,7 +483,7 @@ class IsotonicModel(BaseModel):
         return "IsotonicModel"
 
 
-class SmoothMonotoneRegression(BaseModel):
+class SmoothMonotonicModel(BaseModel):
     def __init__(self, increasing=SMRConsts.INCREASING, number_of_points=SMRConsts.NUMBER_OF_POINTS,
                  y_max=SMRConsts.Y_MAX, y_min=SMRConsts.Y_MIN, out_of_bounds=SMRConsts.OUT_OF_BOUNDS,
                  solver=SMRConsts.SOLVER, lam=SMRConsts.LAM):
@@ -597,3 +611,477 @@ class EnsembleModel(BaseModel):
 
     def __repr__(self):
         return "EnsembleModel"
+
+
+class GPFamilyMixin:
+    def __init__(self, normalization, dual_kernel, t_mean=0.0, t_std=1.0, x_mean=0.0, x_std=1.0):
+        self.normalization = normalization
+        self.dual_kernel = dual_kernel
+        self.t_mean = t_mean
+        self.t_std = t_std
+        self.x_mean = x_mean
+        self.x_std = x_std
+
+    @staticmethod
+    def _gaussian_process(kernel, t, x):
+        logging.info(f"Running GP on data with t = {t.shape} and x = {x.shape}.")
+
+        gpr = GaussianProcessRegressor(kernel=kernel,
+                                       random_state=Const.RANDOM_SEED,
+                                       n_restarts_optimizer=GPConsts.N_RESTARTS_OPTIMIZER)
+
+        logging.info("GP data samples: {:>10}".format(t.shape[0]))
+        logging.info("GP initial parameters:\t{:>10}".format(str(gpr.kernel)))
+        gpr.fit(t, x)
+        logging.info("GP log marginal likelihood:\t{:>10}".format(gpr.log_marginal_likelihood()))
+        logging.info("GP parameters:\t{:>10}".format(str(gpr.kernel_)))
+
+        return gpr
+
+    @staticmethod
+    def _gp_samples(mode, base_signals, final_result, dual_kernel):
+        if mode == Mode.GENERATOR:
+            GPConsts.DOWNSAMPLING_FACTOR_A = int(GPConsts.DOWNSAMPLING_FACTOR_A / 10)
+            GPConsts.DOWNSAMPLING_FACTOR_B = int(GPConsts.DOWNSAMPLING_FACTOR_B / 10)
+
+        t_a_downsampled = median_downsample_by_factor(base_signals.t_a_nn,
+                                                      GPConsts.DOWNSAMPLING_FACTOR_A).reshape(-1, 1)
+        t_b_downsampled = median_downsample_by_factor(base_signals.t_b_nn,
+                                                      GPConsts.DOWNSAMPLING_FACTOR_B).reshape(-1, 1)
+        a_downsampled = median_downsample_by_factor(final_result.a_nn_corrected,
+                                                    GPConsts.DOWNSAMPLING_FACTOR_A).reshape(-1, 1)
+        b_downsampled = median_downsample_by_factor(final_result.b_nn_corrected,
+                                                    GPConsts.DOWNSAMPLING_FACTOR_B).reshape(-1, 1)
+
+        x = np.concatenate([a_downsampled, b_downsampled], axis=0).reshape(-1, 1)
+        t = np.concatenate([t_a_downsampled, t_b_downsampled], axis=0)
+
+        if dual_kernel:
+            labels = np.concatenate([GPConsts.LABEL_A * np.ones(shape=a_downsampled.shape),
+                                     GPConsts.LABEL_B * np.ones(shape=b_downsampled.shape)])
+            labels = labels.astype(np.int).reshape(-1, 1)
+            t = np.concatenate([t, labels], axis=1).reshape(-1, 2)
+
+        return t, x
+
+    def _gp_initial_fit(self, mode, base_signals, final_result):
+
+        # Initial fit samples
+        t_initial, x_initial = self._gp_samples(mode, base_signals, final_result, self.dual_kernel)
+
+        # Initial fit kernel
+        if self.dual_kernel:
+            kernel = Kernels.dual_matern_kernel + Kernels.dual_white_kernel
+        else:
+            kernel = Kernels.matern_kernel + Kernels.white_kernel
+
+        if self.normalization:
+            t_initial, x_initial = normalize(t_initial, self.t_mean, self.t_std), \
+                                   normalize(x_initial, self.x_mean, self.x_std)
+        else:
+            x_initial = x_initial - self.x_mean
+
+        gpr = self._gaussian_process(kernel, t_initial, x_initial)
+
+        return gpr
+
+    def _initial_fit(self, mode, base_signals, final_result):
+        logging.info("Running initial fit.")
+        length_scale_initial, noise_level_a_initial, noise_level_b_initial = None, None, None
+
+        # Train
+        gpr = self._gp_initial_fit(mode, base_signals, final_result)
+
+        length_scale_initial = gpr.kernel_.get_params()["k1__length_scale"]
+
+        if self.dual_kernel:
+            noise_level_a_initial = gpr.kernel_.get_params()["k2__noise_level_a"]
+            noise_level_b_initial = gpr.kernel_.get_params()["k2__noise_level_b"]
+        else:
+            noise_level_a_initial = gpr.kernel_.get_params()["k2__noise_level"]
+
+        return length_scale_initial, noise_level_a_initial, noise_level_b_initial
+
+
+class LocalGPModel(BaseOutputModel):
+    def __init__(self,
+                 normalization=GPConsts.NORMALIZATION,
+                 clipping=GPConsts.CLIPPING,
+                 window=GPConsts.WINDOW,
+                 points_in_window=GPConsts.POINTS_IN_WINDOW):
+
+        self.normalization = normalization
+        self.clipping = clipping
+        self.window = window
+        self.point_in_window = points_in_window
+
+    def fit_and_predict(self, mode: Mode, base_signals: BaseSignals, final_result: FinalResult, t_hourly_out):
+
+        # Training samples
+        t_a, a = base_signals.t_a_nn, final_result.a_nn_corrected
+        t_b, b = base_signals.t_b_nn, final_result.b_nn_corrected
+
+        t, x = self._interleave(t_a, t_b, a, b)
+
+        signal_hourly_out, signal_std_hourly_out = self._gp_target_time(t, x, t_hourly_out, self.window,
+                                                                        self.point_in_window)
+
+        return signal_hourly_out.reshape(-1, 1), signal_std_hourly_out.reshape(-1, 1), OutParams()
+
+    @staticmethod
+    @njit(cache=True)
+    def _interleave(t_a, t_b, a, b):
+        index_a = 0
+        index_b = 0
+        index_together = 0
+        a_length = t_a.size
+        b_length = t_b.size
+        t_merged = np.empty((a_length + b_length,))
+        val_merged = np.empty((a_length + b_length,))
+
+        while index_together < a_length + b_length:
+            while index_a < a_length and (t_a[index_a] <= t_b[index_b] or index_b == b_length):
+                t_merged[index_together] = t_a[index_a]
+                val_merged[index_together] = a[index_a]
+                index_a += 1
+                index_together += 1
+
+            while index_b < b_length and (t_b[index_b] <= t_a[index_a] or index_a == a_length):
+                t_merged[index_together] = t_b[index_b]
+                val_merged[index_together] = b[index_b]
+                index_b += 1
+                index_together += 1
+
+        return t_merged, val_merged
+
+    def _gp_target_time(self, t, x, t_hourly_out, window, points_in_window):
+        """
+        :param t: Time of all signals.
+        :param x: Signal.
+        :param t_hourly_out: Time at which prediction should happen.
+        :param window: How much time left/right of prediction time should be taken into account.
+        :param points_in_window: How many points should be in window.
+        :return signal_hourly_out, signal_std_hourly_out: NumPy array of predictions, same shape as t_target.
+            Prediction at position i corresponds to time at position i in t_target.
+            For windows without points np.nan is returned.
+        """
+        t_length = t.shape[0]
+        start_index = 0
+        end_index = 0
+        signal_hourly_out, signal_std_hourly_out = np.empty_like(t_hourly_out), np.empty_like(t_hourly_out)
+
+        # Iterate through target times
+        for i in range(t_hourly_out.shape[0]):
+            if i % 20 == 0:
+                logging.info(f"Local GP merging currently at {int(100 * i / t_hourly_out.size)} %.")
+
+            cur_target_t = t_hourly_out[i, 0]
+
+            # Determine points that fall within window
+            win_beginning = cur_target_t - window / 2.0
+            win_end = cur_target_t + window / 2.0
+            while end_index < t_length and t[end_index] < win_end:
+                end_index += 1
+
+            while t[start_index] < win_beginning:
+                start_index += 1
+
+            cur_x = x[start_index:end_index]
+            cur_t = t[start_index:end_index]
+
+            # Downsampling
+            if cur_x.size == 0:
+                signal_hourly_out[i], signal_std_hourly_out[i] = np.nan, np.nan
+                continue
+
+            # Normalize data
+            x_mean, x_std = np.mean(cur_x), np.std(cur_x)
+            t_mean, t_std = np.mean(cur_t), np.std(cur_t)
+
+            if self.normalization:
+                cur_t, cur_x = normalize(cur_t, t_mean, t_std), normalize(cur_x, x_mean, x_std)
+                cur_target_t = normalize(cur_target_t, t_mean, t_std)
+            else:
+                cur_x -= x_mean
+
+            # Clip values to 5 * std <= x <= 5 * std
+            if self.clipping:
+                clip_std = np.std(cur_x)
+                clip_indices = np.logical_and(np.greater_equal(cur_x, -5 * clip_std),
+                                              np.less_equal(cur_x, 5 * clip_std)).astype(np.bool).flatten()
+                cur_t, cur_x = cur_t[clip_indices], cur_x[clip_indices]
+
+            # Downsample data
+            downsampling_factor = int(np.ceil(cur_x.size / points_in_window))
+            cur_t_down, cur_x_down = np.copy(cur_t)[::downsampling_factor], np.copy(cur_x)[::downsampling_factor]
+
+            # SKLEARN
+            # Fit GP on transformed points
+            # scale = window / (t_std * 6)
+            #
+            # kernel = Matern(length_scale=scale, length_scale_bounds=(scale, scale), nu=GPConsts.MATERN_NU) \
+            #          + WhiteKernel(GPConsts.WHITE_NOISE_LEVEL, GPConsts.WHITE_NOISE_LEVEL_BOUNDS)
+            #
+            # gpr = GaussianProcessRegressor(kernel=kernel,
+            #                                n_restarts_optimizer=GPConsts.N_RESTARTS_OPTIMIZER)
+            #
+            # gpr.fit(cur_t_down.reshape(-1, 1), cur_x_down.reshape(-1, 1))
+            #
+            # # Predict value at target time
+            # cur_x_pred, cur_std_pred = gpr.predict(np.array([cur_target_t]).reshape(-1, 1), return_std=True)
+
+            # GPFLOW
+            kernel = gpflow.kernels.Sum([Kernels.gpf_matern12, Kernels.gpf_white])
+            gpr = gpflow.models.GPR(data=(cur_t_down.reshape(-1, 1), cur_x_down.reshape(-1, 1)), kernel=kernel)
+
+            # logging.info("Model created.\n\n" + str(get_summary(gpr)) + "\n")
+
+            def objective_closure():
+                return - gpr.log_marginal_likelihood()
+
+            opt = gpflow.optimizers.Scipy()
+            opt.minimize(objective_closure, gpr.trainable_variables, options=dict(maxiter=20))
+
+            # logging.info("Model created.\n\n" + str(get_summary(gpr)) + "\n")
+
+            cur_x_pred, cur_var_pred = gpr.predict_f(np.array([cur_target_t]).reshape(-1, 1))
+            cur_x_pred, cur_std_pred = cur_x_pred.numpy(), np.sqrt(cur_var_pred.numpy())
+
+            # Project back
+            if self.normalization:
+                cur_x_pred = unnormalize(cur_x_pred, x_mean, x_std)
+                cur_std_pred = cur_std_pred * (x_std ** 2)
+            else:
+                cur_x_pred += x_mean
+
+            # Store prediction
+            signal_hourly_out[i], signal_std_hourly_out[i] = cur_x_pred, cur_std_pred
+
+        return signal_hourly_out, signal_std_hourly_out
+
+
+class GPModel(GPFamilyMixin, BaseOutputModel):
+    def __init__(self,
+                 dual_kernel=GPConsts.DUAL_KERNEL,
+                 normalization=GPConsts.NORMALIZATION):
+        super(GPModel, self).__init__(normalization, dual_kernel)
+
+    def fit_and_predict(self, mode: Mode, base_signals: BaseSignals, final_result: FinalResult, t_hourly_out):
+        # Training samples
+        t_a, a = base_signals.t_a_nn, final_result.a_nn_corrected
+        t_b, b = base_signals.t_b_nn, final_result.b_nn_corrected
+
+        self.x_mean, self.x_std = np.mean(np.concatenate((a, b), axis=0)), np.std(np.concatenate((a, b), axis=0))
+        self.t_mean, self.t_std = np.mean(np.concatenate((t_a, t_b), axis=0)), \
+                                  np.std(np.concatenate((t_a, t_b), axis=0))
+
+        if self.dual_kernel:
+            labels_out = GPConsts.LABEL_OUT * np.ones(shape=t_hourly_out.shape)
+            labels_out = labels_out.astype(np.int).reshape(-1, 1)
+            t_hourly_out = np.concatenate([t_hourly_out, labels_out], axis=1).reshape(-1, 2)
+
+        # Normalize data
+        if self.normalization:
+            logging.info(f"Data normalized with t_mean = {self.t_mean}, t_std = {self.t_std}, "
+                         f"x_mean = {self.x_mean} and x_std = {self.x_std}.")
+            t_hourly_out = normalize(t_hourly_out, self.t_mean, self.t_std)
+
+        gpr = self._gp_initial_fit(mode, base_signals, final_result)
+
+        # Prediction
+        signal_hourly_out, signal_std_hourly_out = gpr.predict(t_hourly_out, return_std=True)
+
+        if self.normalization:
+            signal_hourly_out = unnormalize(signal_hourly_out, self.x_mean, self.x_std)
+            signal_std_hourly_out = signal_std_hourly_out * (self.x_std ** 2)
+        else:
+            signal_hourly_out = signal_hourly_out + self.x_mean
+
+        return signal_hourly_out.reshape(-1, 1), signal_std_hourly_out.reshape(-1, 1), OutParams()
+
+
+class SVGPModel(GPFamilyMixin, BaseOutputModel):
+    def __init__(self,
+                 dual_kernel=GPConsts.DUAL_KERNEL,
+                 normalization=GPConsts.NORMALIZATION,
+                 clipping=GPConsts.CLIPPING,
+                 initial_fit=GPConsts.INITIAL_FIT,
+                 num_inducing_points=GPConsts.NUM_INDUCING_POINTS,
+                 train_inducing_variables=GPConsts.TRAIN_INDUCING_VARIBLES,
+                 minibatch_size=GPConsts.MINIBATCH_SIZE,
+                 max_iterations=GPConsts.MAX_ITERATIONS):
+
+        super(SVGPModel, self).__init__(normalization, dual_kernel)
+        self.clipping = clipping
+        self.initial_fit = initial_fit
+
+        self.num_inducing_points = num_inducing_points
+        self.train_inducing_variables = train_inducing_variables
+        self.minibatch_size = minibatch_size
+        self.max_iterations = max_iterations
+
+    def _prepare_data(self, t_a, t_b, a, b, t_hourly_out):
+
+        # Data standardization parameters
+        self.x_mean, self.x_std = np.mean(np.concatenate((a, b), axis=0)), np.std(np.concatenate((a, b), axis=0))
+        self.t_mean, self.t_std = np.mean(np.concatenate((t_a, t_b), axis=0)), \
+                                  np.std(np.concatenate((t_a, t_b), axis=0))
+
+        # Downsample a
+        downsampling_rate_a = a.shape[0] // b.shape[0]
+        t_a, a = t_a[::downsampling_rate_a], a[::downsampling_rate_a]
+
+        # Concatenate
+        x = np.concatenate([a, b], axis=0).reshape(-1, 1)
+        t = np.concatenate([t_a, t_b], axis=0).reshape(-1, 1)
+
+        # Add labels for dual kernel
+        if self.dual_kernel:
+            # Training
+            labels = np.concatenate([GPConsts.LABEL_A * np.ones(shape=a.shape),
+                                     GPConsts.LABEL_B * np.ones(shape=b.shape)])
+            labels = labels.astype(np.int).reshape(-1, 1)
+            t = np.concatenate([t, labels], axis=1).reshape(-1, 2)
+
+            # Output
+            labels_out = GPConsts.LABEL_OUT * np.ones(shape=t_hourly_out.shape)
+            labels_out = labels_out.astype(np.int).reshape(-1, 1)
+            t_hourly_out = np.concatenate([t_hourly_out, labels_out], axis=1).reshape(-1, 2)
+
+        # Normalize data
+        if self.normalization:
+            logging.info(f"Data normalized with t_mean = {self.t_mean}, t_std = {self.t_std}, "
+                         f"x_mean = {self.x_mean} and x_std = {self.x_std}.")
+            t, x = normalize(t, self.t_mean, self.t_std), normalize(x, self.x_mean, self.x_std)
+            t_hourly_out = normalize(t_hourly_out, self.t_mean, self.t_std)
+        else:
+            logging.info(f"Data normalized with x_mean = {self.x_mean}.")
+            x = x - self.x_mean
+
+        # Clip values to mean - 5 * std <= x <= mean + 5 * std
+        if self.clipping:
+            clip_mean, clip_std = np.mean(x), np.std(x)
+            clip_indices = np.multiply(np.greater_equal(x, clip_mean - 5 * clip_std),
+                                       np.less_equal(x, clip_mean + 5 * clip_std)).astype(np.bool).flatten()
+            t, x = t[clip_indices, :], x[clip_indices]
+            logging.info(f"{clip_indices.shape[0] - clip_indices.sum()} measurements were clipped.")
+
+        logging.info(f"Dual kernel is set to {self.dual_kernel}. Data shapes are t {t.shape}, "
+                     f"x {x.shape} and t_hourly {t_hourly_out.shape}.")
+
+        return t, x, t_hourly_out
+
+    def fit_and_predict(self, mode: Mode, base_signals: BaseSignals, final_result: FinalResult, t_hourly_out):
+        t_hourly_out = t_hourly_out.reshape(-1, 1)
+
+        # Training samples
+        t_a, a = base_signals.t_a_nn, final_result.a_nn_corrected
+        t_b, b = base_signals.t_b_nn, final_result.b_nn_corrected
+
+        t, x, t_hourly_out = self._prepare_data(t_a, t_b, a, b, t_hourly_out.copy())
+
+        # Induction variables
+        t_uniform = np.linspace(np.min(t[:, 0]), np.max(t[:, 0]), self.num_inducing_points)
+        t_uniform_indices = find_nearest(t[:, 0], t_uniform).astype(int)
+        inducing_points = t[t_uniform_indices, :].copy()
+
+        # Kernel
+        if self.dual_kernel:
+            kernel = gpflow.kernels.Sum([Kernels.gpf_dual_matern12, Kernels.gpf_dual_white])
+        else:
+            kernel = gpflow.kernels.Sum([Kernels.gpf_matern12, Kernels.gpf_white])
+
+        # Global trends
+        m = gpflow.models.SVGP(kernel, gpflow.likelihoods.Gaussian(), inducing_points, num_data=t.shape[0])
+
+        # Initial fit
+        if self.initial_fit:
+            length_scale_initial, noise_level_a_initial, noise_level_b_initial = self._initial_fit(mode, base_signals,
+                                                                                                   final_result)
+
+            # Assign initial values
+            m.kernel.kernels[0].lengthscale.assign(length_scale_initial)
+            if self.dual_kernel:
+                m.kernel.kernels[1].variance_a.assign(noise_level_a_initial)
+                m.kernel.kernels[1].variance_b.assign(noise_level_b_initial)
+            else:
+                m.kernel.kernels[1].variance.assign(noise_level_a_initial)
+
+        # Non-trainable parameters
+        if not self.train_inducing_variables:
+            gpflow.utilities.set_trainable(m.inducing_variable, False)
+
+        logging.info("Model created.\n\n" + str(get_summary(m)) + "\n")
+
+        # Train
+        signal_hourly_out, signal_std_hourly_out, iter_loglikelihood = self.train_model(m, t, x, t_hourly_out)
+
+        # Comment: gp_utils.py @tf.function(autograph=False)
+        # t_uniform = np.linspace(np.min(t[:, 0]), np.max(t[:, 0]), self.num_inducing_points)
+        # t_uniform_indices = find_nearest(t[:, 0], t_uniform).astype(int)
+        # inducing_points_loc = t[t_uniform_indices, :].copy()
+        #
+        # # Local Trends
+        # m_loc = gpflow.models.SVGP(kernel, gpflow.likelihoods.Gaussian(), inducing_points_loc, num_data=t.shape[0])
+        #
+        # # ReInitialize
+        # m_loc.kernel.kernels[0].lengthscale.assign(1.0)
+        # m_loc.kernel.kernels[0].variance.assign(1.0)
+        # if self.dual_kernel:
+        #     m_loc.kernel.kernels[1].variance_a.assign(1.0)
+        #     m_loc.kernel.kernels[1].variance_b.assign(1.0)
+        # else:
+        #     m_loc.kernel.kernels[1].variance.assign(1.0)
+        #
+        # if not self.train_inducing_variables:
+        #     gpflow.utilities.set_trainable(m_loc.inducing_variable, False)
+        #
+        # logging.info("Model created.\n\n" + str(get_summary(m_loc)) + "\n")
+        #
+        # # Subtract global trend
+        # f_signal_out = interpolate.interp1d(t_hourly_out[:, 0].flatten(), signal_hourly_out.flatten(),
+        #                                     fill_value="extrapolate")
+        #
+        # x = x.flatten() - f_signal_out(t[:, 0].flatten())
+        # x = x.reshape(-1, 1)
+        #
+        # signal_hourly_out_loc, signal_std_hourly_out_loc, iter_loglikelihood = self.train_model(m_loc, t, x,
+        #                                                                                         t_hourly_out)
+        #
+        # signal_hourly_out = signal_hourly_out + signal_hourly_out_loc
+
+        # Revert normalization
+        if self.normalization:
+            signal_hourly_out = unnormalize(signal_hourly_out, self.x_mean, self.x_std)
+            signal_std_hourly_out = signal_std_hourly_out * (self.x_std ** 2)
+            inducing_points = unnormalize(inducing_points, self.t_mean, self.t_std)
+        else:
+            signal_hourly_out = signal_hourly_out + self.x_mean
+
+        params_out = OutParams(iter_loglikelihood, inducing_points)
+
+        return signal_hourly_out, signal_std_hourly_out, params_out
+
+    def train_model(self, model, t, x, t_hourly_out):
+        # Dataset
+        train_dataset = tf.data.Dataset.from_tensor_slices((t, x)).repeat().shuffle(buffer_size=t.shape[0],
+                                                                                    seed=Const.RANDOM_SEED)
+        # Training
+        start = time.time()
+        iter_loglikelihood = SVGaussianProcess.run_optimization(model=model,
+                                                                iterations=ci_niter(self.max_iterations),
+                                                                train_dataset=train_dataset,
+                                                                minibatch_size=self.minibatch_size)
+        end = time.time()
+
+        logging.info("Training finished after: {:>10} sec".format(end - start))
+        logging.info("Trained model.\n\n" + str(get_summary(model)) + "\n")
+
+        # Prediction
+        signal_hourly_out, signal_var_hourly_out = model.predict_y(t_hourly_out)
+        signal_std_hourly_out = tf.sqrt(signal_var_hourly_out)
+
+        signal_hourly_out = tf.reshape(signal_hourly_out, [-1]).numpy()
+        signal_std_hourly_out = tf.reshape(signal_std_hourly_out, [-1]).numpy()
+
+        return signal_hourly_out.reshape(-1, 1), signal_std_hourly_out.reshape(-1, 1), iter_loglikelihood

@@ -4,10 +4,11 @@ import datetime
 import logging
 import os
 import pickle
+import warnings
 
 import pandas as pd
 
-from dslab_virgo_tsi.base import ExposureMethod, CorrectionMethod, OutputMethod, Mode
+from dslab_virgo_tsi.base import ExposureMethod, CorrectionMethod, Mode
 from dslab_virgo_tsi.constants import Constants as Const
 from dslab_virgo_tsi.data_utils import make_dir, load_data
 from dslab_virgo_tsi.generator import SignalGenerator
@@ -17,11 +18,11 @@ from dslab_virgo_tsi.model_constants import ExpLinConstants as ExpLinConsts
 from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
 from dslab_virgo_tsi.model_constants import GeneratorConstants as GenConsts
 from dslab_virgo_tsi.model_constants import IsotonicConstants as IsoConsts
+from dslab_virgo_tsi.model_constants import OutputTimeConstants as OutTimeConsts
 from dslab_virgo_tsi.model_constants import SmoothMonotoneRegressionConstants as SMRConsts
 from dslab_virgo_tsi.model_constants import SplineConstants as SplConsts
-from dslab_virgo_tsi.model_constants import OutputTimeConstants as OutTimeConsts
 from dslab_virgo_tsi.models import ExpModel, ExpLinModel, SplineModel, IsotonicModel, EnsembleModel, \
-    SmoothMonotoneRegression
+    SmoothMonotonicModel, SVGPModel, GPModel, LocalGPModel
 
 
 def parse_arguments():
@@ -29,6 +30,9 @@ def parse_arguments():
     parser.add_argument("--mode", type=str, default="virgo", help="Set data mode.")
 
     parser.add_argument("--random_seed", type=int, default=0, help="Set generator random seed.")
+
+    parser.add_argument("--virgo_days_start", type=int, default=-1, help="Use data from this day on. -1 for all.")
+    parser.add_argument("--virgo_days_end", type=int, default=-1, help="Use data up to this day. -1 for all.")
 
     parser.add_argument("--save_plots", action="store_true", help="Flag for saving plots.")
     parser.add_argument("--save_signals", action="store_true", help="Flag for saving computed signals.")
@@ -70,7 +74,7 @@ def setup_run(args, mode: Mode, results_dir_path):
         config["models"] = str(models)
     else:
         model_type = Const.SMOOTH_MONOTONIC
-        model = SmoothMonotoneRegression()
+        model = SmoothMonotonicModel()
         config = SMRConsts.return_config(SMRConsts)
 
     # Correction method
@@ -86,10 +90,15 @@ def setup_run(args, mode: Mode, results_dir_path):
         exposure_method = ExposureMethod.EXPOSURE_SUM
 
     # Output method
-    if args.output_method == "svgp":
-        output_method = OutputMethod.SVGP
+    if args.output_method == "gp":
+        output_method = Const.GP
+        output_model = GPModel()
+    elif args.output_method == "localgp":
+        output_method = Const.LOCALGP
+        output_model = LocalGPModel()
     else:
-        output_method = OutputMethod.GP
+        output_method = Const.SVGP
+        output_model = SVGPModel()
 
     # Compute output config
     add_output_config(config, GPConsts.return_config(GPConsts, "OUTPUT_GP"))
@@ -109,9 +118,18 @@ def setup_run(args, mode: Mode, results_dir_path):
     logging.info(f"Output method {output_method} selected.")
     logging.info(f"Outlier fraction {args.outlier_fraction} selected.")
 
+    if mode == Mode.VIRGO:
+        config["virgo_days_start"] = args.virgo_days_start
+        config["virgo_days_end"] = args.virgo_days_end
+        if args.virgo_days_start > 0:
+            logging.info(f"Data from VIRGO day {args.virgo_days_start} on used.")
+
+        if args.virgo_days_end > 0:
+            logging.info(f"Data up to VIRGO day {args.virgo_days_end}.")
+
     save_config(results_dir_path, config)
 
-    return model, model_type, correction_method, exposure_method, output_method, args.outlier_fraction
+    return model, model_type, correction_method, exposure_method, output_model, output_method, args.outlier_fraction
 
 
 def load_data_run(args, mode: Mode):
@@ -137,6 +155,13 @@ def load_data_run(args, mode: Mode):
         logging.info(f"Dataset Generator of size {data.shape} loaded.")
     else:
         data = load_data(Const.DATA_DIR, Const.VIRGO_FILE)
+
+        if args.virgo_days_end > 0:
+            data = data[data[Const.T] <= args.virgo_days_end]
+
+        if args.virgo_days_start > 0:
+            data = data[data[Const.T] >= args.virgo_days_start]
+
         t_field_name, a_field_name, b_field_name = Const.T, Const.A, Const.B
         ground_truth = None
         logging.info(f"Dataset {Const.VIRGO_FILE} of size {data.shape} loaded.")
@@ -194,3 +219,8 @@ def create_logger(results_dir):
                                   logging.StreamHandler()])
     logging.info("Application started.")
     logging.info("Logging started.")
+
+
+def ignore_warnings():
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+    warnings.filterwarnings("ignore", category=RuntimeWarning)
