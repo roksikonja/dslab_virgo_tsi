@@ -1,0 +1,34 @@
+{% if datasets|length > 0 %}
+    <table class="table table-hover table-responsive-sm">
+        <thead>
+        <tr>
+            <th scope="col">#</th>
+            <th scope="col">Dataset Name</th>
+            <th scope="col">Exposure Mode</th>
+            <th scope="col">Outlier Fraction</th>
+            <th scope="col"></th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for dataset in datasets %}
+            <tr>
+                <th scope="row">{{ loop.index }}</th>
+                <td>{{ dataset.name|truncate(40) }}</td>
+                <td>{{ dataset.exposure_mode }}</td>
+                <td>{{ dataset.outlier_fraction|round(5, 'common') }}</td>
+                <td style="min-width: 150px">
+                    <form action="{{ url_for('delete_data', dataset_id=dataset.id) }}" method="POST">
+                        <input class="btn btn-danger btn-sm float-right" type="submit" value="Delete">
+                    </form>
+                    <a class="select-button btn btn-link btn-sm float-right disabled"
+                            href="{{ url_for('analysis', dataset_id=dataset.id) }}">Select</a>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <img style="width: 40%" src="{{ url_for('static', filename='empty.svg') }}" class="rounded mx-auto d-block"
+         alt="No data available">
+    <p class="text-center text-secondary">No data imported</p>
+{% endif %}

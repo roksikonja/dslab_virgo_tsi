@@ -1,66 +1,119 @@
 {% extends "layout.html" %}
 {% block content %}
-
-    <div class="row">
-        <div class="col-12">
-            <p class="text-muted">Import the data and then select it from the table to begin analysis.</p>
-        </div>
-    </div>
-
-    <div class="row">
-        <div class="col-sm-6">
-            <h2>Loaded Data</h2>
-        </div>
-
-        <div class="col-sm-6">
-            <div class="float-sm-right">
-
-                <!-- Button that triggers modal for adding data -->
-                <a class="btn btn-primary" href="{{ url_for('import_data') }}">
-                    Import Dataset
-                </a>
-
+    <main role="main" class="container">
+        <div class="row">
+            <div class="col-12">
+                {% if title %}
+                    <h1>{{ title }}</h1>
+                {% else %}
+                    <h1>Dashboard</h1>
+                {% endif %}
             </div>
         </div>
-    </div>
 
-    <div class="row">
-        <div class="col-12">
-            <table class="table table-hover table-responsive-sm">
-                <thead>
-                <tr>
-                    <th scope="col">#</th>
-                    <th scope="col">Dataset Name</th>
-                    <th scope="col">Exposure Mode</th>
-                    <th scope="col">Outlier Fraction</th>
-                    <th scope="col"></th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr>
-                    <th scope="row">1</th>
-                    <td>DIARAD</td>
-                    <td>Exposure sum</td>
-                    <td>0.0</td>
-                    <td><a class="text-primary float-right" href="{{ url_for('analysis', dataset_id=1) }}">Select</a></td>
-                </tr>
-                <tr>
-                    <th scope="row">2</th>
-                    <td>PMVO6</td>
-                    <td>Exposure sum</td>
-                    <td>0.2</td>
-                    <td><a class="text-primary float-right" href="{{ url_for('analysis', dataset_id=2) }}">Select</a></td>
-                </tr>
-                <tr>
-                    <th scope="row">3</th>
-                    <td>TIM</td>
-                    <td>Exposure sum</td>
-                    <td>0.01</td>
-                    <td><a class="text-primary float-right" href="{{ url_for('analysis', dataset_id=3) }}">Select</a></td>
-                </tr>
-                </tbody>
-            </table>
+        <div class="row">
+            <div class="col-12">
+                <p class="text-muted">Import the data and then select it from the table to begin analysis.</p>
+            </div>
         </div>
-    </div>
 
+        <div class="row">
+            <div class="col-sm-6">
+                <h2>Loaded Data</h2>
+            </div>
+
+            <div class="col-sm-6">
+                <div class="float-sm-right">
+                    <a id="importDataButton" class="btn btn-primary disabled" href="{{ url_for('import_data') }}">
+                        Import Dataset
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12" id="datasetTable"></div>
+        </div>
+    </main>
+    <footer class="fixed-bottom py-3 bg-light" style="display: none">
+        <div class="container">
+            <h5 class="text-center" id="jobName"></h5>
+            <p class="text-muted text-center" id="jobDescription"></p>
+            <div class="progress mx-auto" style="max-width: 600px; height: 8px">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                     id="progressBar" style="width: 0%"></div>
+            </div>
+        </div>
+    </footer>
 {% endblock content %}
+
+{% block scripts %}
+    <!-- Periodical polling for updates -->
+    <script type="text/javascript">
+        $(document).ready(function () {
+            let lastTableData = {};
+            let lastJobDescription = "";
+            let lastJobPercentage = "";
+            let lastJobName = "";
+            let lastIsRunning = true;
+            let isFirst = true;
+
+            function update() {
+                $.get("{{ url_for('get_update') }}", function (data) {
+                    // Update table
+                    let newTableData = data['dataset_table'];
+                    if (newTableData !== lastTableData) {
+                        $("#datasetTable").html(data['dataset_table']);
+                        lastTableData = newTableData;
+                    }
+
+                    // Update job
+                    let newJobDescription = data['job_description'];
+                    if (newJobDescription !== lastJobDescription) {
+                        $("#jobDescription").text(newJobDescription);
+                        lastJobDescription = newJobDescription;
+                    }
+
+                    let newJobPercentage = data['job_percentage'];
+                    if (newJobPercentage !== lastJobPercentage) {
+                        $("#progressBar").width(newJobPercentage + "%");
+                        lastJobPercentage = newJobPercentage;
+                    }
+
+                    let newJobName = data['job_name'];
+                    if (newJobName !== lastJobName) {
+                        $("#jobName").text(newJobName);
+                        lastJobName = newJobName;
+                    }
+
+                    let isRunning = data['is_running'] === "True";
+                    console.log(isRunning);
+                    if (isFirst || isRunning !== lastIsRunning) {
+                        isFirst = false;
+                        lastIsRunning = isRunning;
+
+                        let $importDataButton = $("#importDataButton");
+                        let $selectButtons = $(".select-button");
+                        let $footer = $("footer");
+
+                        if (isRunning) {
+                            console.log("here");
+                            $importDataButton.addClass("disabled");
+                            $selectButtons.addClass("disabled");
+                            $footer.show();
+                        } else {
+                            console.log("there");
+                            $importDataButton.removeClass("disabled");
+                            $selectButtons.removeClass("disabled");
+                            $footer.fadeOut("slow");
+                        }
+                    }
+
+                });
+                setTimeout(update, 1000);
+            }
+
+            update();
+        });
+    </script>
+{% endblock %}
