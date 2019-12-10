@@ -46,17 +46,17 @@ def plot_base_virgo_signals(base_sig):
 
     visualizer.plot_signals([(base_sig.t_a_nn, base_sig.a_nn, Const.A, False),
                              (base_sig.t_b_nn, base_sig.b_nn, Const.B, False)],
-                            results_dir_path, "{}_{}_raw_closeup".format(Const.A, Const.B), x_ticker=1,
+                            results_dir_path, "{}_{}_raw_closeup".format(Const.A, Const.B), x_ticker=Const.XTICKER,
                             y_lim=[1357, 1368], legend="upper right",
                             x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
     visualizer.plot_signals([(base_sig.t_mutual_nn, np.divide(base_sig.a_mutual_nn, base_sig.b_mutual_nn),
                               "RATIO_{}_{}_nn".format(Const.A, Const.B), False)],
                             results_dir_path, "RATIO_{}_{}_nn".format(Const.A, Const.B),
-                            x_ticker=1, legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.RATIO_UNIT)
+                            x_ticker=Const.XTICKER, legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.RATIO_UNIT)
 
     visualizer.plot_signals([(base_sig.t_temp_nn, base_sig.temp_nn, Const.TEMP, False)],
-                            results_dir_path, "{}_raw".format(Const.TEMP), x_ticker=1,
+                            results_dir_path, "{}_raw".format(Const.TEMP), x_ticker=Const.XTICKER,
                             legend="lower right", x_label=Const.YEAR_UNIT, y_label=Const.TEMP_UNIT)
 
     visualizer.plot_signals([(base_sig.t_ei, base_sig.a_ei, Const.A, False),
