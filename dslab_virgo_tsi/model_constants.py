@@ -75,8 +75,8 @@ class GaussianProcessConstants(ModelConstants):
     LABEL_OUT = -1
 
     # scikit-learn parameters
-    DOWNSAMPLING_FACTOR_A = 20000
-    DOWNSAMPLING_FACTOR_B = 200
+    DOWNSAMPLING_FACTOR_A = 30000
+    DOWNSAMPLING_FACTOR_B = 300
 
     MATERN_LENGTH_SCALE = 1
     MATERN_LENGTH_SCALE_BOUNDS = (1e-3, 1e4)
@@ -86,12 +86,12 @@ class GaussianProcessConstants(ModelConstants):
     WHITE_NOISE_LEVEL = 1
     WHITE_NOISE_LEVEL_BOUNDS = (1e-5, 1e5)
 
-    N_RESTARTS_OPTIMIZER = 5
+    N_RESTARTS_OPTIMIZER = 1
 
     # gpflow parameters
-    TRAIN_INDUCING_VARIBLES = False
+    TRAIN_INDUCING_VARIABLES = False
     INITIAL_FIT = False
-    NUM_INDUCING_POINTS = 800
+    NUM_INDUCING_POINTS = 1000
     MINIBATCH_SIZE = 200
     MAX_ITERATIONS = 10000
     NUM_SAMPLES = 20000

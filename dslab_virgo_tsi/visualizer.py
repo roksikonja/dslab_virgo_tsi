@@ -16,15 +16,22 @@ class Visualizer(object):
 
     def __init__(self):
         style.use(Const.MATPLOTLIB_STYLE)
-        mpl.rcParams['lines.linewidth'] = Const.MATPLOTLIB_STYLE_LINEWIDTH
         mpl.rcParams["savefig.format"] = Const.OUT_FORMAT
         mpl.rcParams["savefig.bbox"] = Const.OUT_BBOX
         mpl.rcParams["savefig.dpi"] = Const.OUT_DPI
-        mpl.rcParams.update({'font.size': Const.TITLE_FONT_SIZE})
-        mpl.rc('xtick', labelsize=Const.XTICK_SIZE)
-        mpl.rc('ytick', labelsize=Const.YTICK_SIZE)
-        mpl.rc('axes', labelsize=Const.AXES_FONT_SIZE)
-        mpl.rc('legend', fontsize=Const.LEGEND_FONT_SIZE)
+
+        if Const.MATPLOTLIB_STYLE_LINEWIDTH:
+            mpl.rcParams['lines.linewidth'] = Const.MATPLOTLIB_STYLE_LINEWIDTH
+        if Const.TITLE_FONT_SIZE:
+            mpl.rcParams.update({'font.size': Const.TITLE_FONT_SIZE})
+        if Const.XTICK_SIZE:
+            mpl.rc('xtick', labelsize=Const.XTICK_SIZE)
+        if Const.YTICK_SIZE:
+            mpl.rc('ytick', labelsize=Const.YTICK_SIZE)
+        if Const.AXES_FONT_SIZE:
+            mpl.rc('axes', labelsize=Const.AXES_FONT_SIZE)
+        if Const.LEGEND_FONT_SIZE:
+            mpl.rc('legend', fontsize=Const.LEGEND_FONT_SIZE)
 
     @staticmethod
     def set_figsize(size=Const.FIG_SIZE):

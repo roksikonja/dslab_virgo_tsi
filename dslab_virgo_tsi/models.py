@@ -917,7 +917,7 @@ class SVGPModel(GPFamilyMixin, BaseOutputModel):
                  clipping=GPConsts.CLIPPING,
                  initial_fit=GPConsts.INITIAL_FIT,
                  num_inducing_points=GPConsts.NUM_INDUCING_POINTS,
-                 train_inducing_variables=GPConsts.TRAIN_INDUCING_VARIBLES,
+                 train_inducing_variables=GPConsts.TRAIN_INDUCING_VARIABLES,
                  minibatch_size=GPConsts.MINIBATCH_SIZE,
                  max_iterations=GPConsts.MAX_ITERATIONS):
 
