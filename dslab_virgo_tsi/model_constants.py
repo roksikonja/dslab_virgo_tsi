@@ -86,20 +86,22 @@ class GaussianProcessConstants(ModelConstants):
     WHITE_NOISE_LEVEL = 1
     WHITE_NOISE_LEVEL_BOUNDS = (1e-5, 1e5)
 
-    N_RESTARTS_OPTIMIZER = 10
+    N_RESTARTS_OPTIMIZER = 5
 
     # gpflow parameters
     TRAIN_INDUCING_VARIBLES = False
     INITIAL_FIT = False
-    NUM_INDUCING_POINTS = 500
+    NUM_INDUCING_POINTS = 800
     MINIBATCH_SIZE = 200
     MAX_ITERATIONS = 10000
     NUM_SAMPLES = 20000
     LEARNING_RATE = 0.005
 
     # local gp
+    GPR_MODEL = "sklearn"
     WINDOW = 100
-    POINTS_IN_WINDOW = 300
+    POINTS_IN_WINDOW = 50
+    WINDOW_FRACTION = 3
 
 
 class OutputTimeConstants(ModelConstants):
