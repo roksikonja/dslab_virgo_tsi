@@ -123,7 +123,7 @@ if __name__ == "__main__":
     if ARGS.save_signals:
         save_modeling_result(results_dir_path, result, f"gen_{model_type}")
 
-    # result.out.params_out.svgp_inducing_points = None
+    result.out.params_out.svgp_inducing_points = None
 
     if ARGS.save_plots or not ARGS.save_signals:
         plot_results(ground_truth, result, results_dir_path, f"gen_{model_type}_{output_method}")
