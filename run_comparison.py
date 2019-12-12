@@ -28,19 +28,15 @@ def plot_results(ground_truth_, results_, results_dir, model_name):
         signal_fourplets_a.append(fourplet_a)
         signal_fourplets_b.append(fourplet_b)
 
-    if ground_truth_:
-        signal_fourplets_a.append((t_, x_, "ground_truth", False))
-        signal_fourplets_b.append((t_, x_, "ground_truth", False), )
-
     logging.info("Plotting results ...")
     visualizer.plot_signals(signal_fourplets, results_dir, f"DEGRADATION_{Const.A}_{Const.B}_{model_name}",
-                            x_ticker=1, legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+                            x_ticker=4, legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
     visualizer.plot_signals(signal_fourplets_a, results_dir, f"DEGRADATION_{Const.A}_{model_name}",
-                            x_ticker=1, legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+                            x_ticker=4, legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
     visualizer.plot_signals(signal_fourplets_b, results_dir, f"DEGRADATION_{Const.B}_{model_name}",
-                            x_ticker=1, legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+                            x_ticker=4, legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
     signal_fourplets_a = []
     signal_fourplets_b = []
@@ -55,13 +51,17 @@ def plot_results(ground_truth_, results_, results_dir, model_name):
             (result_.base_signals.t_mutual_nn, result_.history_mutual_nn[-1].b_mutual_nn_corrected,
              f"{Const.B}_mutual_nn_corrected_{model_type_}", False))
 
+    if ground_truth_:
+        signal_fourplets_a.append((t_, x_, "ground_truth", False))
+        signal_fourplets_b.append((t_, x_, "ground_truth", False), )
+
     visualizer.plot_signals(
         signal_fourplets_a, results_dir, f"{model_name}_{Const.A}_mutual_corrected",
-        x_ticker=1, legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+        x_ticker=4, legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
     visualizer.plot_signals(
         signal_fourplets_b, results_dir, f"{model_name}_{Const.B}_mutual_corrected",
-        x_ticker=1, legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+        x_ticker=4, legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
 
 if __name__ == "__main__":
@@ -86,7 +86,7 @@ if __name__ == "__main__":
     results = []
     for model_type in ["exp", "exp_lin", "spline", "isotonic", "smooth_monotonic", "ensemble"]:
         ARGS.model_type = model_type
-        model, _, correction_method, exposure_method, output_method, outlier_fraction \
+        model, _, correction_method, exposure_method, output_model, output_method, outlier_fraction \
             = setup_run(ARGS, mode, results_dir_path)
 
         fitter = ModelFitter(mode=mode,
@@ -99,7 +99,7 @@ if __name__ == "__main__":
 
         result: Result = fitter(model=model,
                                 correction_method=correction_method,
-                                output_method=output_method,
+                                output_model=output_model,
                                 compute_output=False)
 
         results.append((model_type, result))

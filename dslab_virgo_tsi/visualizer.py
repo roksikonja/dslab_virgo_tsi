@@ -64,7 +64,7 @@ class Visualizer(object):
             else:
                 plt.plot(t, x, label=label)
 
-        plt.title(title)
+        # plt.title(title)
 
         if x_ticker:
             plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(x_ticker))
@@ -121,7 +121,7 @@ class Visualizer(object):
 
                 plt.plot(t, x, label=label)
 
-        plt.title(title)
+        # plt.title(title)
 
         if x_ticker:
             plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(x_ticker))
@@ -210,9 +210,9 @@ class Visualizer(object):
             signal_ground_truth = ground_truth_triplet[1]
             label_ground_truth = ground_truth_triplet[2]
 
-            plt.plot(t_ground_truth, signal_ground_truth, label=label_ground_truth)
+            plt.plot(t_ground_truth, signal_ground_truth, "-k", label=label_ground_truth)
 
-        plt.title(f"{title}_{int(confidence * 100)}%_conf_interval")
+        # plt.title(f"{title}_{int(confidence * 100)}%_conf_interval")
 
         if x_ticker:
             plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(x_ticker))
@@ -252,24 +252,30 @@ class Visualizer(object):
             signal_ground_truth = ground_truth_triplet[1]
             label_ground_truth = ground_truth_triplet[2]
 
-        max_plots = 1
-
-        if len(history_fitresults) > max_plots:
-            selected_triplet_indices = np.arange(1, len(history_fitresults) - 1,
-                                                 np.ceil((len(history_fitresults) - 1) / max_plots))
-        else:
-            selected_triplet_indices = np.arange(1, len(history_fitresults) - 1, 1)
-
-        max_plots = len(selected_triplet_indices) + 2
+        max_plots = 2
+        selected_triplet_indices = [0, 1]
+        # if len(history_fitresults) > max_plots:
+        #     selected_triplet_indices = np.arange(1, len(history_fitresults) - 1,
+        #                                          np.ceil((len(history_fitresults) - 1) / max_plots))
+        # else:
+        #     selected_triplet_indices = np.arange(1, len(history_fitresults) - 1, 1)
+        #
+        # max_plots = len(selected_triplet_indices) + 2
 
         if x_label == Const.YEAR_UNIT:
             t_mutual = np.array(list(map(mission_day_to_year, t_mutual)))
 
         fig, axs = plt.subplots(max_plots, 2, figsize=(16, 4 * max_plots))
+        fig_s, axs_s = plt.subplots(max_plots, 1, figsize=(8, 4 * max_plots))
+
+        # if title:
+        #     fig.suptitle(title)
+        #     axs_s[0].set_title(f"{title}_signals")
 
         selected_step = 0
         for step, fitresult in enumerate(history_fitresults):
-            if step in selected_triplet_indices or step in [0, len(history_fitresults) - 1]:
+            # if step in selected_triplet_indices or step in [0, len(history_fitresults) - 1]:
+            if step in selected_triplet_indices:
                 a = fitresult.a_mutual_nn_corrected
                 b = fitresult.b_mutual_nn_corrected
                 r = np.divide(a, b)
@@ -277,8 +283,12 @@ class Visualizer(object):
                 axs[selected_step, 0].plot(t_mutual, a, label=f"step_{step}_A")
                 axs[selected_step, 0].plot(t_mutual, b, label=f"step_{step}_B")
 
+                axs_s[selected_step].plot(t_mutual, a, label=f"step_{step}_A")
+                axs_s[selected_step].plot(t_mutual, b, label=f"step_{step}_B")
+
                 if ground_truth_triplet:
                     axs[selected_step, 0].plot(t_ground_truth, signal_ground_truth, label=label_ground_truth)
+                    axs_s[selected_step].plot(t_ground_truth, signal_ground_truth, label=label_ground_truth)
 
                 axs[selected_step, 1].plot(t_mutual, r, label=f"step_{step}_RATIO")
                 axs[selected_step, 1].plot(t_mutual, fitresult.ratio_a_b_mutual_nn_corrected,
@@ -287,17 +297,21 @@ class Visualizer(object):
                 if x_label:
                     axs[selected_step, 0].set_xlabel(x_label)
                     axs[selected_step, 1].set_xlabel(x_label)
+                    axs_s[selected_step].set_xlabel(x_label)
 
                 if y_label:
                     axs[selected_step, 0].set_ylabel(y_label)
                     axs[selected_step, 1].set_ylabel("RATIO")
+                    axs_s[selected_step].set_ylabel(y_label)
 
                 if x_ticker:
                     axs[selected_step, 0].xaxis.set_major_locator(ticker.MultipleLocator(x_ticker))
                     axs[selected_step, 1].xaxis.set_major_locator(ticker.MultipleLocator(x_ticker))
+                    axs_s[selected_step].xaxis.set_major_locator(ticker.MultipleLocator(x_ticker))
 
                 if y_lim:
                     axs[selected_step, 0].ylim(y_lim)
+                    axs_s[selected_step].ylim(y_lim)
 
                 if y_label != Const.TSI_UNIT:
                     axs[selected_step, 1].set_ylim([0, 1.2])
@@ -305,15 +319,20 @@ class Visualizer(object):
                 if legend:
                     axs[selected_step, 0].legend(loc=legend)
                     axs[selected_step, 1].legend(loc=legend)
+                    axs_s[selected_step].legend(loc=legend)
                 else:
                     axs[selected_step, 0].legend()
                     axs[selected_step, 1].legend()
+                    axs_s[selected_step].legend()
 
                 selected_step = selected_step + 1
 
         if results_dir:
-            plt.savefig(os.path.join(results_dir, title))
+            fig.savefig(os.path.join(results_dir, title))
             logging.info(f"Plot {title} generated.")
+
+            fig_s.savefig(os.path.join(results_dir, f"{title}_signals"))
+            logging.info(f"Plot {title}_signals generated.")
 
     @staticmethod
     def plot_iter_loglikelihood(iter_loglikelihood, results_dir, title, legend=None, x_label=None, y_label=None):
@@ -323,7 +342,8 @@ class Visualizer(object):
 
         _ = plt.figure()
         plt.plot(iterations, loglikelihood, label="LOG_LIKELIHOOD_SVGP")
-        plt.title(title)
+
+        # plt.title(title)
 
         if legend:
             plt.legend(loc=legend)

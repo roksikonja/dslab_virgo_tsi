@@ -48,6 +48,13 @@ def plot_results(ground_truth_, result_: Result, results_dir, model_name):
     visualizer.plot_signals(
         [
             (base_sig.t_mutual_nn, before_fit.ratio_a_b_mutual_nn_corrected, f"RATIO_A_B_raw", False),
+        ],
+        results_dir, f"{model_name}_RATIO_DEGRADATION_A_B_raw",
+        legend="upper right", x_label="t", y_label="r(t)")
+
+    visualizer.plot_signals(
+        [
+            (base_sig.t_mutual_nn, before_fit.ratio_a_b_mutual_nn_corrected, f"RATIO_A_B_raw", False),
             (base_sig.t_mutual_nn, last_iter.ratio_a_b_mutual_nn_corrected, f"RATIO_A_not_B_corrected",
              False),
             (base_sig.t_mutual_nn, np.divide(last_iter.a_mutual_nn_corrected, last_iter.b_mutual_nn_corrected),
@@ -67,6 +74,24 @@ def plot_results(ground_truth_, result_: Result, results_dir, model_name):
         results_dir, f"{model_name}_A_B_raw_corrected_full",
         legend="upper right", x_label="t", y_label="x(t)")
 
+    visualizer.plot_signals(
+        [
+            (base_sig.t_a_nn, base_sig.a_nn, "A_raw", False),
+            (base_sig.t_b_nn, base_sig.b_nn, "B_raw", False),
+            (t_, x_, "ground_truth", False),
+        ],
+        results_dir, f"{model_name}_A_B_raw_full",
+        legend="upper right", x_label="t", y_label="x(t)")
+
+    visualizer.plot_signals(
+        [
+            (base_sig.t_a_nn, final_res.a_nn_corrected, "A_raw_corrected", False),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, "B_raw_corrected", False),
+            (t_, x_, "ground_truth", False),
+        ],
+        results_dir, f"{model_name}_A_B_corrected_full",
+        legend="upper right", x_label="t", y_label="x(t)")
+
     visualizer.plot_signal_history(base_sig.t_mutual_nn, result_.history_mutual_nn,
                                    results_dir, f"{model_name}_history",
                                    ground_truth_triplet=(t_, x_, "ground_truth"),
@@ -74,11 +99,18 @@ def plot_results(ground_truth_, result_: Result, results_dir, model_name):
 
     visualizer.plot_signals_mean_std_precompute(
         [
-            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"gen_hourly_{model_name}")
+            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out,
+             f"gen_hourly_{model_name}_gt")
         ],
         results_dir, f"{model_name}_hourly", ground_truth_triplet=(t_, x_, "ground_truth"),
-
         legend="upper left", x_label="t", y_label="x(t)", inducing_points=out_res.params_out.svgp_inducing_points)
+
+    visualizer.plot_signals_mean_std_precompute(
+        [
+            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"gen_hourly_{model_name}")
+        ],
+        results_dir, f"{model_name}_hourly_gt", legend="upper left", x_label="t", y_label="x(t)",
+        inducing_points=out_res.params_out.svgp_inducing_points)
 
     visualizer.plot_signals_mean_std_precompute(
         [

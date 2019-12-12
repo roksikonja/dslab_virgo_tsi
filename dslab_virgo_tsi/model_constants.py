@@ -46,6 +46,7 @@ class SplineConstants(ModelConstants):
     K = 3
     STEPS = 30
     THINNING = 100
+    S_MAX = 100.
 
 
 class ExpConstants(ModelConstants):
@@ -91,7 +92,7 @@ class GaussianProcessConstants(ModelConstants):
     # gpflow parameters
     TRAIN_INDUCING_VARIABLES = False
     INITIAL_FIT = True
-    NUM_INDUCING_POINTS = 300
+    NUM_INDUCING_POINTS = 1000
     MINIBATCH_SIZE = 200
     MAX_ITERATIONS = 8000
     NUM_SAMPLES = 20000
@@ -99,14 +100,14 @@ class GaussianProcessConstants(ModelConstants):
 
     # local gp
     GPR_MODEL = "sklearn"
-    WINDOW = 100
+    WINDOW = 0.1
     POINTS_IN_WINDOW = 200
     WINDOW_FRACTION = 3
 
 
 class OutputTimeConstants(ModelConstants):
     # Generator output
-    GEN_NUM_HOURS = 1001
+    GEN_NUM_HOURS = 10001
     GEN_NUM_HOURS_PER_DAY = 10
 
     # Virgo output

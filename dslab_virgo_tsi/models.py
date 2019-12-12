@@ -66,7 +66,7 @@ class ExpFamilyMixin:
 
 
 class DegradationSpline:
-    def __init__(self, k, steps):
+    def __init__(self, k, steps, s_max):
         """
 
         Parameters
@@ -79,6 +79,7 @@ class DegradationSpline:
         self.k = k
         self.sp = None
         self.steps = steps
+        self.s_max = s_max
 
     @staticmethod
     def _guess(x, y, k, s, w=None):
@@ -226,7 +227,7 @@ class DegradationSpline:
 
         """
         start = 0
-        end = 1
+        end = self.s_max
         mid = (end - start) / 2
         spline = self._spline_dirichlet(x.ravel(), y.ravel(), k=self.k, s=mid)
         step = 1
@@ -388,7 +389,7 @@ class ExpLinModel(BaseModel, ExpFamilyMixin):
 
 
 class SplineModel(BaseModel):
-    def __init__(self, k=SplConsts.K, steps=SplConsts.STEPS, thinning=SplConsts.THINNING):
+    def __init__(self, k=SplConsts.K, steps=SplConsts.STEPS, thinning=SplConsts.THINNING, s_max=SplConsts.S_MAX):
         """
 
         Parameters
@@ -399,11 +400,14 @@ class SplineModel(BaseModel):
             Number of steps in search method for decreasing spline.
         thinning : int
             Take each thinning-th sample of signal when fitting spline to speed up the process.
+        s_max : float
+            Upper bound on bisection interval.
         """
         self.k = k
         self.steps = steps
         self.thinning = thinning
-        self.model = DegradationSpline(self.k, steps=self.steps)
+        self.s_max = s_max
+        self.model = DegradationSpline(self.k, steps=self.steps, s_max=self.s_max)
 
     def get_initial_params(self, base_signals: BaseSignals) -> Params:
         return Params()
@@ -773,8 +777,11 @@ class LocalGPModel(BaseOutputModel):
         t_mean, t_std, x_mean, x_std = 0.0, 1.0, 0.0, 1.0
         gpr = None
 
+        # TODO: DOWNSAMPLING AND WINDOWING IN GEN MODE
         # Iterate through target times
-        step = OutTimeConsts.VIRGO_NUM_HOURS_PER_DAY * window // GPConsts.WINDOW_FRACTION
+        # step = OutTimeConsts.VIRGO_NUM_HOURS_PER_DAY * window // GPConsts.WINDOW_FRACTION
+        step = int(1 / (OutTimeConsts.GEN_NUM_HOURS_PER_DAY * window / GPConsts.WINDOW_FRACTION))
+        print(step, window)
         for num_iter, i in enumerate(np.arange(0, t_hourly_length, step)):
             cur_target_t_mid = t_hourly_out[i, 0]
 
@@ -796,7 +803,12 @@ class LocalGPModel(BaseOutputModel):
 
             cur_target_t = t_hourly_out[start_index_out:end_index_out, :].copy()
 
-            if num_iter % 10 == 0:
+            if cur_target_t.shape[0] == 0:
+                cur_target_t.reshape(-1, 1)
+
+            logging.info(str(cur_target_t.shape))
+            # if num_iter % 10 == 0:
+            if True:
                 logging.info(f"Local GP merging currently at {int(100 * num_iter / t_hourly_length * step)} %.")
                 logging.info("Target indices = {:<20}\tt_mid = {:<10}\tt_window = {:<20}\tt_target = {:<20}"
                              .format(str((start_index_out, end_index_out)), str(np.around(cur_target_t, 2)[0, 0]),
@@ -824,8 +836,13 @@ class LocalGPModel(BaseOutputModel):
                                                   np.less_equal(cur_x, 5 * clip_std)).astype(np.bool).flatten()
                     cur_t, cur_x = cur_t[clip_indices], cur_x[clip_indices]
 
+                logging.info(str(cur_x.shape))
                 # Downsample data
-                downsampling_factor = int(np.floor(cur_x.size / points_in_window))
+                if 2 * cur_x.size > points_in_window:
+                    downsampling_factor = int(cur_x.size / points_in_window)
+                else:
+                    downsampling_factor = 1
+
                 cur_t_down, cur_x_down = np.copy(cur_t)[::downsampling_factor], np.copy(cur_x)[::downsampling_factor]
 
                 # Fit GP on transformed points
