@@ -19,6 +19,10 @@ class GeneratorConstants(ModelConstants):
     SIGNAL_LENGTH = 100000
     DEGRADATION_MODEL = "exp"
     DEGRADATION_RATE = 1.0
+    DOWNSAMPLING_A = 0.1
+    DOWNSAMPLING_B = 0.9
+    STD_NOISE_A = 0.025
+    STD_NOISE_B = 0.015
 
 
 class SmoothMonotoneRegressionConstants(ModelConstants):

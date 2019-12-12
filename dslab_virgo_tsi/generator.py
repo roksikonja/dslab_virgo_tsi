@@ -9,8 +9,16 @@ from dslab_virgo_tsi.model_constants import GeneratorConstants as GenConsts
 
 class SignalGenerator(object):
 
-    def __init__(self, length, random_seed=0, exposure_method: ExposureMethod = ExposureMethod.NUM_MEASUREMENTS):
+    def __init__(self, length, random_seed=0, exposure_method: ExposureMethod = ExposureMethod.NUM_MEASUREMENTS,
+                 downsampling_a=GenConsts.DOWNSAMPLING_A, downsampling_b=GenConsts.DOWNSAMPLING_B,
+                 std_noise_a=GenConsts.STD_NOISE_A, std_noise_b=GenConsts.STD_NOISE_B):
         np.random.seed(random_seed)
+
+        self.downsampling_a = downsampling_a
+        self.downsampling_b = downsampling_b
+
+        self.std_noise_a = std_noise_a
+        self.std_noise_b = std_noise_b
 
         self.length = length
         self.time = self.generate_time()
@@ -32,20 +40,11 @@ class SignalGenerator(object):
         return np.linspace(0, 1, self.length)
 
     def generate_signal(self):
-        """
-        Generates a signal given by random parameters a.
-        :return: x(t) = 10 + sin(10 * pi * a[2] * (t - a[1])) + (2 * int(a[4] >= 0.5) - 1) * a[3] * t.
-        """
-        a = np.random.rand(5)
-        # x_ = 10 + a[0] / 10 * np.sin(10 * np.pi * a[2] * (self.time - a[1])) + \
-        #     (2 * int(a[4] >= 0.5) - 1) * a[3] * self.time
         x_ = 10
-
         dt = self.time[1] - self.time[0]
         x_ = x_ + self.brownian(0, self.time.shape[0], dt, 5)
 
         self.x = x_
-        self.a = a
 
     @staticmethod
     def brownian(x0, n, dt, delta):
@@ -69,8 +68,8 @@ class SignalGenerator(object):
         np.random.seed(random_seed)
         srange = x_.max() - x_.min()
 
-        x_a, t_a = self.remove_measurements(x_.copy(), self.time.copy(), 0.1)
-        x_b, t_b = self.remove_measurements(x_.copy(), self.time.copy(), 0.9)
+        x_a, t_a = self.remove_measurements(x_.copy(), self.time.copy(), self.downsampling_a)
+        x_b, t_b = self.remove_measurements(x_.copy(), self.time.copy(), self.downsampling_a)
 
         mean_b = float(np.mean(x_b[~np.isnan(x_b)]))
         length_a = x_a.shape[0]
@@ -81,8 +80,8 @@ class SignalGenerator(object):
         x_a_raw_, x_b_raw_, params = self.degrade_signal(x_a, x_b, exposure_a, exposure_b,
                                                          degradation_model=degradation_model, rate=rate)
 
-        noise_std_a = srange * 0.05 / 2
-        noise_std_b = srange * 0.03 / 2
+        noise_std_a = srange * self.std_noise_a
+        noise_std_b = srange * self.std_noise_b
 
         x_a_raw_ = x_a_raw_ + self.generate_noise(x_a.shape, std=noise_std_a)
         x_b_raw_ = x_b_raw_ + self.generate_noise(x_b.shape, std=noise_std_b)
@@ -135,12 +134,3 @@ class SignalGenerator(object):
             degradation_b = (1 - params[1]) * np.exp(- 10 * rate * params[0] * exposure_b) + params[1]
 
         return x_a * degradation_a, x_b * degradation_b, params
-
-
-if __name__ == "__main__":
-    generator = SignalGenerator(length=GenConsts.SIGNAL_LENGTH,
-                                random_seed=0,
-                                exposure_method=ExposureMethod.EXPOSURE_SUM)
-
-    t = generator.time
-    x = generator.x

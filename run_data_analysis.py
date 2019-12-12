@@ -12,7 +12,6 @@ from dslab_virgo_tsi.base import ExposureMethod, ModelFitter, BaseSignals
 from dslab_virgo_tsi.constants import Constants as Const
 from dslab_virgo_tsi.data_utils import load_data, notnan_indices, \
     get_sampling_intervals, fft_spectrum
-
 from dslab_virgo_tsi.run_utils import create_logger, create_results_dir
 from dslab_virgo_tsi.visualizer import Visualizer
 
@@ -29,19 +28,30 @@ def parse_arguments():
     return parser.parse_args()
 
 
+def plot_base_virgo_tsi_signals(other_res_):
+    other_tsi = other_res_[Const.PMO6V_OLD].values
+    other_t = other_res_[Const.T].values
+    other_fourplet = (other_t, other_tsi, f"{Const.PMO6V_OLD}_corrected", False)
+
+    visualizer.plot_signals([other_fourplet],
+                            results_dir_path, "{}_raw".format(Const.PMO6V_OLD), x_ticker=Const.XTICKER,
+                            legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+
+
 def plot_base_virgo_signals(base_sig):
     logging.info("Plotting results ...")
 
     visualizer.plot_signals([(base_sig.t_a_nn, base_sig.a_nn, Const.A, False)],
-                            results_dir_path, "{}_raw".format(Const.A), x_ticker=1,
+                            results_dir_path, "{}_raw".format(Const.A), x_ticker=Const.XTICKER,
                             legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
     visualizer.plot_signals([(base_sig.t_a_nn, base_sig.a_nn, Const.A, False)],
-                            results_dir_path, "{}_raw_closeup".format(Const.A), x_ticker=1, y_lim=[1357, 1367],
+                            results_dir_path, "{}_raw_closeup".format(Const.A), x_ticker=Const.XTICKER,
+                            y_lim=[1357, 1367],
                             legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
     visualizer.plot_signals([(base_sig.t_b_nn, base_sig.b_nn, Const.B, False)],
-                            results_dir_path, "{}_raw".format(Const.B), x_ticker=1,
+                            results_dir_path, "{}_raw".format(Const.B), x_ticker=Const.XTICKER,
                             legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
     visualizer.plot_signals([(base_sig.t_a_nn, base_sig.a_nn, Const.A, False),
@@ -53,7 +63,8 @@ def plot_base_virgo_signals(base_sig):
     visualizer.plot_signals([(base_sig.t_mutual_nn, np.divide(base_sig.a_mutual_nn, base_sig.b_mutual_nn),
                               "RATIO_{}_{}_nn".format(Const.A, Const.B), False)],
                             results_dir_path, "RATIO_{}_{}_nn".format(Const.A, Const.B),
-                            x_ticker=Const.XTICKER, legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.RATIO_UNIT)
+                            x_ticker=Const.XTICKER, legend="upper right", x_label=Const.YEAR_UNIT,
+                            y_label=Const.RATIO_UNIT)
 
     visualizer.plot_signals([(base_sig.t_temp_nn, base_sig.temp_nn, Const.TEMP, False)],
                             results_dir_path, "{}_raw".format(Const.TEMP), x_ticker=Const.XTICKER,
@@ -198,26 +209,26 @@ if __name__ == "__main__":
     data = None
     if ARGS.data_file == "premos":
         pass
+    elif ARGS.data_file == "virgo_tsi":
+        other_res = load_data(Const.DATA_DIR, Const.VIRGO_TSI_FILE, "virgo_tsi")
+        plot_base_virgo_tsi_signals(other_res)
     else:
         data = load_data(Const.DATA_DIR, Const.VIRGO_FILE)
         logging.info(f"Data {Const.VIRGO_FILE} loaded.")
 
-    if ARGS.exposure_mode == "measurements":
-        exposure_mode = ExposureMethod.NUM_MEASUREMENTS
-    else:
-        exposure_mode = ExposureMethod.EXPOSURE_SUM
+        if ARGS.exposure_mode == "measurements":
+            exposure_mode = ExposureMethod.NUM_MEASUREMENTS
+        else:
+            exposure_mode = ExposureMethod.EXPOSURE_SUM
 
-    fitter = ModelFitter(mode=ARGS.data_file,
-                         data=data,
-                         t_field_name=Const.T,
-                         a_field_name=Const.A,
-                         b_field_name=Const.B,
-                         exposure_method=ExposureMethod.NUM_MEASUREMENTS,
-                         outlier_fraction=ARGS.outlier_fraction)
+        fitter = ModelFitter(mode=ARGS.data_file,
+                             data=data,
+                             t_field_name=Const.T,
+                             a_field_name=Const.A,
+                             b_field_name=Const.B,
+                             exposure_method=ExposureMethod.NUM_MEASUREMENTS,
+                             outlier_fraction=ARGS.outlier_fraction)
 
-    if ARGS.data_file == "premos":
-        pass
-    else:
         base_signals = analyse_virgo_data(data, fitter.base_signals)
         plot_base_virgo_signals(base_signals)
 
