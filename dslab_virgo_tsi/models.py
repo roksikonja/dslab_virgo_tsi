@@ -713,12 +713,10 @@ class LocalGPModel(BaseOutputModel):
                  dual_kernel=GPConsts.DUAL_KERNEL,
                  normalization=GPConsts.NORMALIZATION,
                  clipping=GPConsts.CLIPPING,
-                 window=GPConsts.WINDOW,
                  points_in_window=GPConsts.POINTS_IN_WINDOW):
         self.dual_kernel = dual_kernel
         self.normalization = normalization
         self.clipping = clipping
-        self.window = window
         self.point_in_window = points_in_window
 
     def fit_and_predict(self, mode: Mode, base_signals: BaseSignals, final_result: FinalResult, t_hourly_out):
@@ -727,6 +725,11 @@ class LocalGPModel(BaseOutputModel):
         t_b, b = base_signals.t_b_nn, final_result.b_nn_corrected
 
         t, x = self._interleave(self.dual_kernel, t_a, t_b, a, b)
+
+        if mode == Mode.GENERATOR:
+            window = GPConsts.GEN_WINDOW
+        else:
+            window = GPConsts.WINDOW
 
         if self.dual_kernel:
             labels_out = GPConsts.LABEL_OUT * np.ones(shape=t_hourly_out.shape)
@@ -740,7 +743,7 @@ class LocalGPModel(BaseOutputModel):
 
             t, x = t[non_clipping_indices, :], x[non_clipping_indices, :]
 
-        signal_hourly_out, signal_std_hourly_out = self._gp_target_time(mode, t, x, t_hourly_out, self.window,
+        signal_hourly_out, signal_std_hourly_out = self._gp_target_time(mode, t, x, t_hourly_out, window,
                                                                         self.point_in_window)
 
         return signal_hourly_out.reshape(-1, 1), signal_std_hourly_out.reshape(-1, 1), OutParams()

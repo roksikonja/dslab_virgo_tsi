@@ -69,7 +69,7 @@ class SignalGenerator(object):
         srange = x_.max() - x_.min()
 
         x_a, t_a = self.remove_measurements(x_.copy(), self.time.copy(), self.downsampling_a)
-        x_b, t_b = self.remove_measurements(x_.copy(), self.time.copy(), self.downsampling_a)
+        x_b, t_b = self.remove_measurements(x_.copy(), self.time.copy(), self.downsampling_b)
 
         mean_b = float(np.mean(x_b[~np.isnan(x_b)]))
         length_a = x_a.shape[0]
