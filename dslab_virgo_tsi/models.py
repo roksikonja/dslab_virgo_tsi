@@ -710,56 +710,80 @@ class GPFamilyMixin:
 
 class LocalGPModel(BaseOutputModel):
     def __init__(self,
+                 dual_kernel=GPConsts.DUAL_KERNEL,
                  normalization=GPConsts.NORMALIZATION,
                  clipping=GPConsts.CLIPPING,
                  window=GPConsts.WINDOW,
                  points_in_window=GPConsts.POINTS_IN_WINDOW):
-
+        self.dual_kernel = dual_kernel
         self.normalization = normalization
         self.clipping = clipping
         self.window = window
         self.point_in_window = points_in_window
 
     def fit_and_predict(self, mode: Mode, base_signals: BaseSignals, final_result: FinalResult, t_hourly_out):
-
         # Training samples
         t_a, a = base_signals.t_a_nn, final_result.a_nn_corrected
         t_b, b = base_signals.t_b_nn, final_result.b_nn_corrected
 
-        t, x = self._interleave(t_a, t_b, a, b)
+        t, x = self._interleave(self.dual_kernel, t_a, t_b, a, b)
 
-        signal_hourly_out, signal_std_hourly_out = self._gp_target_time(t, x, t_hourly_out, self.window,
+        if self.dual_kernel:
+            labels_out = GPConsts.LABEL_OUT * np.ones(shape=t_hourly_out.shape)
+            labels_out = labels_out.astype(np.int).reshape(-1, 1)
+            t_hourly_out = np.concatenate([t_hourly_out, labels_out], axis=1).reshape(-1, 2)
+
+        if self.clipping:
+            x_mean, x_std = np.mean(x), np.std(x)
+            non_clipping_indices = np.logical_and(np.greater_equal(x, x_mean - 5 * x_std),
+                                                  np.less_equal(x, x_mean + 5 * x_std)).astype(np.bool).flatten()
+
+            t, x = t[non_clipping_indices, :], x[non_clipping_indices, :]
+
+        signal_hourly_out, signal_std_hourly_out = self._gp_target_time(mode, t, x, t_hourly_out, self.window,
                                                                         self.point_in_window)
 
         return signal_hourly_out.reshape(-1, 1), signal_std_hourly_out.reshape(-1, 1), OutParams()
 
     @staticmethod
     @njit(cache=True)
-    def _interleave(t_a, t_b, a, b):
+    def _interleave(dual_kernel, t_a, t_b, a, b, label_a=GPConsts.LABEL_A, label_b=GPConsts.LABEL_B):
         index_a = 0
         index_b = 0
         index_together = 0
         a_length = t_a.size
         b_length = t_b.size
-        t_merged = np.empty((a_length + b_length,))
-        val_merged = np.empty((a_length + b_length,))
+        if dual_kernel:
+            t_merged = np.empty((a_length + b_length, 2))
+        else:
+            t_merged = np.empty((a_length + b_length, 1))
+
+        val_merged = np.empty((a_length + b_length, 1))
 
         while index_together < a_length + b_length:
             while index_a < a_length and (t_a[index_a] <= t_b[index_b] or index_b == b_length):
-                t_merged[index_together] = t_a[index_a]
+                if dual_kernel:
+                    t_merged[index_together, :] = np.array([t_a[index_a], label_a])
+                else:
+                    t_merged[index_together] = t_a[index_a]
+
                 val_merged[index_together] = a[index_a]
                 index_a += 1
                 index_together += 1
 
             while index_b < b_length and (t_b[index_b] <= t_a[index_a] or index_a == a_length):
-                t_merged[index_together] = t_b[index_b]
+                if dual_kernel:
+                    t_merged[index_together] = np.array([t_b[index_b], label_b])
+                else:
+                    t_merged[index_together] = t_a[index_a]
+
                 val_merged[index_together] = b[index_b]
                 index_b += 1
                 index_together += 1
 
         return t_merged, val_merged
 
-    def _gp_target_time(self, t, x, t_hourly_out, window, points_in_window):
+    def _gp_target_time(self, mode: Mode, t, x, t_hourly_out, window, points_in_window):
         """
         :param t: Time of all signals.
         :param x: Signal.
@@ -772,48 +796,40 @@ class LocalGPModel(BaseOutputModel):
         """
         t_hourly_length = t_hourly_out.shape[0]
         end_index_out = 0
-        signal_hourly_out, signal_std_hourly_out = np.empty_like(t_hourly_out), np.empty_like(t_hourly_out)
-
         t_mean, t_std, x_mean, x_std = 0.0, 1.0, 0.0, 1.0
-        gpr = None
+        signal_hourly_out = np.zeros((t_hourly_length, ))
+        signal_std_hourly_out = np.zeros((t_hourly_length, ))
 
-        # TODO: DOWNSAMPLING AND WINDOWING IN GEN MODE
-        # Iterate through target times
-        # step = OutTimeConsts.VIRGO_NUM_HOURS_PER_DAY * window // GPConsts.WINDOW_FRACTION
-        step = int(1 / (OutTimeConsts.GEN_NUM_HOURS_PER_DAY * window / GPConsts.WINDOW_FRACTION))
-        print(step, window)
-        for num_iter, i in enumerate(np.arange(0, t_hourly_length, step)):
-            cur_target_t_mid = t_hourly_out[i, 0]
+        if mode == Mode.GENERATOR:
+            step = window / GPConsts.WINDOW_FRACTION
+        else:
+            step = window / GPConsts.WINDOW_FRACTION
 
+        cur_target_t_mid = t_hourly_out[0, 0]
+        while True:
             # Determine points of t and x that fall within window
-            start_index, end_index = extract_time_window(t, cur_target_t_mid, window)
+            start_index, end_index = extract_time_window(t[:, 0], cur_target_t_mid, window)
 
-            cur_x = x[start_index:end_index]
-            cur_t = t[start_index:end_index]
+            cur_x = x[start_index:end_index, :].copy()
+            cur_t = t[start_index:end_index, :].copy()
 
             # Determine points of t_hourly_out that fall within window
             start_index_out = end_index_out
             win_end = cur_target_t_mid + window / (GPConsts.WINDOW_FRACTION * 2.0)
 
-            while end_index_out < t_hourly_length and t_hourly_out[end_index_out] <= win_end:
+            while end_index_out < t_hourly_length and t_hourly_out[end_index_out, 0] <= win_end:
                 end_index_out += 1
 
-            if end_index_out < t_hourly_length <= end_index_out + step:
+            if end_index_out < t_hourly_length and t_hourly_out[end_index_out, 0] + step > t_hourly_out[-1, 0]:
                 end_index_out = t_hourly_length
 
             cur_target_t = t_hourly_out[start_index_out:end_index_out, :].copy()
 
-            if cur_target_t.shape[0] == 0:
-                cur_target_t.reshape(-1, 1)
-
-            logging.info(str(cur_target_t.shape))
-            # if num_iter % 10 == 0:
-            if True:
-                logging.info(f"Local GP merging currently at {int(100 * num_iter / t_hourly_length * step)} %.")
-                logging.info("Target indices = {:<20}\tt_mid = {:<10}\tt_window = {:<20}\tt_target = {:<20}"
-                             .format(str((start_index_out, end_index_out)), str(np.around(cur_target_t, 2)[0, 0]),
-                                     str((np.around(cur_t[0], 2), np.around(cur_t[-1], 2))),
-                                     str((np.around(cur_target_t, 2)[0, 0], np.around(cur_target_t, 2)[-1, 0]))))
+            logging.info(f"Local GP merging currently at {int(100 * end_index_out / t_hourly_length)} %.")
+            logging.info("Target indices = {:<20}\tt_mid = {:<10}\tt_window = {:<20}\tt_target = {:<20}"
+                         .format(str((start_index_out, end_index_out)), str(np.around(cur_target_t_mid, 2)),
+                                 str((np.around(cur_t[0, 0], 2), np.around(cur_t[-1, 0], 2))),
+                                 str((np.around(cur_target_t[0, 0], 2), np.around(cur_target_t[-1, 0], 2)))))
 
             if np.size(cur_x) < 1:
                 if self.normalization:
@@ -821,7 +837,7 @@ class LocalGPModel(BaseOutputModel):
             else:
                 # Normalize data
                 x_mean, x_std = np.mean(cur_x), np.std(cur_x)
-                t_mean, t_std = np.mean(cur_t), np.std(cur_t)
+                t_mean, t_std = np.mean(cur_t[:, 0]), np.std(cur_t[:, 0])
 
                 if self.normalization:
                     cur_t, cur_x = normalize(cur_t, t_mean, t_std), normalize(cur_x, x_mean, x_std)
@@ -831,12 +847,12 @@ class LocalGPModel(BaseOutputModel):
 
                 # Clip values to 5 * std <= x <= 5 * std
                 if self.clipping:
-                    clip_std = np.std(cur_x)
-                    clip_indices = np.logical_and(np.greater_equal(cur_x, -5 * clip_std),
-                                                  np.less_equal(cur_x, 5 * clip_std)).astype(np.bool).flatten()
-                    cur_t, cur_x = cur_t[clip_indices], cur_x[clip_indices]
+                    clip_std = np.std(cur_x[:, 0])
+                    clip_indices = np.logical_and(np.greater_equal(cur_x[:, 0], -5 * clip_std),
+                                                  np.less_equal(cur_x[:, 0], 5 * clip_std)).astype(np.bool).flatten()
 
-                logging.info(str(cur_x.shape))
+                    cur_t, cur_x = cur_t[clip_indices, :], cur_x[clip_indices, :]
+
                 # Downsample data
                 if 2 * cur_x.size > points_in_window:
                     downsampling_factor = int(cur_x.size / points_in_window)
@@ -847,18 +863,19 @@ class LocalGPModel(BaseOutputModel):
 
                 # Fit GP on transformed points
                 if GPConsts.GPR_MODEL == "sklearn":
-                    scale = window / (t_std * 6)
 
-                    kernel = Matern(length_scale=scale, length_scale_bounds=(scale, scale), nu=GPConsts.MATERN_NU) \
-                        + WhiteKernel(GPConsts.WHITE_NOISE_LEVEL, GPConsts.WHITE_NOISE_LEVEL_BOUNDS)
+                    if self.dual_kernel:
+                        kernel = Kernels.dual_matern_kernel + Kernels.dual_white_kernel
+                    else:
+                        kernel = Kernels.matern_kernel + Kernels.white_kernel
 
                     gpr = GaussianProcessRegressor(kernel=kernel,
                                                    n_restarts_optimizer=GPConsts.N_RESTARTS_OPTIMIZER)
 
-                    gpr.fit(cur_t_down.reshape(-1, 1), cur_x_down.reshape(-1, 1))
+                    gpr.fit(cur_t_down, cur_x_down)
                 else:
                     kernel = gpflow.kernels.Sum([Kernels.gpf_matern12, Kernels.gpf_white])
-                    gpr = gpflow.models.GPR(data=(cur_t_down.reshape(-1, 1), cur_x_down.reshape(-1, 1)), kernel=kernel)
+                    gpr = gpflow.models.GPR(data=(cur_t_down, cur_x_down), kernel=kernel)
 
                     def objective_closure():
                         return - gpr.log_marginal_likelihood()
@@ -868,9 +885,9 @@ class LocalGPModel(BaseOutputModel):
 
             # Predict value at target time
             if GPConsts.GPR_MODEL == "sklearn":
-                cur_x_pred, cur_std_pred = gpr.predict(cur_target_t.reshape(-1, 1), return_std=True)
+                cur_x_pred, cur_std_pred = gpr.predict(cur_target_t, return_std=True)
             else:
-                cur_x_pred, cur_var_pred = gpr.predict_f(cur_target_t.reshape(-1, 1))
+                cur_x_pred, cur_var_pred = gpr.predict_f(cur_target_t)
                 cur_x_pred, cur_std_pred = cur_x_pred.numpy(), np.sqrt(cur_var_pred.numpy())
 
             # Project back
@@ -881,8 +898,13 @@ class LocalGPModel(BaseOutputModel):
                 cur_x_pred += x_mean
 
             # Store prediction
-            signal_hourly_out[start_index_out:end_index_out] = cur_x_pred.reshape(-1, 1)
-            signal_std_hourly_out[start_index_out:end_index_out] = cur_std_pred.reshape(-1, 1)
+            signal_hourly_out[start_index_out:end_index_out] = cur_x_pred.ravel()
+            signal_std_hourly_out[start_index_out:end_index_out] = cur_std_pred.ravel()
+
+            if end_index_out >= t_hourly_length:
+                break
+
+            cur_target_t_mid = cur_target_t_mid + step
 
         return signal_hourly_out, signal_std_hourly_out
 
