@@ -41,7 +41,7 @@
             <p class="text-muted text-center" id="jobDescription"></p>
             <div class="progress mx-auto" style="max-width: 600px; height: 8px">
                 <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
-                     id="progressBar" style="width: 0%"></div>
+                     id="progressBar" style="width: 0"></div>
             </div>
         </div>
     </footer>
@@ -51,43 +51,30 @@
     <!-- Periodical polling for updates -->
     <script type="text/javascript">
         $(document).ready(function () {
-            let lastTableData = {};
-            let lastJobDescription = "";
-            let lastJobPercentage = "";
-            let lastJobName = "";
+            let lastDBUpdate = 0;
+            let lastJobUpdate = 0;
+
             let lastIsRunning = true;
             let isFirst = true;
 
             function update() {
                 $.get("{{ url_for('get_update') }}", function (data) {
-                    // Update table
-                    let newTableData = data['dataset_table'];
-                    if (newTableData !== lastTableData) {
+                    let newDBUpdate = data['last_db_update'];
+                    let newJobUpdate = data['last_job_update'];
+                    let isRunning = data['is_running'];
+
+                    if (newDBUpdate > lastDBUpdate) {
                         $("#datasetTable").html(data['dataset_table']);
-                        lastTableData = newTableData;
+                        lastDBUpdate = newDBUpdate;
                     }
 
-                    // Update job
-                    let newJobDescription = data['job_description'];
-                    if (newJobDescription !== lastJobDescription) {
-                        $("#jobDescription").text(newJobDescription);
-                        lastJobDescription = newJobDescription;
+                    if (newJobUpdate > lastJobUpdate) {
+                        $("#jobName").text(data['job_name']);
+                        $("#jobDescription").text(data['job_description']);
+                        $("#progressBar").width(data['job_percentage'] + "%");
+                        lastJobUpdate = newJobUpdate;
                     }
 
-                    let newJobPercentage = data['job_percentage'];
-                    if (newJobPercentage !== lastJobPercentage) {
-                        $("#progressBar").width(newJobPercentage + "%");
-                        lastJobPercentage = newJobPercentage;
-                    }
-
-                    let newJobName = data['job_name'];
-                    if (newJobName !== lastJobName) {
-                        $("#jobName").text(newJobName);
-                        lastJobName = newJobName;
-                    }
-
-                    let isRunning = data['is_running'] === "True";
-                    console.log(isRunning);
                     if (isFirst || isRunning !== lastIsRunning) {
                         isFirst = false;
                         lastIsRunning = isRunning;
@@ -97,23 +84,22 @@
                         let $footer = $("footer");
 
                         if (isRunning) {
-                            console.log("here");
                             $importDataButton.addClass("disabled");
                             $selectButtons.addClass("disabled");
                             $footer.show();
                         } else {
-                            console.log("there");
                             $importDataButton.removeClass("disabled");
                             $selectButtons.removeClass("disabled");
-                            $footer.fadeOut("slow");
+
+                            //$footer.fadeOut("slow");
                         }
                     }
 
                 });
-                setTimeout(update, 1000);
             }
 
             update();
+            setInterval(update, 2000);
         });
     </script>
 {% endblock %}
