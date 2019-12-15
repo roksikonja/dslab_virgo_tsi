@@ -252,8 +252,8 @@ class Visualizer(object):
             signal_ground_truth = ground_truth_triplet[1]
             label_ground_truth = ground_truth_triplet[2]
 
-        max_plots = 2
-        selected_triplet_indices = [0, 1]
+        max_plots = 3
+        selected_triplet_indices = [1, 2, 3]
         # if len(history_fitresults) > max_plots:
         #     selected_triplet_indices = np.arange(1, len(history_fitresults) - 1,
         #                                          np.ceil((len(history_fitresults) - 1) / max_plots))
@@ -290,7 +290,9 @@ class Visualizer(object):
                     axs[selected_step, 0].plot(t_ground_truth, signal_ground_truth, label=label_ground_truth)
                     axs_s[selected_step].plot(t_ground_truth, signal_ground_truth, label=label_ground_truth)
 
-                axs[selected_step, 1].plot(t_mutual, r, label=f"step_{step}_RATIO")
+                if r.shape[0]:
+                    axs[selected_step, 1].plot(t_mutual, r, label=f"step_{step}_RATIO")
+
                 axs[selected_step, 1].plot(t_mutual, fitresult.ratio_a_b_mutual_nn_corrected,
                                            label=f"step_{step}_RATIO_fitted")
 
@@ -333,6 +335,66 @@ class Visualizer(object):
 
             fig_s.savefig(os.path.join(results_dir, f"{title}_signals"))
             logging.info(f"Plot {title}_signals generated.")
+
+    @staticmethod
+    def plot_signal_history_report(t_mutual, history_fitresults, results_dir, title, ground_truth_triplet=None,
+                                   x_ticker=None, legend=None, y_lim=None, x_label=None, y_label=None):
+
+        t_ground_truth = None
+        signal_ground_truth = None
+        label_ground_truth = None
+
+        if ground_truth_triplet:
+            t_ground_truth = ground_truth_triplet[0]
+            if x_label == Const.YEAR_UNIT:
+                t_ground_truth = np.array(list(map(mission_day_to_year, t_ground_truth)))
+
+            signal_ground_truth = ground_truth_triplet[1]
+            label_ground_truth = ground_truth_triplet[2]
+
+        if x_label == Const.YEAR_UNIT:
+            t_mutual = np.array(list(map(mission_day_to_year, t_mutual)))
+
+        fig, axs = plt.subplots(2, 2, figsize=(12, 5))
+
+        # if title:
+        #     fig.suptitle(title)
+        #     axs_s[0].set_title(f"{title}_signals")
+
+        selected_triplet_indices = [0, 1, 2, 3]
+        for step, fitresult in enumerate(history_fitresults):
+            if step in selected_triplet_indices:
+                selected_step = step % 2
+                selected_row = np.floor(step / 2).astype(int)
+                a = fitresult.a_mutual_nn_corrected
+                b = fitresult.b_mutual_nn_corrected
+
+                axs[selected_row, selected_step].plot(t_mutual, a, label=f"step_{step}_A")
+                axs[selected_row, selected_step].plot(t_mutual, b, label=f"step_{step}_B")
+
+                if ground_truth_triplet:
+                    axs[selected_row, selected_step].plot(t_ground_truth, signal_ground_truth, label=label_ground_truth)
+
+                if x_label:
+                    axs[selected_row, selected_step].set_xlabel(x_label)
+
+                if y_label:
+                    axs[selected_row, selected_step].set_ylabel(y_label)
+
+                if x_ticker:
+                    axs[selected_row, selected_step].xaxis.set_major_locator(ticker.MultipleLocator(x_ticker))
+
+                if y_lim:
+                    axs[selected_row, selected_step].set_ylim(y_lim)
+
+                if legend:
+                    axs[selected_row, selected_step].legend(loc=legend)
+                else:
+                    axs[selected_row, selected_step].legend()
+
+        if results_dir:
+            fig.savefig(os.path.join(results_dir, title))
+            logging.info(f"Plot {title} generated.")
 
     @staticmethod
     def plot_iter_loglikelihood(iter_loglikelihood, results_dir, title, legend=None, x_label=None, y_label=None):

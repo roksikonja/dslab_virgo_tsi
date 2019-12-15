@@ -21,12 +21,11 @@ from dslab_virgo_tsi.constants import Constants as Const
 from dslab_virgo_tsi.data_utils import median_downsample_by_factor, get_summary, \
     normalize, unnormalize, find_nearest, extract_time_window
 from dslab_virgo_tsi.gp_utils import SVGaussianProcess
-from dslab_virgo_tsi.kernels import Kernels
+from dslab_virgo_tsi.kernels import Kernels, DualMatern, DualWhiteKernel
 from dslab_virgo_tsi.model_constants import EnsembleConstants as EnsConsts
 from dslab_virgo_tsi.model_constants import ExpConstants as ExpConsts
 from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
 from dslab_virgo_tsi.model_constants import IsotonicConstants as IsoConsts
-from dslab_virgo_tsi.model_constants import OutputTimeConstants as OutTimeConsts
 from dslab_virgo_tsi.model_constants import SmoothMonotoneRegressionConstants as SMRConsts
 from dslab_virgo_tsi.model_constants import SplineConstants as SplConsts
 
@@ -808,6 +807,7 @@ class LocalGPModel(BaseOutputModel):
         else:
             step = window / GPConsts.WINDOW_FRACTION
 
+        gpr = None
         cur_target_t_mid = t_hourly_out[0, 0]
         while True:
             # Determine points of t and x that fall within window
@@ -865,33 +865,25 @@ class LocalGPModel(BaseOutputModel):
                 cur_t_down, cur_x_down = np.copy(cur_t)[::downsampling_factor], np.copy(cur_x)[::downsampling_factor]
 
                 # Fit GP on transformed points
-                if GPConsts.GPR_MODEL == "sklearn":
-
-                    if self.dual_kernel:
-                        kernel = Kernels.dual_matern_kernel + Kernels.dual_white_kernel
-                    else:
-                        kernel = Kernels.matern_kernel + Kernels.white_kernel
-
-                    gpr = GaussianProcessRegressor(kernel=kernel,
-                                                   n_restarts_optimizer=GPConsts.N_RESTARTS_OPTIMIZER)
-
-                    gpr.fit(cur_t_down, cur_x_down)
+                if self.normalization:
+                    scale = (1 - 1 / GPConsts.WINDOW_FRACTION) * window / (t_std * 4 * 2)
                 else:
-                    kernel = gpflow.kernels.Sum([Kernels.gpf_matern12, Kernels.gpf_white])
-                    gpr = gpflow.models.GPR(data=(cur_t_down, cur_x_down), kernel=kernel)
+                    scale = (1 - 1 / GPConsts.WINDOW_FRACTION) * window / (4 * 2)
 
-                    def objective_closure():
-                        return - gpr.log_marginal_likelihood()
+                if self.dual_kernel:
+                    kernel = DualMatern(length_scale=scale,
+                                        length_scale_bounds=(1e-10, scale), nu=GPConsts.MATERN_NU) + DualWhiteKernel()
+                else:
+                    kernel = Matern(length_scale=scale, length_scale_bounds=(1e-10, scale), nu=GPConsts.MATERN_NU) \
+                        + WhiteKernel(GPConsts.WHITE_NOISE_LEVEL, GPConsts.WHITE_NOISE_LEVEL_BOUNDS)
 
-                    opt = gpflow.optimizers.Scipy()
-                    opt.minimize(objective_closure, gpr.trainable_variables, options=dict(maxiter=20))
+                gpr = GaussianProcessRegressor(kernel=kernel,
+                                               n_restarts_optimizer=GPConsts.N_RESTARTS_OPTIMIZER)
 
-            # Predict value at target time
-            if GPConsts.GPR_MODEL == "sklearn":
-                cur_x_pred, cur_std_pred = gpr.predict(cur_target_t, return_std=True)
-            else:
-                cur_x_pred, cur_var_pred = gpr.predict_f(cur_target_t)
-                cur_x_pred, cur_std_pred = cur_x_pred.numpy(), np.sqrt(cur_var_pred.numpy())
+                gpr.fit(cur_t_down, cur_x_down)
+                print(cur_t_down.shape, gpr.kernel_)
+
+            cur_x_pred, cur_std_pred = gpr.predict(cur_target_t, return_std=True)
 
             # Project back
             if self.normalization:
@@ -979,9 +971,9 @@ class SVGPModel(GPFamilyMixin, BaseOutputModel):
         self.t_mean, self.t_std = np.mean(np.concatenate((t_a, t_b), axis=0)), \
             np.std(np.concatenate((t_a, t_b), axis=0))
 
-        # Downsample a
-        downsampling_rate_a = a.shape[0] // b.shape[0]
-        t_a, a = t_a[::downsampling_rate_a], a[::downsampling_rate_a]
+        # # Downsample a
+        # downsampling_rate_a = a.shape[0] // b.shape[0]
+        # t_a, a = t_a[::downsampling_rate_a], a[::downsampling_rate_a]
 
         # Concatenate
         x = np.concatenate([a, b], axis=0).reshape(-1, 1)
@@ -1040,6 +1032,7 @@ class SVGPModel(GPFamilyMixin, BaseOutputModel):
         # Kernel
         if self.dual_kernel:
             kernel = gpflow.kernels.Sum([Kernels.gpf_dual_matern12, Kernels.gpf_dual_white])
+            # kernel = gpflow.kernels.Sum([Kernels.gpf_dual_matern32, Kernels.gpf_dual_white])
         else:
             kernel = gpflow.kernels.Sum([Kernels.gpf_matern12, Kernels.gpf_white])
 

@@ -395,5 +395,6 @@ class Kernels:
     gpf_matern12 = gpflow.kernels.Matern12()
     gpf_white = gpflow.kernels.White()
 
+    gpf_dual_matern32 = VirgoMatern32Kernel()
     gpf_dual_matern12 = VirgoMatern12Kernel()
     gpf_dual_white = VirgoWhiteKernel()
