@@ -392,6 +392,8 @@ class Visualizer(object):
                 else:
                     axs[selected_row, selected_step].legend()
 
+        fig.tight_layout()
+
         if results_dir:
             fig.savefig(os.path.join(results_dir, title))
             logging.info(f"Plot {title} generated.")
