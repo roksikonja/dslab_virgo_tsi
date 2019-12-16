@@ -63,7 +63,8 @@ class BaseSignals:
 
 
 class OutParams:
-    def __init__(self, svgp_iter_loglikelihood=None, svgp_inducing_points=None):
+    def __init__(self, svgp_iter_loglikelihood=None, svgp_inducing_points=None, svgp_prior_samples=None,
+                 svgp_t_prior=None, svgp_posterior_samples=None, svgp_t_posterior=None):
         """
 
         :param svgp_iter_loglikelihood:
@@ -71,6 +72,10 @@ class OutParams:
         """
         self.svgp_iter_loglikelihood = svgp_iter_loglikelihood
         self.svgp_inducing_points = svgp_inducing_points
+        self.svgp_prior_samples = svgp_prior_samples
+        self.svgp_t_prior = svgp_t_prior
+        self.svgp_posterior_samples = svgp_posterior_samples
+        self.svgp_t_posterior = svgp_t_posterior
 
 
 class OutResult:

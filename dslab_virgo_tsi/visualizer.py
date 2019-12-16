@@ -148,7 +148,7 @@ class Visualizer(object):
     def plot_signals_mean_std_precompute(signal_fourplets, results_dir, title, x_ticker=None, legend=None, y_lim=None,
                                          x_label=None, y_label=None, ground_truth_triplet=None,
                                          data_points_triplets=None, confidence=0.95, alpha=0.5, max_points=1e5,
-                                         max_points_scatter=1e4, inducing_points=None):
+                                         max_points_scatter=1e4, inducing_points=None, f_sample_triplets=None):
 
         factor = norm.ppf(1 / 2 + confidence / 2)  # 0.95 % -> 1.959963984540054
 
@@ -201,6 +201,11 @@ class Visualizer(object):
                             label=label_data_points,
                             marker=Const.MATPLOTLIB_STYLE_MARKER,
                             s=Const.MATPLOTLIB_STYLE_MARKERSIZE)
+
+        if f_sample_triplets:
+            for triplet in f_sample_triplets:
+                t, x, label = triplet[0], triplet[1], triplet[2]
+                plt.plot(t.reshape(-1, 1), x, "C2", lw=Const.MATPLOTLIB_STYLE_LINEWIDTH/3)
 
         if ground_truth_triplet:
             t_ground_truth = ground_truth_triplet[0]

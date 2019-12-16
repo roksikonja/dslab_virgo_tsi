@@ -470,7 +470,7 @@ class IsotonicModel(BaseModel):
             max_exposure = base_signals.exposure_a_mutual_nn[-1]
             exposure = np.linspace(0, max_exposure, self.number_of_points)
             ratio = self.model.predict(exposure)
-            self.model = DegradationSpline(self.k, steps=self.steps)
+            self.model = DegradationSpline(self.k, steps=self.steps, s_max=SplConsts.S_MAX)
             self.model.fit(exposure, ratio)
 
         a_correction = self.model.predict(base_signals.exposure_a_mutual_nn)
@@ -799,8 +799,8 @@ class LocalGPModel(BaseOutputModel):
         t_hourly_length = t_hourly_out.shape[0]
         end_index_out = 0
         t_mean, t_std, x_mean, x_std = 0.0, 1.0, 0.0, 1.0
-        signal_hourly_out = np.zeros((t_hourly_length, ))
-        signal_std_hourly_out = np.zeros((t_hourly_length, ))
+        signal_hourly_out = np.zeros((t_hourly_length,))
+        signal_std_hourly_out = np.zeros((t_hourly_length,))
 
         if mode == Mode.GENERATOR:
             step = window / GPConsts.WINDOW_FRACTION
@@ -875,7 +875,7 @@ class LocalGPModel(BaseOutputModel):
                                         length_scale_bounds=(1e-10, scale), nu=GPConsts.MATERN_NU) + DualWhiteKernel()
                 else:
                     kernel = Matern(length_scale=scale, length_scale_bounds=(1e-10, scale), nu=GPConsts.MATERN_NU) \
-                        + WhiteKernel(GPConsts.WHITE_NOISE_LEVEL, GPConsts.WHITE_NOISE_LEVEL_BOUNDS)
+                             + WhiteKernel(GPConsts.WHITE_NOISE_LEVEL, GPConsts.WHITE_NOISE_LEVEL_BOUNDS)
 
                 gpr = GaussianProcessRegressor(kernel=kernel,
                                                n_restarts_optimizer=GPConsts.N_RESTARTS_OPTIMIZER)
@@ -917,7 +917,7 @@ class GPModel(GPFamilyMixin, BaseOutputModel):
 
         self.x_mean, self.x_std = np.mean(np.concatenate((a, b), axis=0)), np.std(np.concatenate((a, b), axis=0))
         self.t_mean, self.t_std = np.mean(np.concatenate((t_a, t_b), axis=0)), \
-            np.std(np.concatenate((t_a, t_b), axis=0))
+                                  np.std(np.concatenate((t_a, t_b), axis=0))
 
         if self.dual_kernel:
             labels_out = GPConsts.LABEL_OUT * np.ones(shape=t_hourly_out.shape)
@@ -969,7 +969,7 @@ class SVGPModel(GPFamilyMixin, BaseOutputModel):
         # Data standardization parameters
         self.x_mean, self.x_std = np.mean(np.concatenate((a, b), axis=0)), np.std(np.concatenate((a, b), axis=0))
         self.t_mean, self.t_std = np.mean(np.concatenate((t_a, t_b), axis=0)), \
-            np.std(np.concatenate((t_a, t_b), axis=0))
+                                  np.std(np.concatenate((t_a, t_b), axis=0))
 
         # # Downsample a
         # downsampling_rate_a = a.shape[0] // b.shape[0]
@@ -1039,6 +1039,15 @@ class SVGPModel(GPFamilyMixin, BaseOutputModel):
         # Global trends
         m = gpflow.models.SVGP(kernel, gpflow.likelihoods.Gaussian(), inducing_points, num_data=t.shape[0])
 
+        if 2 * GPConsts.PRIOR_POSTERIOR_LENGTH < t_hourly_out.shape[0]:
+            t_prior = t_posterior = t_hourly_out[::int(t_hourly_out.shape[0] / GPConsts.PRIOR_POSTERIOR_LENGTH), :]
+        else:
+            t_prior = t_posterior = t_hourly_out
+
+        # Prior sampling
+        x_prior = m.predict_f_samples(t_prior, GPConsts.PRIOR_POSTERIOR_SAMPLES)[:, :, 0].numpy().T
+        logging.info(f"Samples prior of shape {x_prior.shape}.")
+
         # Initial fit
         if self.initial_fit:
             length_scale_initial, noise_level_a_initial, noise_level_b_initial = self._initial_fit(mode, base_signals,
@@ -1061,15 +1070,28 @@ class SVGPModel(GPFamilyMixin, BaseOutputModel):
         # Train
         signal_hourly_out, signal_std_hourly_out, iter_loglikelihood = self.train_model(m, t, x, t_hourly_out)
 
+        # Posterior sampling
+        x_posterior = m.predict_f_samples(t_posterior, GPConsts.PRIOR_POSTERIOR_SAMPLES)[:, :, 0].numpy().T
+        logging.info(f"Samples posterior of shape {x_posterior.shape}.")
+
         # Revert normalization
         if self.normalization:
             signal_hourly_out = unnormalize(signal_hourly_out, self.x_mean, self.x_std)
             signal_std_hourly_out = signal_std_hourly_out * (self.x_std ** 2)
             inducing_points = unnormalize(inducing_points, self.t_mean, self.t_std)
+            for i in range(x_prior.shape[1]):
+                x_prior[:, i] = unnormalize(x_prior[:, i], self.x_mean, self.x_std)
+                x_posterior[:, i] = unnormalize(x_posterior[:, i], self.x_mean, self.x_std)
+
+            t_prior = t_posterior = unnormalize(t_prior, self.t_mean, self.t_std)
         else:
             signal_hourly_out = signal_hourly_out + self.x_mean
+            x_prior = x_prior + self.x_mean
+            x_posterior = x_posterior + self.x_mean
 
-        params_out = OutParams(iter_loglikelihood, inducing_points)
+        params_out = OutParams(iter_loglikelihood, inducing_points, svgp_prior_samples=x_prior,
+                               svgp_t_prior=t_prior[:, 0], svgp_posterior_samples=x_posterior,
+                               svgp_t_posterior=t_posterior[:, 0])
 
         return signal_hourly_out, signal_std_hourly_out, params_out
 

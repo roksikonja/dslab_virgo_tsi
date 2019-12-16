@@ -50,7 +50,7 @@ class SplineConstants(ModelConstants):
     K = 3
     STEPS = 30
     THINNING = 100
-    S_MAX = 100.
+    S_MAX = 100
 
 
 class ExpConstants(ModelConstants):
@@ -91,23 +91,25 @@ class GaussianProcessConstants(ModelConstants):
     WHITE_NOISE_LEVEL = 1
     WHITE_NOISE_LEVEL_BOUNDS = (1e-5, 1e5)
 
-    N_RESTARTS_OPTIMIZER = 1
+    N_RESTARTS_OPTIMIZER = 5
 
     # gpflow parameters
     TRAIN_INDUCING_VARIABLES = False
     INITIAL_FIT = True
     NUM_INDUCING_POINTS = 1000
     MINIBATCH_SIZE = 200
-    MAX_ITERATIONS = 8000
+    MAX_ITERATIONS = 10000
     NUM_SAMPLES = 20000
     LEARNING_RATE = 0.005
+    PRIOR_POSTERIOR_SAMPLES = 10
+    PRIOR_POSTERIOR_LENGTH = 2000
 
     # local gp
     GPR_MODEL = "sklearn"
-    WINDOW = 100
-    GEN_WINDOW = 0.2
+    WINDOW = 200
+    GEN_WINDOW = 0.1
     POINTS_IN_WINDOW = 100
-    WINDOW_FRACTION = 3
+    WINDOW_FRACTION = 5
 
 
 class OutputTimeConstants(ModelConstants):
