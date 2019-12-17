@@ -1,3 +1,4 @@
+import os
 import pickle
 from os.path import basename, splitext
 
@@ -16,6 +17,11 @@ def add_dataset(dataset: Dataset):
 
 def delete_dataset(dataset_id):
     dataset = Dataset.query.get_or_404(dataset_id)
+    print("Remove dataset")
+    os.remove(dataset.dataset_location)
+
+    print("Remove pickle")
+    os.remove(dataset.pickle_location)
     db.session.delete(dataset)
     db.session.commit()
     update_table()
@@ -50,7 +56,7 @@ def import_data_job(dataset_name: str, filename: str, dataset_location: str, out
         if dataset_name == "":
             dataset_name, _ = splitext(basename(filename))
         dataset = Dataset(name=dataset_name, exposure_method=exposure_method, outlier_fraction=outlier_fraction,
-                          location=dataset_location)
+                          dataset_location=dataset_location, pickle_location=pickle_location)
 
         # Add entry to database
         add_dataset(dataset)

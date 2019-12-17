@@ -4,7 +4,7 @@ from time import sleep
 
 from flask import render_template, redirect, url_for, jsonify, Response, current_app
 
-from dataset_handling_utils import import_data_job, update_table
+from dataset_handling_utils import import_data_job, update_table, delete_dataset
 from flask_backend import app, executor, status
 from flask_backend.forms import NewDataForm, AnalysisForm
 from flask_backend.models import Dataset
@@ -55,7 +55,7 @@ def import_data():
 
 @app.route("/delete_data/<int:dataset_id>", methods=["POST"])
 def delete_data(dataset_id):
-    # delete_dataset(dataset_id)
+    delete_dataset(dataset_id)
     return redirect(url_for("home"))
 
 
@@ -90,6 +90,11 @@ def analysis(dataset_id):
 @app.errorhandler(404)
 def error_404(_):
     return render_template('404.html'), 404
+
+
+@app.errorhandler(405)
+def error_405(_):
+    return render_template('405.html'), 404
 
 
 @app.route("/results")
