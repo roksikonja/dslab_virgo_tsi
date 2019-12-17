@@ -15,8 +15,8 @@ class Mode(Enum):
 
 
 class ExposureMethod(Enum):
-    NUM_MEASUREMENTS = auto()
-    EXPOSURE_SUM = auto()
+    NUM_MEASUREMENTS = "Num. measurements"
+    EXPOSURE_SUM = "Exposure sum"
 
 
 class CorrectionMethod(Enum):

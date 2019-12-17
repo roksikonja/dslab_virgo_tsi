@@ -20,9 +20,7 @@
                             {% if form.model.errors %}
                                 {{ form.model(class="custom-select is-invalid") }}
                                 <div class="invalid-feedback">
-                                    <div class="invalid-feedback">
-                                        <span>{{ form.model.errors|join(', ') }}</span>
-                                    </div>
+                                    <span>{{ form.model.errors|join(', ') }}</span>
                                 </div>
                             {% else %}
                                 {{ form.model(class="custom-select") }}
@@ -36,9 +34,7 @@
                             {% if form.model_params.errors %}
                                 {{ form.model_params(class="form-control is-invalid") }}
                                 <div class="invalid-feedback">
-                                    <div class="invalid-feedback">
-                                        <span>{{ form.model_params.errors|join(', ') }}</span>
-                                    </div>
+                                    <span>{{ form.model_params.errors|join(', ') }}</span>
                                 </div>
                             {% else %}
                                 {{ form.model_params(class="form-control") }}
@@ -52,9 +48,7 @@
                             {% if form.correction.errors %}
                                 {{ form.correction(class="custom-select is-invalid") }}
                                 <div class="invalid-feedback">
-                                    <div class="invalid-feedback">
-                                        <span>{{ form.correction.errors|join(', ') }}</span>
-                                    </div>
+                                    <span>{{ form.correction.errors|join(', ') }}</span>
                                 </div>
                             {% else %}
                                 {{ form.correction(class="custom-select") }}
@@ -68,9 +62,7 @@
                             {% if form.output.errors %}
                                 {{ form.output(class="custom-select is-invalid") }}
                                 <div class="invalid-feedback">
-                                    <div class="invalid-feedback">
-                                        <span>{{ form.output.errors|join(', ') }}</span>
-                                    </div>
+                                    <span>{{ form.output.errors|join(', ') }}</span>
                                 </div>
                             {% else %}
                                 {{ form.output(class="custom-select") }}

@@ -46,6 +46,24 @@ class Status:
             elif key != StatusField.DATASET_TABLE:
                 self._data[StatusField.LAST_JOB_UPDATE] = current_time
 
+    def set_description(self, description):
+        self.set(StatusField.JOB_DESCRIPTION, description)
+
+    def set_percentage(self, percentage):
+        self.set(StatusField.JOB_PERCENTAGE, percentage)
+
+    def update_progress(self, description, percentage):
+        with self._lock:
+            self._data[StatusField.JOB_DESCRIPTION] = description
+            self._data[StatusField.JOB_PERCENTAGE] = percentage
+            self._data[StatusField.LAST_JOB_UPDATE] = time()
+
+    def set_dataset_list(self, dataset_list):
+        self.set(StatusField.DATASET_LIST, dataset_list)
+
+    def release(self):
+        self.set(StatusField.RUNNING, False)
+
     def new_job(self, job_type: JobType, description, name):
         with self._lock:
             self._data[StatusField.RUNNING] = True
@@ -59,12 +77,16 @@ class Status:
         with self._lock:
             return self._data[key]
 
+    def get_dataset_list(self):
+        return self.get(StatusField.DATASET_LIST)
+
+    def is_running(self):
+        return self.get(StatusField.RUNNING)
+
     def get_json(self):
         with self._lock:
-
             # Only render table if it has changed since it was last rendered
             if self._data[StatusField.LAST_DB_TABLE_RENDER] < self._data[StatusField.LAST_DB_UPDATE]:
-
                 # Render table
                 self._data[StatusField.DATASET_TABLE] = render_template("dataset_table.html",
                                                                         datasets=self._data[StatusField.DATASET_LIST])
