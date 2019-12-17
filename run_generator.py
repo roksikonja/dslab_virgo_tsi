@@ -147,7 +147,8 @@ def plot_results(ground_truth_, result_: Result, results_dir, model_name):
             (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"gen_hourly_{model_name}")
         ],
         results_dir, f"{model_name}_hourly_posterior", legend="upper left", x_label="t", y_label="x(t)",
-        f_sample_triplets=[(out_res.params_out.svgp_t_posterior, out_res.params_out.svgp_posterior_samples, "POSTERIOR")])
+        f_sample_triplets=[
+            (out_res.params_out.svgp_t_posterior, out_res.params_out.svgp_posterior_samples, "POSTERIOR")])
 
 
 if __name__ == "__main__":
@@ -166,15 +167,15 @@ if __name__ == "__main__":
     model, model_type, correction_method, exposure_method, output_model, output_method, outlier_fraction \
         = setup_run(ARGS, mode, results_dir_path)
 
-    fitter = ModelFitter(mode=mode,
-                         data=data,
+    fitter = ModelFitter(data=data,
                          t_field_name=t_field_name,
                          a_field_name=a_field_name,
                          b_field_name=b_field_name,
                          exposure_method=exposure_method,
                          outlier_fraction=outlier_fraction)
 
-    result: Result = fitter(model=model,
+    result: Result = fitter(mode=mode,
+                            model=model,
                             correction_method=correction_method,
                             output_model=output_model)
 

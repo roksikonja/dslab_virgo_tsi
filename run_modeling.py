@@ -1,4 +1,5 @@
 import logging
+import os
 
 import numpy as np
 
@@ -10,7 +11,7 @@ from dslab_virgo_tsi.run_utils import setup_run, create_results_dir, create_logg
 from dslab_virgo_tsi.visualizer import Visualizer
 
 
-def plot_results(result_: Result, results_dir, model_name, other_tsi_file=None):
+def plot_results(visualizer_: Visualizer, result_: Result, results_dir, model_name, other_tsi_file=None):
     if other_tsi_file:
         logging.info(f"Loading additional data from {other_tsi_file}.")
         other_res = load_data(Const.DATA_DIR, other_tsi_file, "virgo_tsi")
@@ -32,11 +33,11 @@ def plot_results(result_: Result, results_dir, model_name, other_tsi_file=None):
     logging.info("Plotting results ...")
 
     if out_res.params_out.svgp_iter_loglikelihood:
-        visualizer.plot_iter_loglikelihood(out_res.params_out.svgp_iter_loglikelihood, results_dir,
-                                           f"{model_name}_ITER_LOGLIKELIHOOD", legend="lower left",
-                                           x_label=Const.ITERATION_UNIT, y_label=Const.LOG_LIKELIHOOD_UNIT)
+        visualizer_.plot_iter_loglikelihood(out_res.params_out.svgp_iter_loglikelihood, results_dir,
+                                            f"{model_name}_ITER_LOGLIKELIHOOD", legend="lower left",
+                                            x_label=Const.ITERATION_UNIT, y_label=Const.LOG_LIKELIHOOD_UNIT)
 
-    visualizer.plot_signals_mean_std_precompute(
+    visualizer_.plot_signals_mean_std_precompute(
         [
             (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
         ],
@@ -44,7 +45,7 @@ def plot_results(result_: Result, results_dir, model_name, other_tsi_file=None):
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7,
         inducing_points=out_res.params_out.svgp_inducing_points)
 
-    visualizer.plot_signals_mean_std_precompute(
+    visualizer_.plot_signals_mean_std_precompute(
         [
             (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
         ],
@@ -52,15 +53,17 @@ def plot_results(result_: Result, results_dir, model_name, other_tsi_file=None):
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7,
         f_sample_triplets=[(out_res.params_out.svgp_t_prior, out_res.params_out.svgp_prior_samples, "PRIOR")])
 
-    visualizer.plot_signals_mean_std_precompute(
+    visualizer_.plot_signals_mean_std_precompute(
         [
             (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
         ],
-        results_dir, f"{model_name}_TSI_hourly_posterior", x_ticker=Const.XTICKER, legend="upper left", y_lim=[1362, 1369],
+        results_dir, f"{model_name}_TSI_hourly_posterior", x_ticker=Const.XTICKER, legend="upper left",
+        y_lim=[1362, 1369],
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7,
-        f_sample_triplets=[(out_res.params_out.svgp_t_posterior, out_res.params_out.svgp_posterior_samples, "POSTERIOR")])
+        f_sample_triplets=[
+            (out_res.params_out.svgp_t_posterior, out_res.params_out.svgp_posterior_samples, "POSTERIOR")])
 
-    visualizer.plot_signals_mean_std_precompute(
+    visualizer_.plot_signals_mean_std_precompute(
         [
             (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
         ],
@@ -69,7 +72,7 @@ def plot_results(result_: Result, results_dir, model_name, other_tsi_file=None):
         ground_truth_triplet=other_triplet,
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7)
 
-    visualizer.plot_signals_mean_std_precompute(
+    visualizer_.plot_signals_mean_std_precompute(
         [
             (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
         ],
@@ -81,7 +84,7 @@ def plot_results(result_: Result, results_dir, model_name, other_tsi_file=None):
         ],
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7)
 
-    visualizer.plot_signals(
+    visualizer_.plot_signals(
         [
             (base_sig.t_a_nn, final_res.degradation_a_nn, f"DEGRADATION_{Const.A}", False),
             (base_sig.t_b_nn, final_res.degradation_b_nn, f"DEGRADATION_{Const.B}", False)
@@ -89,7 +92,7 @@ def plot_results(result_: Result, results_dir, model_name, other_tsi_file=None):
         results_dir, f"{model_name}_DEGRADATION_{Const.A}_{Const.B}", x_ticker=Const.XTICKER, legend="upper right",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
-    visualizer.plot_signals(
+    visualizer_.plot_signals(
         [
             (base_sig.t_mutual_nn, before_fit.a_mutual_nn_corrected, f"{Const.A}_mutual_nn", False),
             (base_sig.t_mutual_nn, before_fit.b_mutual_nn_corrected, f"{Const.B}_mutual_nn", False),
@@ -99,7 +102,7 @@ def plot_results(result_: Result, results_dir, model_name, other_tsi_file=None):
         results_dir, f"{model_name}_{Const.A}_{Const.B}_mutual_corrected", x_ticker=Const.XTICKER, legend="upper right",
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
-    visualizer.plot_signals(
+    visualizer_.plot_signals(
         [
             (base_sig.t_mutual_nn, before_fit.ratio_a_b_mutual_nn_corrected, f"RATIO_{Const.A}_{Const.B}_raw", False),
             (base_sig.t_mutual_nn, last_iter.ratio_a_b_mutual_nn_corrected, f"RATIO_{Const.A}_not_{Const.B}_corrected",
@@ -110,7 +113,7 @@ def plot_results(result_: Result, results_dir, model_name, other_tsi_file=None):
         results_dir, f"{model_name}_RATIO_DEGRADATION_{Const.A}_{Const.B}_raw_corrected", x_ticker=Const.XTICKER,
         legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
-    visualizer.plot_signals(
+    visualizer_.plot_signals(
         [
             (base_sig.t_a_nn, base_sig.a_nn, f"{Const.A}_raw", False),
             (base_sig.t_b_nn, base_sig.b_nn, f"{Const.B}_raw", False),
@@ -120,7 +123,7 @@ def plot_results(result_: Result, results_dir, model_name, other_tsi_file=None):
         results_dir, f"{model_name}_{Const.A}_{Const.B}_raw_corrected_full", x_ticker=Const.XTICKER, y_lim=[1357, 1369],
         legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
-    visualizer.plot_signals(
+    visualizer_.plot_signals(
         [
             (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_corrected", False),
             (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_corrected", False),
@@ -129,18 +132,17 @@ def plot_results(result_: Result, results_dir, model_name, other_tsi_file=None):
         results_dir, f"{model_name}_{Const.A}_{Const.B}_other_corrected_full", x_ticker=Const.XTICKER,
         y_lim=[1362, 1369], legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
-    visualizer.plot_signal_history(base_sig.t_mutual_nn, result_.history_mutual_nn,
-                                   results_dir, f"{model_name}_history",
-                                   ground_truth_triplet=None,
-                                   legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+    visualizer_.plot_signal_history(base_sig.t_mutual_nn, result_.history_mutual_nn,
+                                    results_dir, f"{model_name}_history",
+                                    ground_truth_triplet=None,
+                                    legend="upper right", x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
-    visualizer.plot_signals(
+    visualizer_.plot_signals(
         [
             (out_res.t_hourly_out, out_res.signal_std_hourly_out, f"CI_95%", False)
         ],
         results_dir, f"{model_name}_CI",
         legend="upper left", x_label="t", y_label="sigma(t)")
-
 
 
 if __name__ == "__main__":
@@ -160,15 +162,15 @@ if __name__ == "__main__":
     model, model_type, correction_method, exposure_method, output_model, output_method, outlier_fraction \
         = setup_run(ARGS, mode, results_dir_path)
 
-    fitter = ModelFitter(mode=mode,
-                         data=data,
+    fitter = ModelFitter(data=data,
                          t_field_name=t_field_name,
                          a_field_name=a_field_name,
                          b_field_name=b_field_name,
                          exposure_method=exposure_method,
                          outlier_fraction=outlier_fraction)
 
-    result: Result = fitter(model=model,
+    result: Result = fitter(mode=mode,
+                            model=model,
                             correction_method=correction_method,
                             output_model=output_model)
 
@@ -178,6 +180,6 @@ if __name__ == "__main__":
     result.out.params_out.svgp_inducing_points = None
 
     if ARGS.save_plots or not ARGS.save_signals:
-        plot_results(result, results_dir_path, f"{model_type}_{output_method}", Const.VIRGO_TSI_FILE)
+        plot_results(visualizer, result, results_dir_path, f"{model_type}_{output_method}", Const.VIRGO_TSI_FILE)
 
     logging.info("Application finished.")
