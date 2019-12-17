@@ -3,25 +3,36 @@ from time import sleep
 
 from flask import render_template, redirect, url_for, jsonify, Response
 
-from flask_backend import app, db, executor
+from flask_backend import app, db, executor, status
 from flask_backend.forms import NewDataForm, AnalysisForm
-from flask_backend.models import Dataset, ConstantsAccess
+from flask_backend.models import Dataset
+from status_utils import StatusField as sF, JobType as jT
+
+
+def add_dataset(dataset: Dataset):
+    db.session.add(dataset)
+    db.session.commit()
+    update_table()
+
+
+def delete_dataset(dataset_id):
+    dataset = Dataset.query.get_or_404(dataset_id)
+    db.session.delete(dataset)
+    db.session.commit()
+    update_table()
+
+
+def update_table():
+    datasets = Dataset.query.all()
+    status.set(sF.DATASET_LIST, datasets)
 
 
 @app.route("/get_update")
 def get_update() -> Response:
-    datasets = Dataset.query.all()
-    dataset_table = render_template('dataset_table.html', datasets=datasets)
-    is_running = ConstantsAccess.get_running()
-    job_description = ConstantsAccess.get_job_description()
-    job_name = ConstantsAccess.get_job_name()
-    job_percentage = ConstantsAccess.get_job_percentage()
-    message = {"dataset_table": dataset_table,
-               "is_running": is_running,
-               "job_description": job_description,
-               "job_name": job_name,
-               "job_percentage": job_percentage}
-    return jsonify(message)
+    if status.get(sF.DATASET_LIST) is None:
+        update_table()
+
+    return jsonify(status.get_json())
 
 
 @app.route("/")
@@ -32,36 +43,24 @@ def home():
 
 def _import_data(dataset: Dataset):
     sleep(1)
-    ConstantsAccess.set_job_percentage("10")
+    status.set(sF.JOB_PERCENTAGE, 30)
     sleep(1)
-    ConstantsAccess.set_job_percentage("20")
+    status.set(sF.JOB_PERCENTAGE, 60)
     sleep(1)
-    ConstantsAccess.set_job_percentage("30")
+    status.set(sF.JOB_PERCENTAGE, 90)
     sleep(1)
-    ConstantsAccess.set_job_percentage("40")
-    sleep(1)
-    ConstantsAccess.set_job_description("Removing outliers")
-    ConstantsAccess.set_job_percentage("50")
-    sleep(1)
-    ConstantsAccess.set_job_percentage("70")
-    sleep(1)
-    ConstantsAccess.set_job_percentage("90")
-    sleep(1)
-    db.session.add(dataset)
-    db.session.commit()
-    ConstantsAccess.set_running("False")
+    status.set(sF.JOB_PERCENTAGE, 100)
+    add_dataset(dataset)
+    status.set(sF.RUNNING, False)
 
 
 @app.route("/import_data", methods=["GET", "POST"])
 def import_data():
     form = NewDataForm()
-    if form.validate_on_submit() and ConstantsAccess.get_running() == "False":
+    if form.validate_on_submit() and not status.get(sF.RUNNING):
 
         # Block other operation
-        ConstantsAccess.set_running("True")
-        ConstantsAccess.set_job_description("Importing CSV")
-        ConstantsAccess.set_job_name("Import data")
-        ConstantsAccess.set_job_percentage("0")
+        status.new_job(jT.IMPORT, "Importing CSV", "Import data")
 
         # Prepare table entry
         name = form.name.data
@@ -81,22 +80,45 @@ def import_data():
 
 @app.route("/delete_data/<int:dataset_id>", methods=["POST"])
 def delete_data(dataset_id):
-    dataset = Dataset.query.get_or_404(dataset_id)
-    db.session.delete(dataset)
-    db.session.commit()
+    delete_dataset(dataset_id)
     return redirect(url_for("home"))
+
+
+def _analysis():
+    sleep(3)
+    status.set(sF.JOB_PERCENTAGE, 30)
+    sleep(1)
+    status.set(sF.JOB_PERCENTAGE, 60)
+    sleep(1)
+    status.set(sF.JOB_PERCENTAGE, 90)
+    sleep(1)
+    status.set(sF.JOB_PERCENTAGE, 100)
+    status.set(sF.RUNNING, False)
 
 
 @app.route("/analysis/<int:dataset_id>", methods=["GET", "POST"])
 def analysis(dataset_id):
     print("ANALYSIS")
     form = AnalysisForm()
-    if form.validate_on_submit():
+    if form.validate_on_submit() and not status.get(sF.RUNNING):
+
+        # Block other operation
+        status.new_job(jT.ANALYSIS, "Analysis in progress", "Data Analysis")
+
+        # Perform analysis (new thread)
+        executor.submit(_analysis)
+
         return redirect(url_for("home"))
 
     name = Dataset.query.get_or_404(dataset_id).name
     return render_template("analysis.html", title=name, form=form)
 
 
-if __name__ == '__main__':
-    app.run(debug=True)
+@app.errorhandler(404)
+def error_404(_):
+    return render_template('404.html'), 404
+
+
+@app.route("/results")
+def results():
+    pass
