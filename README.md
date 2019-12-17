@@ -56,7 +56,7 @@ Other model parameters are treated as constants and are specified in ```model_co
 ### Run Modeling on VIRGO dataset
 
     python run_modeling.py
-        --virgo_days = -1                           // Use data up to this day
+        --virgo_days_end = -1                           // Use data up to this day
         
         --outlier_fraction = 0.0                    // Outlier fraction
         --exposure_method = "measurements"          // Method for computing exposure

@@ -63,7 +63,8 @@ class BaseSignals:
 
 
 class OutParams:
-    def __init__(self, svgp_iter_loglikelihood=None, svgp_inducing_points=None):
+    def __init__(self, svgp_iter_loglikelihood=None, svgp_inducing_points=None, svgp_prior_samples=None,
+                 svgp_t_prior=None, svgp_posterior_samples=None, svgp_t_posterior=None):
         """
 
         :param svgp_iter_loglikelihood:
@@ -71,6 +72,10 @@ class OutParams:
         """
         self.svgp_iter_loglikelihood = svgp_iter_loglikelihood
         self.svgp_inducing_points = svgp_inducing_points
+        self.svgp_prior_samples = svgp_prior_samples
+        self.svgp_t_prior = svgp_t_prior
+        self.svgp_posterior_samples = svgp_posterior_samples
+        self.svgp_t_posterior = svgp_t_posterior
 
 
 class OutResult:
@@ -285,10 +290,6 @@ class ModelFitter:
         # Output resampling
         t_hourly_out, num_hours_in_day = self._output_resampling(self.mode, base_signals)
 
-        # ONLY FOR LOCAL GP TESTING
-        # t_hourly_out = t_hourly_out[::24]
-        # t_hourly_out = t_hourly_out[1250:2000]
-
         logging.info(f"Data shapes are t_hourly {t_hourly_out.shape}.")
 
         # Training samples
@@ -325,7 +326,7 @@ class ModelFitter:
     @staticmethod
     def _iterative_correction(model: BaseModel, base_signals: BaseSignals, initial_params: Params,
                               method: CorrectionMethod, eps=1e-7, max_iter=100) -> Tuple[
-        List[FitResult], Params]:
+         List[FitResult], Params]:
         """Note that we here deal only with mutual_nn data. Variable ratio_a_b_mutual_nn_corrected has different
         definitions based on the correction method used."""
         logging.info("Iterative correction started.")

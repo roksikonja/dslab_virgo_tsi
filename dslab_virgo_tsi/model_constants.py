@@ -19,6 +19,10 @@ class GeneratorConstants(ModelConstants):
     SIGNAL_LENGTH = 100000
     DEGRADATION_MODEL = "exp"
     DEGRADATION_RATE = 1.0
+    DOWNSAMPLING_A = 0.1
+    DOWNSAMPLING_B = 0.9
+    STD_NOISE_A = 0.025
+    STD_NOISE_B = 0.015
 
 
 class SmoothMonotoneRegressionConstants(ModelConstants):
@@ -46,6 +50,7 @@ class SplineConstants(ModelConstants):
     K = 3
     STEPS = 30
     THINNING = 100
+    S_MAX = 100
 
 
 class ExpConstants(ModelConstants):
@@ -75,8 +80,8 @@ class GaussianProcessConstants(ModelConstants):
     LABEL_OUT = -1
 
     # scikit-learn parameters
-    DOWNSAMPLING_FACTOR_A = 20000
-    DOWNSAMPLING_FACTOR_B = 200
+    DOWNSAMPLING_FACTOR_A = 30000
+    DOWNSAMPLING_FACTOR_B = 300
 
     MATERN_LENGTH_SCALE = 1
     MATERN_LENGTH_SCALE_BOUNDS = (1e-3, 1e4)
@@ -86,25 +91,30 @@ class GaussianProcessConstants(ModelConstants):
     WHITE_NOISE_LEVEL = 1
     WHITE_NOISE_LEVEL_BOUNDS = (1e-5, 1e5)
 
-    N_RESTARTS_OPTIMIZER = 10
+    N_RESTARTS_OPTIMIZER = 5
 
     # gpflow parameters
-    TRAIN_INDUCING_VARIBLES = False
-    INITIAL_FIT = False
-    NUM_INDUCING_POINTS = 500
+    TRAIN_INDUCING_VARIABLES = False
+    INITIAL_FIT = True
+    NUM_INDUCING_POINTS = 1000
     MINIBATCH_SIZE = 200
     MAX_ITERATIONS = 10000
     NUM_SAMPLES = 20000
     LEARNING_RATE = 0.005
+    PRIOR_POSTERIOR_SAMPLES = 10
+    PRIOR_POSTERIOR_LENGTH = 2000
 
     # local gp
-    WINDOW = 100
-    POINTS_IN_WINDOW = 300
+    GPR_MODEL = "sklearn"
+    WINDOW = 200
+    GEN_WINDOW = 0.1
+    POINTS_IN_WINDOW = 100
+    WINDOW_FRACTION = 5
 
 
 class OutputTimeConstants(ModelConstants):
     # Generator output
-    GEN_NUM_HOURS = 1001
+    GEN_NUM_HOURS = 10001
     GEN_NUM_HOURS_PER_DAY = 10
 
     # Virgo output

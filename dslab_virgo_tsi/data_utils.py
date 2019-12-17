@@ -302,6 +302,20 @@ def find_nearest(array, values):
     return indices
 
 
+def extract_time_window(t, t_mid, window):
+    start_index = 0
+    end_index = 0
+    win_beginning = t_mid - window / 2.0
+    win_end = t_mid + window / 2.0
+    while end_index < np.size(t) and t[end_index] <= win_end:
+        end_index += 1
+
+    while t[start_index] <= win_beginning:
+        start_index += 1
+
+    return start_index, end_index
+
+
 if __name__ == "__main__":
     data_dir = "./data"
     virgo_file = "VIRGO_Level1.txt"

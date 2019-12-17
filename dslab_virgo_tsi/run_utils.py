@@ -29,7 +29,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", type=str, default="virgo", help="Set data mode.")
 
-    parser.add_argument("--random_seed", type=int, default=0, help="Set generator random seed.")
+    parser.add_argument("--random_seed", type=int, default=5, help="Set generator random seed.")
 
     parser.add_argument("--virgo_days_start", type=int, default=-1, help="Use data from this day on. -1 for all.")
     parser.add_argument("--virgo_days_end", type=int, default=-1, help="Use data up to this day. -1 for all.")
