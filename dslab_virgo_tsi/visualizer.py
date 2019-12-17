@@ -205,6 +205,9 @@ class Visualizer(object):
         if f_sample_triplets:
             for triplet in f_sample_triplets:
                 t, x, label = triplet[0], triplet[1], triplet[2]
+                if x_label == Const.YEAR_UNIT:
+                    t = np.array(list(map(mission_day_to_year, t)))
+
                 plt.plot(t.reshape(-1, 1), x, "C2", lw=Const.MATPLOTLIB_STYLE_LINEWIDTH/3)
 
         if ground_truth_triplet:
@@ -259,13 +262,6 @@ class Visualizer(object):
 
         max_plots = 3
         selected_triplet_indices = [1, 2, 3]
-        # if len(history_fitresults) > max_plots:
-        #     selected_triplet_indices = np.arange(1, len(history_fitresults) - 1,
-        #                                          np.ceil((len(history_fitresults) - 1) / max_plots))
-        # else:
-        #     selected_triplet_indices = np.arange(1, len(history_fitresults) - 1, 1)
-        #
-        # max_plots = len(selected_triplet_indices) + 2
 
         if x_label == Const.YEAR_UNIT:
             t_mutual = np.array(list(map(mission_day_to_year, t_mutual)))
@@ -279,7 +275,6 @@ class Visualizer(object):
 
         selected_step = 0
         for step, fitresult in enumerate(history_fitresults):
-            # if step in selected_triplet_indices or step in [0, len(history_fitresults) - 1]:
             if step in selected_triplet_indices:
                 a = fitresult.a_mutual_nn_corrected
                 b = fitresult.b_mutual_nn_corrected
