@@ -18,6 +18,11 @@ class StatusField(Enum):
     JOB_TYPE = "job_type"
 
 
+class JobType(Enum):
+    ANALYSIS = "analysis"
+    IMPORT = "import"
+
+
 class Status:
     def __init__(self):
         self._data = {StatusField.RUNNING: False,
@@ -40,6 +45,15 @@ class Status:
                 self._data[StatusField.LAST_DB_UPDATE] = current_time
             elif key != StatusField.DATASET_TABLE:
                 self._data[StatusField.LAST_JOB_UPDATE] = current_time
+
+    def new_job(self, job_type: JobType, description, name):
+        with self._lock:
+            self._data[StatusField.RUNNING] = True
+            self._data[StatusField.JOB_TYPE] = job_type.value
+            self._data[StatusField.JOB_DESCRIPTION] = description
+            self._data[StatusField.JOB_NAME] = name
+            self._data[StatusField.JOB_PERCENTAGE] = 0
+            self._data[StatusField.LAST_JOB_UPDATE] = time()
 
     def get(self, key):
         with self._lock:

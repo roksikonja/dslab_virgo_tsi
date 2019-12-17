@@ -6,7 +6,20 @@ from flask import render_template, redirect, url_for, jsonify, Response
 from flask_backend import app, db, executor, status
 from flask_backend.forms import NewDataForm, AnalysisForm
 from flask_backend.models import Dataset
-from status_utils import StatusField as sF
+from status_utils import StatusField as sF, JobType as jT
+
+
+def add_dataset(dataset: Dataset):
+    db.session.add(dataset)
+    db.session.commit()
+    update_table()
+
+
+def delete_dataset(dataset_id):
+    dataset = Dataset.query.get_or_404(dataset_id)
+    db.session.delete(dataset)
+    db.session.commit()
+    update_table()
 
 
 def update_table():
@@ -19,7 +32,6 @@ def get_update() -> Response:
     if status.get(sF.DATASET_LIST) is None:
         update_table()
 
-    # status.set(sF.DATASET_TABLE, render_template("dataset_table.html", datasets=status.get(sF.DATASET_LIST)))
     return jsonify(status.get_json())
 
 
@@ -38,10 +50,7 @@ def _import_data(dataset: Dataset):
     status.set(sF.JOB_PERCENTAGE, 90)
     sleep(1)
     status.set(sF.JOB_PERCENTAGE, 100)
-    status.set(sF.JOB_DESCRIPTION, "<a href='{{ url_for('home') }}'> Neki </a>")
-    db.session.add(dataset)
-    db.session.commit()
-    update_table()
+    add_dataset(dataset)
     status.set(sF.RUNNING, False)
 
 
@@ -51,10 +60,7 @@ def import_data():
     if form.validate_on_submit() and not status.get(sF.RUNNING):
 
         # Block other operation
-        status.set(sF.RUNNING, True)
-        status.set(sF.JOB_DESCRIPTION, "Importing CSV")
-        status.set(sF.JOB_NAME, "Import data")
-        status.set(sF.JOB_PERCENTAGE, 0)
+        status.new_job(jT.IMPORT, "Importing CSV", "Import data")
 
         # Prepare table entry
         name = form.name.data
@@ -74,10 +80,7 @@ def import_data():
 
 @app.route("/delete_data/<int:dataset_id>", methods=["POST"])
 def delete_data(dataset_id):
-    dataset = Dataset.query.get_or_404(dataset_id)
-    db.session.delete(dataset)
-    db.session.commit()
-    update_table()
+    delete_dataset(dataset_id)
     return redirect(url_for("home"))
 
 
@@ -89,7 +92,7 @@ def _analysis():
     sleep(1)
     status.set(sF.JOB_PERCENTAGE, 90)
     sleep(1)
-    sleep(10)
+    status.set(sF.JOB_PERCENTAGE, 100)
     status.set(sF.RUNNING, False)
 
 
@@ -100,10 +103,7 @@ def analysis(dataset_id):
     if form.validate_on_submit() and not status.get(sF.RUNNING):
 
         # Block other operation
-        status.set(sF.RUNNING, True)
-        status.set(sF.JOB_DESCRIPTION, "Analysis in progress")
-        status.set(sF.JOB_NAME, "Data Analysis")
-        status.set(sF.JOB_PERCENTAGE, 0)
+        status.new_job(jT.ANALYSIS, "Analysis in progress", "Data Analysis")
 
         # Perform analysis (new thread)
         executor.submit(_analysis)
@@ -112,3 +112,13 @@ def analysis(dataset_id):
 
     name = Dataset.query.get_or_404(dataset_id).name
     return render_template("analysis.html", title=name, form=form)
+
+
+@app.errorhandler(404)
+def error_404(_):
+    return render_template('404.html'), 404
+
+
+@app.route("/results")
+def results():
+    pass
