@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+{% block content %}
+<main role="main" class="container">
+    <div class="row">
+        <div class="col-12">
+            <h1>Results</h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <embed class="pdf-element" style="width: 100%"
+                   src={{ url_for('static', filename="results/" + folder + "/" + first)}}#toolbar=0&statusbar=0&messages=0&navpanes=0&scrollbar=0&view=FitH"/>
+        </div>
+        <div class="col-md-6">
+            <embed class="pdf-element" style="width: 100%"
+                   src={{ url_for('static', filename="results/" + folder + "/" + second)}}#toolbar=0&statusbar=0&messages=0&navpanes=0&scrollbar=0&view=FitH"/>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-6">
+            <embed class="pdf-element" style="width: 100%"
+                   src={{ url_for('static', filename="results/" + folder + "/" + third)}}#toolbar=0&statusbar=0&messages=0&navpanes=0&scrollbar=0&view=FitH"/>
+        </div>
+        <div class="col-md-6">
+            <embed class="pdf-element" style="width: 100%"
+                   src={{ url_for('static', filename="results/" + folder + "/" + fourth)}}#toolbar=0&statusbar=0&messages=0&navpanes=0&scrollbar=0&view=FitH"/>
+        </div>
+    </div>
+</main>
+{% endblock content %}
+{% block scripts %}
+<script>
+    $(document).ready(function () {
+        let $pdf = $(".pdf-element");
+        $pdf.height($pdf.width() * 0.55);
+
+        $(window).resize(function () {
+            $pdf.height($pdf.width() * 0.55);
+        });
+    });
+</script>
+{% endblock scripts %}

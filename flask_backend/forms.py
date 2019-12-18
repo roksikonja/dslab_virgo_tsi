@@ -1,6 +1,7 @@
 from numbers import Real
 
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileAllowed
 from wtforms import StringField, SubmitField, FileField, SelectField, FloatField, TextAreaField
 from wtforms.validators import InputRequired, NumberRange, Length, ValidationError
 
@@ -42,7 +43,7 @@ class DictionaryRequired:
 
 class NewDataForm(FlaskForm):
     name = StringField("Dataset Name", validators=[Length(max=100)])
-    file = FileField("Dataset File", validators=[InputRequired()])
+    file = FileField("Dataset File", validators=[InputRequired(), FileAllowed(['csv', 'txt'])])
     exposure_method = SelectField("Exposure Method",
                                   choices=[(ExposureMethod.NUM_MEASUREMENTS.value,
                                             ExposureMethod.NUM_MEASUREMENTS.value),
@@ -60,7 +61,7 @@ class AnalysisForm(FlaskForm):
                                  ("ISOTONIC", "Isotonic model"),
                                  ("SMOOTH_MONOTONIC", "Smooth monotone regression model")])
     model_params = TextAreaField("Model Parameters", validators=[DictionaryRequired()],
-                                 default='{\n\t"NUM_INDUCING_POINTS": 1000,\n\t"WINDOW": 200,'
+                                 default='{\n\t"NUM_INDUCING_POINTS": 200,\n\t"WINDOW": 100,'
                                          '\n\t"POINTS_IN_WINDOW": 100,\n\t"WINDOW_FRACTION": 5\n}')
     correction = SelectField("Correction method",
                              choices=[(CorrectionMethod.CORRECT_ONE.value,

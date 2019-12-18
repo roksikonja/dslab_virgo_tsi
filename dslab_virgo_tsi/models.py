@@ -968,7 +968,6 @@ class SVGPModel(GPFamilyMixin, BaseOutputModel):
         self.max_iterations = max_iterations
 
     def _prepare_data(self, t_a, t_b, a, b, t_hourly_out):
-        status.update_progress("Preparing for merging.", 20)
 
         # Data standardization parameters
         self.x_mean, self.x_std = np.mean(np.concatenate((a, b), axis=0)), np.std(np.concatenate((a, b), axis=0))
@@ -1020,7 +1019,6 @@ class SVGPModel(GPFamilyMixin, BaseOutputModel):
         return t, x, t_hourly_out
 
     def fit_and_predict(self, mode: Mode, base_signals: BaseSignals, final_result: FinalResult, t_hourly_out):
-        status.update_progress("Normalizing data.", 25)
 
         t_hourly_out = t_hourly_out.reshape(-1, 1)
 

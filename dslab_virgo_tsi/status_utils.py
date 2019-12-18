@@ -15,6 +15,7 @@ class StatusField(Enum):
     LAST_DB_UPDATE = "last_db_update"
     LAST_JOB_UPDATE = "last_job_update"
     LAST_DB_TABLE_RENDER = "last_db_table_render"
+    RESULT_FOLDER = "result_folder"
     JOB_TYPE = "job_type"
 
 
@@ -25,7 +26,6 @@ class JobType(Enum):
 
 class Status:
     def __init__(self):
-        print("INIT RUN")
         self._data = {StatusField.RUNNING: False,
                       StatusField.JOB_NAME: "",
                       StatusField.JOB_PERCENTAGE: 0,
@@ -34,9 +34,10 @@ class Status:
                       StatusField.DATASET_LIST: None,
                       StatusField.LAST_DB_UPDATE: 0.0,
                       StatusField.LAST_JOB_UPDATE: 0.0,
-                      StatusField.LAST_DB_TABLE_RENDER: 0.0}
+                      StatusField.LAST_DB_TABLE_RENDER: 0.0,
+                      StatusField.RESULT_FOLDER: ""}
         self._lock = Lock()
-        self._no_include = {StatusField.DATASET_LIST, StatusField.LAST_DB_TABLE_RENDER}
+        self._no_include = {StatusField.DATASET_LIST, StatusField.LAST_DB_TABLE_RENDER, StatusField.RESULT_FOLDER}
 
     def set(self, key, value):
         with self._lock:
@@ -52,6 +53,9 @@ class Status:
 
     def set_percentage(self, percentage):
         self.set(StatusField.JOB_PERCENTAGE, percentage)
+
+    def set_folder(self, folder):
+        self.set(StatusField.RESULT_FOLDER, folder)
 
     def update_progress(self, description, percentage):
         with self._lock:
@@ -77,6 +81,9 @@ class Status:
     def get(self, key):
         with self._lock:
             return self._data[key]
+
+    def get_folder(self):
+        return self.get(StatusField.RESULT_FOLDER)
 
     def get_dataset_list(self):
         return self.get(StatusField.DATASET_LIST)

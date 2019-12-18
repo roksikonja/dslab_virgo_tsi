@@ -3,13 +3,13 @@ import secrets
 
 from flask import render_template, redirect, url_for, jsonify, Response, current_app
 
+from dslab_virgo_tsi.status_utils import JobType as jT
+from dslab_virgo_tsi.status_utils import status
 from flask_backend import app, executor
 from flask_backend.analysis_utils import analysis_job
 from flask_backend.dataset_handling_utils import import_data_job, update_table, delete_dataset
 from flask_backend.forms import NewDataForm, AnalysisForm
 from flask_backend.models import Dataset
-from dslab_virgo_tsi.status_utils import JobType as jT
-from dslab_virgo_tsi.status_utils import status
 
 
 @app.route("/get_update")
@@ -73,9 +73,9 @@ def analysis(dataset_id):
         status.new_job(jT.ANALYSIS, "Analysis in progress", "Data Analysis")
 
         # Perform analysis (new thread)
-        # executor.submit(analysis_job, dataset, form.model.data, form.output.data, form.model_params.data,
-        #                 form.correction.data)
-        analysis_job(dataset, form.model.data, form.output.data, form.model_params.data, form.correction.data)
+        executor.submit(analysis_job, dataset, form.model.data, form.output.data, form.model_params.data,
+                        form.correction.data)
+        # analysis_job(dataset, form.model.data, form.output.data, form.model_params.data, form.correction.data)
 
         return redirect(url_for("home"))
 
@@ -85,14 +85,25 @@ def analysis(dataset_id):
 
 @app.errorhandler(404)
 def error_404(_):
-    return render_template('404.html'), 404
+    return render_template("404.html"), 404
 
 
 @app.errorhandler(405)
 def error_405(_):
-    return render_template('405.html'), 404
+    return render_template("405.html"), 405
 
 
 @app.route("/results")
 def results():
-    pass
+    result_folder = status.get_folder()
+    if result_folder == "":
+        return error_404("Error")
+
+    # Prefix of all files within folder
+    prefix = "_".join(result_folder.split("_")[2:]) + "_"
+    first = prefix + "PMO6V-A_PMO6V-B_mutual_corrected.pdf"
+    second = prefix + "PMO6V-A_PMO6V-B_raw_corrected_full.pdf"
+    third = prefix + "DEGRADATION_PMO6V-A_PMO6V-B.pdf"
+    fourth = prefix + "TSI_hourly_points_95_conf_interval.pdf"
+
+    return render_template("results.html", folder=result_folder, first=first, second=second, third=third, fourth=fourth)
