@@ -1,8 +1,15 @@
 ## Data Science With Total Solar Irradiance from SOHO Spacecraft
 
-Data Science Lab Project - VIRGO Total Solar Irradiance
-
 Project by **Luka Kolar, Rok Šikonja and Lenart Treven**.
+
+This project is part of Data Science Lab at ETH Zurich. It was supervised by Prof. Dr. Andreas Krause and Prof. Dr. Ce Zhang at ETH Zurich. Dataset was provided by 
+Dr. Wolfgang Finsterle from PMOD/WRC Institute. Dataset description can be found at 
+https://www.pmodwrc.ch/en/research-development/space/virgo-soho/.
+
+Further explanation of results and methods are summarized in the project paper **Iterative Correction of Sensor 
+Degradation using Constrained Smooth Monotonic Functions and a Bayesian Multi-sensor Data Fusion Method applied to 
+TSI data from PMO6-V Radiometers** available at ```DSLab_project_paper.pdf```. Additionally, project poster can be found
+at ```DSLab_project_poster```.
 
 ### Installation
 * Install Miniconda from [Miniconda website](https://docs.conda.io/en/latest/miniconda.html)
@@ -14,19 +21,14 @@ Project by **Luka Kolar, Rok Šikonja and Lenart Treven**.
     ```
     * In any case
     ```
-    conda install numpy pandas matplotlib ipykernel jupyter scipy scikit-learn numba pytables flask flask-wtf tensorflow=2.0.0 pykalman cvxpy
+    conda install numpy pandas matplotlib ipykernel jupyter scipy scikit-learn numba pytables flask flask-wtf tensorflow=2.0.0 cvxpy
     pip install gpflow==2.0.0rc1
     ```
-
-### Dataset
-
-Dataset was downloaded from publicly available server: ftp://ftp.pmodwrc.ch/pub/virgo/dsl2019/.
-Dataset description can be found: https://www.pmodwrc.ch/en/research-development/space/virgo-soho/.
 
 ### Run Data analysis
 
     python data_analysis.py
-        --visualize                                 // Visualize.
+        --data_file = "virgo"                       // Select file {"virgo", "virgo_tsi"}
     
         --sampling                                  // Sampling analysis.
         --sampling_window=55                        // Minimum sampling window.
@@ -34,6 +36,7 @@ Dataset description can be found: https://www.pmodwrc.ch/en/research-development
         --fft                                       // FFT analysis.
         
         --t_early_increase=100                      // Early increase timespan.
+        --outlier_fraction = 0.0                    // Outlier fraction
 
 ## Modeling
 
@@ -56,7 +59,7 @@ Other model parameters are treated as constants and are specified in ```model_co
 ### Run Modeling on VIRGO dataset
 
     python run_modeling.py
-        --virgo_days_end = -1                           // Use data up to this day
+        --virgo_days_end = -1                       // Use data up to this day
         
         --outlier_fraction = 0.0                    // Outlier fraction
         --exposure_method = "measurements"          // Method for computing exposure
