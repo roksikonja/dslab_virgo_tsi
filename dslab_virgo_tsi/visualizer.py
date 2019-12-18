@@ -204,11 +204,12 @@ class Visualizer(object):
 
         if f_sample_triplets:
             for triplet in f_sample_triplets:
-                t, x, label = triplet[0], triplet[1], triplet[2]
-                if x_label == Const.YEAR_UNIT:
-                    t = np.array(list(map(mission_day_to_year, t)))
+                if isinstance(triplet[0], np.ndarray):
+                    t, x, label = triplet[0], triplet[1], triplet[2]
+                    if x_label == Const.YEAR_UNIT:
+                        t = np.array(list(map(mission_day_to_year, t)))
 
-                plt.plot(t.reshape(-1, 1), x, "C2", lw=Const.MATPLOTLIB_STYLE_LINEWIDTH/3)
+                    plt.plot(t.reshape(-1, 1), x, "C2", lw=Const.MATPLOTLIB_STYLE_LINEWIDTH/3)
 
         if ground_truth_triplet:
             t_ground_truth = ground_truth_triplet[0]

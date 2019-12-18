@@ -135,19 +135,23 @@ def plot_results(ground_truth_, result_: Result, results_dir, model_name):
         results_dir, f"{model_name}_CI",
         legend="upper left", x_label="t", y_label="sigma(t)")
 
-    visualizer.plot_signals_mean_std_precompute(
-        [
-            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"gen_hourly_{model_name}")
-        ],
-        results_dir, f"{model_name}_hourly_prior", legend="upper left", x_label="t", y_label="x(t)",
-        f_sample_triplets=[(out_res.params_out.svgp_t_prior, out_res.params_out.svgp_prior_samples, "PRIOR")])
+    if isinstance(out_res.params_out.svgp_t_prior, np.ndarray):
+        visualizer.plot_signals_mean_std_precompute(
+            [
+                (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out,
+                 f"gen_hourly_{model_name}")
+            ],
+            results_dir, f"{model_name}_hourly_prior", legend="upper left", x_label="t", y_label="x(t)",
+            f_sample_triplets=[(out_res.params_out.svgp_t_prior, out_res.params_out.svgp_prior_samples, "PRIOR")])
 
-    visualizer.plot_signals_mean_std_precompute(
-        [
-            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"gen_hourly_{model_name}")
-        ],
-        results_dir, f"{model_name}_hourly_posterior", legend="upper left", x_label="t", y_label="x(t)",
-        f_sample_triplets=[(out_res.params_out.svgp_t_posterior, out_res.params_out.svgp_posterior_samples, "POSTERIOR")])
+        visualizer.plot_signals_mean_std_precompute(
+            [
+                (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out,
+                 f"gen_hourly_{model_name}")
+            ],
+            results_dir, f"{model_name}_hourly_posterior", legend="upper left", x_label="t", y_label="x(t)",
+            f_sample_triplets=[
+                (out_res.params_out.svgp_t_posterior, out_res.params_out.svgp_posterior_samples, "POSTERIOR")])
 
 
 if __name__ == "__main__":

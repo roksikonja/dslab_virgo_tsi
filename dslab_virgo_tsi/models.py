@@ -881,7 +881,6 @@ class LocalGPModel(BaseOutputModel):
                                                n_restarts_optimizer=GPConsts.N_RESTARTS_OPTIMIZER)
 
                 gpr.fit(cur_t_down, cur_x_down)
-                print(cur_t_down.shape, gpr.kernel_)
 
             cur_x_pred, cur_std_pred = gpr.predict(cur_target_t, return_std=True)
 

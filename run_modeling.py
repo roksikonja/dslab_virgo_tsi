@@ -44,21 +44,27 @@ def plot_results(result_: Result, results_dir, model_name, other_tsi_file=None):
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7,
         inducing_points=out_res.params_out.svgp_inducing_points)
 
-    visualizer.plot_signals_mean_std_precompute(
-        [
-            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
-        ],
-        results_dir, f"{model_name}_TSI_hourly_prior", x_ticker=Const.XTICKER, legend="upper left", y_lim=[1362, 1369],
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7,
-        f_sample_triplets=[(out_res.params_out.svgp_t_prior, out_res.params_out.svgp_prior_samples, "PRIOR")])
+    if isinstance(out_res.params_out.svgp_t_prior, np.ndarray):
+        visualizer.plot_signals_mean_std_precompute(
+            [
+                (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out,
+                 f"TSI_hourly_{model_name}")
+            ],
+            results_dir, f"{model_name}_TSI_hourly_prior", x_ticker=Const.XTICKER, legend="upper left",
+            y_lim=[1362, 1369],
+            x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7,
+            f_sample_triplets=[(out_res.params_out.svgp_t_prior, out_res.params_out.svgp_prior_samples, "PRIOR")])
 
-    visualizer.plot_signals_mean_std_precompute(
-        [
-            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
-        ],
-        results_dir, f"{model_name}_TSI_hourly_posterior", x_ticker=Const.XTICKER, legend="upper left", y_lim=[1362, 1369],
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7,
-        f_sample_triplets=[(out_res.params_out.svgp_t_posterior, out_res.params_out.svgp_posterior_samples, "POSTERIOR")])
+        visualizer.plot_signals_mean_std_precompute(
+            [
+                (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out,
+                 f"TSI_hourly_{model_name}")
+            ],
+            results_dir, f"{model_name}_TSI_hourly_posterior", x_ticker=Const.XTICKER, legend="upper left",
+            y_lim=[1362, 1369],
+            x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7,
+            f_sample_triplets=[
+                (out_res.params_out.svgp_t_posterior, out_res.params_out.svgp_posterior_samples, "POSTERIOR")])
 
     visualizer.plot_signals_mean_std_precompute(
         [
@@ -157,7 +163,8 @@ def plot_results(result_: Result, results_dir, model_name, other_tsi_file=None):
         [
             (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
         ],
-        results_dir, f"{model_name}_TSI_hourly_days_{days}", x_ticker=Const.XTICKER, legend="upper left", y_lim=[1362, 1369],
+        results_dir, f"{model_name}_TSI_hourly_days_{days}", x_ticker=Const.XTICKER, legend="upper left",
+        y_lim=[1362, 1369],
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
 
     visualizer.plot_signals_mean_std_precompute(
