@@ -106,7 +106,7 @@ class GaussianProcessConstants(ModelConstants):
 
     # local gp
     GPR_MODEL = "sklearn"
-    WINDOW = 200
+    WINDOW = 100
     GEN_WINDOW = 0.1
     POINTS_IN_WINDOW = 100
     WINDOW_FRACTION = 5

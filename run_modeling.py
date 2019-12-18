@@ -1,5 +1,4 @@
 import logging
-import os
 
 import numpy as np
 
@@ -45,23 +44,27 @@ def plot_results(visualizer_: Visualizer, result_: Result, results_dir, model_na
         x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7,
         inducing_points=out_res.params_out.svgp_inducing_points)
 
-    visualizer_.plot_signals_mean_std_precompute(
-        [
-            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
-        ],
-        results_dir, f"{model_name}_TSI_hourly_prior", x_ticker=Const.XTICKER, legend="upper left", y_lim=[1362, 1369],
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7,
-        f_sample_triplets=[(out_res.params_out.svgp_t_prior, out_res.params_out.svgp_prior_samples, "PRIOR")])
+    if isinstance(out_res.params_out.svgp_t_prior, np.ndarray):
+        visualizer_.plot_signals_mean_std_precompute(
+            [
+                (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out,
+                 f"TSI_hourly_{model_name}")
+            ],
+            results_dir, f"{model_name}_TSI_hourly_prior", x_ticker=Const.XTICKER, legend="upper left",
+            y_lim=[1362, 1369],
+            x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7,
+            f_sample_triplets=[(out_res.params_out.svgp_t_prior, out_res.params_out.svgp_prior_samples, "PRIOR")])
 
-    visualizer_.plot_signals_mean_std_precompute(
-        [
-            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
-        ],
-        results_dir, f"{model_name}_TSI_hourly_posterior", x_ticker=Const.XTICKER, legend="upper left",
-        y_lim=[1362, 1369],
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7,
-        f_sample_triplets=[
-            (out_res.params_out.svgp_t_posterior, out_res.params_out.svgp_posterior_samples, "POSTERIOR")])
+        visualizer_.plot_signals_mean_std_precompute(
+            [
+                (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out,
+                 f"TSI_hourly_{model_name}")
+            ],
+            results_dir, f"{model_name}_TSI_hourly_posterior", x_ticker=Const.XTICKER, legend="upper left",
+            y_lim=[1362, 1369],
+            x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7,
+            f_sample_triplets=[
+                (out_res.params_out.svgp_t_posterior, out_res.params_out.svgp_posterior_samples, "POSTERIOR")])
 
     visualizer_.plot_signals_mean_std_precompute(
         [
@@ -143,6 +146,38 @@ def plot_results(visualizer_: Visualizer, result_: Result, results_dir, model_na
         ],
         results_dir, f"{model_name}_CI",
         legend="upper left", x_label="t", y_label="sigma(t)")
+
+    # First 4200 day plot
+    days = 4200
+    indices = np.less_equal(out_res.t_hourly_out, days)
+    out_res.t_hourly_out = out_res.t_hourly_out[indices]
+    out_res.signal_hourly_out = out_res.signal_hourly_out[indices]
+    out_res.signal_std_hourly_out = out_res.signal_std_hourly_out[indices]
+
+    indices = np.less_equal(base_sig.t_a_nn, days)
+    base_sig.t_a_nn, final_res.a_nn_corrected = base_sig.t_a_nn[indices], final_res.a_nn_corrected[indices]
+    indices = np.less_equal(base_sig.t_b_nn, days)
+    base_sig.t_b_nn, final_res.b_nn_corrected = base_sig.t_b_nn[indices], final_res.b_nn_corrected[indices]
+
+    visualizer_.plot_signals_mean_std_precompute(
+        [
+            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
+        ],
+        results_dir, f"{model_name}_TSI_hourly_days_{days}", x_ticker=Const.XTICKER, legend="upper left",
+        y_lim=[1362, 1369],
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+
+    visualizer_.plot_signals_mean_std_precompute(
+        [
+            (out_res.t_hourly_out, out_res.signal_hourly_out, out_res.signal_std_hourly_out, f"TSI_hourly_{model_name}")
+        ],
+        results_dir, f"{model_name}_TSI_hourly_points_days_{days}", x_ticker=Const.XTICKER, legend="upper left",
+        y_lim=[1362, 1369],
+        data_points_triplets=[
+            (base_sig.t_a_nn, final_res.a_nn_corrected, f"{Const.A}_corrected"),
+            (base_sig.t_b_nn, final_res.b_nn_corrected, f"{Const.B}_corrected")
+        ],
+        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT, max_points=1e7)
 
 
 if __name__ == "__main__":
