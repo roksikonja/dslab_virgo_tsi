@@ -2,8 +2,9 @@ from numbers import Real
 
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, FileField, SelectField, FloatField, TextAreaField
-from wtforms.validators import InputRequired, NumberRange, Length, ValidationError, Optional
-from dslab_virgo_tsi.base import ExposureMethod
+from wtforms.validators import InputRequired, NumberRange, Length, ValidationError
+
+from dslab_virgo_tsi.base import ExposureMethod, CorrectionMethod
 
 
 class DictionaryRequired:
@@ -11,7 +12,6 @@ class DictionaryRequired:
         data = field.data
         try:
             dictionary = eval(data)
-            print(dictionary)
             if not isinstance(dictionary, dict):
                 raise Exception
         except Exception:
@@ -54,18 +54,20 @@ class NewDataForm(FlaskForm):
 
 class AnalysisForm(FlaskForm):
     model = SelectField("Model",
-                        choices=[("EXP_MODEL", "Exponential model"),
-                                 ("EXP_LIN_MODEL", "Exponential linear model"),
+                        choices=[("EXP", "Exponential model"),
+                                 ("EXP_LIN", "Exponential linear model"),
                                  ("SPLINE", "Spline model"),
                                  ("ISOTONIC", "Isotonic model"),
-                                 ("SMOOTH MONOTONE", "Smooth monotone regression model")])
-    model_params = TextAreaField("Model Parameters", validators=[Optional(), DictionaryRequired()],
+                                 ("SMOOTH_MONOTONIC", "Smooth monotone regression model")])
+    model_params = TextAreaField("Model Parameters", validators=[DictionaryRequired()],
                                  default='{\n\t"NUM_INDUCING_POINTS": 1000,\n\t"WINDOW": 200,'
                                          '\n\t"POINTS_IN_WINDOW": 100,\n\t"WINDOW_FRACTION": 5\n}')
     correction = SelectField("Correction method",
-                             choices=[("CORRECT_ONE", "Correct one"),
-                                      ("CORRECT_BOTH", "Correct both")])
+                             choices=[(CorrectionMethod.CORRECT_ONE.value,
+                                       CorrectionMethod.CORRECT_ONE.value),
+                                      (CorrectionMethod.CORRECT_BOTH.value,
+                                       CorrectionMethod.CORRECT_BOTH.value)])
     output = SelectField("Output method",
-                         choices=[("GP", "Local Gaussian process"),
+                         choices=[("LOCALGP", "Local Gaussian process"),
                                   ("SVGP", "Sparse variational Gaussian process")])
     submit = SubmitField("Submit")

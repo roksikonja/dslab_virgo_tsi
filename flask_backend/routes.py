@@ -1,14 +1,15 @@
 import os
 import secrets
-from time import sleep
 
 from flask import render_template, redirect, url_for, jsonify, Response, current_app
 
-from dataset_handling_utils import import_data_job, update_table, delete_dataset
-from flask_backend import app, executor, status
+from flask_backend import app, executor
+from flask_backend.analysis_utils import analysis_job
+from flask_backend.dataset_handling_utils import import_data_job, update_table, delete_dataset
 from flask_backend.forms import NewDataForm, AnalysisForm
 from flask_backend.models import Dataset
-from status_utils import StatusField as sF, JobType as jT
+from dslab_virgo_tsi.status_utils import JobType as jT
+from dslab_virgo_tsi.status_utils import status
 
 
 @app.route("/get_update")
@@ -31,7 +32,6 @@ def import_data():
 
     # Check whether import can be performed
     if form.validate_on_submit() and not status.is_running():
-
         # Block other operations
         status.new_job(jT.IMPORT, "Importing CSV", "Import data")
 
@@ -59,27 +59,23 @@ def delete_data(dataset_id):
     return redirect(url_for("home"))
 
 
-def _analysis():
-    sleep(3)
-    status.set(sF.JOB_PERCENTAGE, 30)
-    sleep(1)
-    status.set(sF.JOB_PERCENTAGE, 60)
-    sleep(1)
-    status.set(sF.JOB_PERCENTAGE, 90)
-    sleep(1)
-    status.set(sF.JOB_PERCENTAGE, 100)
-    status.release()
-
-
 @app.route("/analysis/<int:dataset_id>", methods=["GET", "POST"])
 def analysis(dataset_id):
     form = AnalysisForm()
+
+    # Check whether analysis can be performed
     if form.validate_on_submit() and not status.is_running():
+        # Get dataset first to ensure that it was not deleted while waiting
+        # User could have deleted dataset in another tab while having analysis tab open
+        dataset = Dataset.query.get_or_404(dataset_id)
+
         # Block other operation
         status.new_job(jT.ANALYSIS, "Analysis in progress", "Data Analysis")
 
         # Perform analysis (new thread)
-        executor.submit(_analysis)
+        # executor.submit(analysis_job, dataset, form.model.data, form.output.data, form.model_params.data,
+        #                 form.correction.data)
+        analysis_job(dataset, form.model.data, form.output.data, form.model_params.data, form.correction.data)
 
         return redirect(url_for("home"))
 

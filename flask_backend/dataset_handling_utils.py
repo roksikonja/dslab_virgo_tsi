@@ -2,11 +2,12 @@ import os
 import pickle
 from os.path import basename, splitext
 
-from dslab_virgo_tsi.data_utils import load_data_from_frontend
 from dslab_virgo_tsi.base import ModelFitter, ExposureMethod
 from dslab_virgo_tsi.constants import Constants as Const
-from flask_backend import status, db
+from dslab_virgo_tsi.data_utils import load_data_from_frontend
+from flask_backend import db
 from flask_backend.models import Dataset
+from dslab_virgo_tsi.status_utils import status
 
 
 def add_dataset(dataset: Dataset):
@@ -60,6 +61,9 @@ def import_data_job(dataset_name: str, filename: str, dataset_location: str, out
 
         # Add entry to database
         add_dataset(dataset)
+
+    except Exception as e:
+        print(e)
 
     finally:
         # Release block

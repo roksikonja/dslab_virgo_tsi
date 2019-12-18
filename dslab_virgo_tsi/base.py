@@ -7,6 +7,7 @@ import numpy as np
 
 from dslab_virgo_tsi.data_utils import notnan_indices, detect_outliers
 from dslab_virgo_tsi.model_constants import OutputTimeConstants as OutTimeConsts
+from dslab_virgo_tsi.status_utils import status
 
 
 class Mode(Enum):
@@ -20,8 +21,8 @@ class ExposureMethod(Enum):
 
 
 class CorrectionMethod(Enum):
-    CORRECT_BOTH = auto()
-    CORRECT_ONE = auto()
+    CORRECT_BOTH = "Correct both"
+    CORRECT_ONE = "Correct one"
 
 
 class BaseSignals:
@@ -236,6 +237,7 @@ class ModelFitter:
         initial_params: Params = model.get_initial_params(self.base_signals)
 
         # Compute iterative corrections
+        status.update_progress("Performing iterative corrections", 15)
         history_mutual_nn, optimal_params = self._iterative_correction(model, self.base_signals, initial_params,
                                                                        correction_method)
 

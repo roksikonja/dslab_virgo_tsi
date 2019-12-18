@@ -28,6 +28,7 @@ from dslab_virgo_tsi.model_constants import GaussianProcessConstants as GPConsts
 from dslab_virgo_tsi.model_constants import IsotonicConstants as IsoConsts
 from dslab_virgo_tsi.model_constants import SmoothMonotoneRegressionConstants as SMRConsts
 from dslab_virgo_tsi.model_constants import SplineConstants as SplConsts
+from dslab_virgo_tsi.status_utils import status
 
 
 class ExpFamilyMixin:
@@ -828,7 +829,10 @@ class LocalGPModel(BaseOutputModel):
 
             cur_target_t = t_hourly_out[start_index_out:end_index_out, :].copy()
 
-            logging.info(f"Local GP merging currently at {int(100 * end_index_out / t_hourly_length)} %.")
+            percentage_merging = int(100 * end_index_out / t_hourly_length)
+            percentage_overall = int(30 + 50 * end_index_out / t_hourly_length)
+            status.update_progress("Merging at: " + str(percentage_merging) + " %", percentage_overall)
+            logging.info(f"Local GP merging currently at {percentage_merging} %.")
             logging.info("Target indices = {:<20}\tt_mid = {:<10}\tt_window = {:<20}\tt_target = {:<20}"
                          .format(str((start_index_out, end_index_out)), str(np.around(cur_target_t_mid, 2)),
                                  str((np.around(cur_t[0, 0], 2), np.around(cur_t[-1, 0], 2))),
@@ -965,6 +969,7 @@ class SVGPModel(GPFamilyMixin, BaseOutputModel):
         self.max_iterations = max_iterations
 
     def _prepare_data(self, t_a, t_b, a, b, t_hourly_out):
+        status.update_progress("Preparing for merging.", 20)
 
         # Data standardization parameters
         self.x_mean, self.x_std = np.mean(np.concatenate((a, b), axis=0)), np.std(np.concatenate((a, b), axis=0))
@@ -1016,6 +1021,8 @@ class SVGPModel(GPFamilyMixin, BaseOutputModel):
         return t, x, t_hourly_out
 
     def fit_and_predict(self, mode: Mode, base_signals: BaseSignals, final_result: FinalResult, t_hourly_out):
+        status.update_progress("Normalizing data.", 25)
+
         t_hourly_out = t_hourly_out.reshape(-1, 1)
 
         # Training samples

@@ -25,6 +25,7 @@ class JobType(Enum):
 
 class Status:
     def __init__(self):
+        print("INIT RUN")
         self._data = {StatusField.RUNNING: False,
                       StatusField.JOB_NAME: "",
                       StatusField.JOB_PERCENTAGE: 0,
@@ -92,3 +93,6 @@ class Status:
                                                                         datasets=self._data[StatusField.DATASET_LIST])
                 self._data[StatusField.LAST_DB_TABLE_RENDER] = self._data[StatusField.LAST_DB_UPDATE]
             return {key.value: self._data[key] for key in self._data if key not in self._no_include}
+
+
+status = Status()
