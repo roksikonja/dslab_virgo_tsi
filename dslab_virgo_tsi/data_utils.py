@@ -61,7 +61,7 @@ def load_data(data_dir_path, file_name, data_type="virgo"):
 
                     # Time in mission days
                     date = datetime.datetime.strptime("-".join(line[0:2]), "%Y%m%d-%H%M%S") \
-                           - datetime.datetime(1996, 1, 1, 0, 0, 0)
+                           - datetime.datetime(1995, 12, 2, 0, 0, 0)
                     date = float(date.days) + float(date.seconds) / (3600 * 24.0)
                     values = line[2:]
 
