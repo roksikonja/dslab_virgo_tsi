@@ -170,15 +170,15 @@ if __name__ == "__main__":
     model, model_type, correction_method, exposure_method, output_model, output_method, outlier_fraction \
         = setup_run(ARGS, mode, results_dir_path)
 
-    fitter = ModelFitter(mode=mode,
-                         data=data,
+    fitter = ModelFitter(data=data,
                          t_field_name=t_field_name,
                          a_field_name=a_field_name,
                          b_field_name=b_field_name,
                          exposure_method=exposure_method,
                          outlier_fraction=outlier_fraction)
 
-    result: Result = fitter(model=model,
+    result: Result = fitter(mode=mode,
+                            model=model,
                             correction_method=correction_method,
                             output_model=output_model)
 

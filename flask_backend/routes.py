@@ -1,35 +1,20 @@
-from os.path import basename, splitext
-from time import sleep
+import os
+import secrets
 
-from flask import render_template, redirect, url_for, jsonify, Response
+from flask import render_template, redirect, url_for, jsonify, Response, current_app
 
-from flask_backend import app, db, executor, status
+from dslab_virgo_tsi.status_utils import JobType as jT
+from dslab_virgo_tsi.status_utils import status
+from flask_backend import app, executor
+from flask_backend.analysis_utils import analysis_job
+from flask_backend.dataset_handling_utils import import_data_job, update_table, delete_dataset
 from flask_backend.forms import NewDataForm, AnalysisForm
 from flask_backend.models import Dataset
-from status_utils import StatusField as sF, JobType as jT
-
-
-def add_dataset(dataset: Dataset):
-    db.session.add(dataset)
-    db.session.commit()
-    update_table()
-
-
-def delete_dataset(dataset_id):
-    dataset = Dataset.query.get_or_404(dataset_id)
-    db.session.delete(dataset)
-    db.session.commit()
-    update_table()
-
-
-def update_table():
-    datasets = Dataset.query.all()
-    status.set(sF.DATASET_LIST, datasets)
 
 
 @app.route("/get_update")
 def get_update() -> Response:
-    if status.get(sF.DATASET_LIST) is None:
+    if status.get_dataset_list() is None:
         update_table()
 
     return jsonify(status.get_json())
@@ -41,38 +26,28 @@ def home():
     return render_template("home.html")
 
 
-def _import_data(dataset: Dataset):
-    sleep(1)
-    status.set(sF.JOB_PERCENTAGE, 30)
-    sleep(1)
-    status.set(sF.JOB_PERCENTAGE, 60)
-    sleep(1)
-    status.set(sF.JOB_PERCENTAGE, 90)
-    sleep(1)
-    status.set(sF.JOB_PERCENTAGE, 100)
-    add_dataset(dataset)
-    status.set(sF.RUNNING, False)
-
-
 @app.route("/import_data", methods=["GET", "POST"])
 def import_data():
     form = NewDataForm()
-    if form.validate_on_submit() and not status.get(sF.RUNNING):
 
-        # Block other operation
+    # Check whether import can be performed
+    if form.validate_on_submit() and not status.is_running():
+        # Block other operations
         status.new_job(jT.IMPORT, "Importing CSV", "Import data")
 
-        # Prepare table entry
-        name = form.name.data
-        if name == "":
-            name, _ = splitext(basename(form.file.data))
-            print(name)
-        dataset = Dataset(name=name,
-                          exposure_mode=form.exposure_mode.data,
-                          outlier_fraction=form.outlier_fraction.data)
+        # Store file to server (temporarily, overwritten on each call)
+        # - Generate a random name
+        name = secrets.token_hex(8)
+
+        # - Store file in static/data/<name>.csv
+        dataset_location = os.path.join(current_app.root_path, "static", "data", name + ".csv")
+        form.file.data.save(dataset_location)
 
         # Perform import (new thread)
-        executor.submit(_import_data, dataset)
+        executor.submit(import_data_job, form.name.data, form.file.data.filename, dataset_location,
+                        form.outlier_fraction.data, form.exposure_method.data)
+        # import_data_job(form.name.data, form.file.data.filename, dataset_location, form.outlier_fraction.data,
+        #                 form.exposure_method.data)
         return redirect(url_for("home"))
 
     return render_template("import_data.html", form=form)
@@ -84,29 +59,23 @@ def delete_data(dataset_id):
     return redirect(url_for("home"))
 
 
-def _analysis():
-    sleep(3)
-    status.set(sF.JOB_PERCENTAGE, 30)
-    sleep(1)
-    status.set(sF.JOB_PERCENTAGE, 60)
-    sleep(1)
-    status.set(sF.JOB_PERCENTAGE, 90)
-    sleep(1)
-    status.set(sF.JOB_PERCENTAGE, 100)
-    status.set(sF.RUNNING, False)
-
-
 @app.route("/analysis/<int:dataset_id>", methods=["GET", "POST"])
 def analysis(dataset_id):
-    print("ANALYSIS")
     form = AnalysisForm()
-    if form.validate_on_submit() and not status.get(sF.RUNNING):
+
+    # Check whether analysis can be performed
+    if form.validate_on_submit() and not status.is_running():
+        # Get dataset first to ensure that it was not deleted while waiting
+        # User could have deleted dataset in another tab while having analysis tab open
+        dataset = Dataset.query.get_or_404(dataset_id)
 
         # Block other operation
         status.new_job(jT.ANALYSIS, "Analysis in progress", "Data Analysis")
 
         # Perform analysis (new thread)
-        executor.submit(_analysis)
+        executor.submit(analysis_job, dataset, form.model.data, form.output.data, form.model_params.data,
+                        form.correction.data)
+        # analysis_job(dataset, form.model.data, form.output.data, form.model_params.data, form.correction.data)
 
         return redirect(url_for("home"))
 
@@ -116,9 +85,25 @@ def analysis(dataset_id):
 
 @app.errorhandler(404)
 def error_404(_):
-    return render_template('404.html'), 404
+    return render_template("404.html"), 404
+
+
+@app.errorhandler(405)
+def error_405(_):
+    return render_template("405.html"), 405
 
 
 @app.route("/results")
 def results():
-    pass
+    result_folder = status.get_folder()
+    if result_folder == "":
+        return error_404("Error")
+
+    # Prefix of all files within folder
+    prefix = "_".join(result_folder.split("_")[2:]) + "_"
+    first = prefix + "PMO6V-A_PMO6V-B_mutual_corrected.pdf"
+    second = prefix + "PMO6V-A_PMO6V-B_raw_corrected_full.pdf"
+    third = prefix + "DEGRADATION_PMO6V-A_PMO6V-B.pdf"
+    fourth = prefix + "TSI_hourly_points_95_conf_interval.pdf"
+
+    return render_template("results.html", folder=result_folder, first=first, second=second, third=third, fourth=fourth)
