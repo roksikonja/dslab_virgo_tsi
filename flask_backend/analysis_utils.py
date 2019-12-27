@@ -3,6 +3,7 @@ import pickle
 from os.path import basename
 
 from flask import current_app
+from matplotlib import pyplot as plt
 
 from dslab_virgo_tsi.base import ModelFitter, CorrectionMethod, Mode
 from dslab_virgo_tsi.model_constants import GaussianProcessConstants as Gpc
@@ -85,6 +86,9 @@ def analysis_job(dataset: Dataset, model_type: str, output_model_type: str, mode
 
         # Store folder location to status
         status.set_folder(basename(results_dir_path))
+
+        # Close all figures from matplotlib
+        plt.close("all")
 
         # Finish job
         status.set_percentage(100)
