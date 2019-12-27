@@ -631,6 +631,8 @@ class GPFamilyMixin:
     def _gaussian_process(kernel, t, x):
         logging.info(f"Running GP on data with t = {t.shape} and x = {x.shape}.")
 
+        status.update_progress("Performing initial fit", 20)
+
         gpr = GaussianProcessRegressor(kernel=kernel,
                                        random_state=Const.RANDOM_SEED,
                                        n_restarts_optimizer=GPConsts.N_RESTARTS_OPTIMIZER)
