@@ -1,4 +1,3 @@
-import logging
 import os
 import pickle
 from os.path import basename
@@ -40,10 +39,6 @@ def get_models(model_type, output_model_type, num_inducing_points, points_in_win
 def analysis_job(dataset: Dataset, model_type: str, output_model_type: str, model_params: str, correction_method: str):
 
     try:
-        logging.basicConfig(level=logging.INFO,
-                            format='%(asctime)-5s %(name)-20s %(levelname)-15s %(message)s',
-                            datefmt='[%m-%d %H:%M]')
-
         # Enforce optional params
         # TODO: improve this code
         # TODO: this code sets constants that are used within model and passes constants that are passed via init
