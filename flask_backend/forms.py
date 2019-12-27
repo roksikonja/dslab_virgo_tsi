@@ -61,7 +61,7 @@ class AnalysisForm(FlaskForm):
                                  ("ISOTONIC", "Isotonic model"),
                                  ("SMOOTH_MONOTONIC", "Smooth monotone regression model")])
     model_params = TextAreaField("Model Parameters", validators=[DictionaryRequired()],
-                                 default='{\n\t"NUM_INDUCING_POINTS": 200,\n\t"WINDOW": 100,'
+                                 default='{\n\t"NUM_INDUCING_POINTS": 1000,\n\t"WINDOW": 100,'
                                          '\n\t"POINTS_IN_WINDOW": 100,\n\t"WINDOW_FRACTION": 5\n}')
     correction = SelectField("Correction method",
                              choices=[(CorrectionMethod.CORRECT_ONE.value,
