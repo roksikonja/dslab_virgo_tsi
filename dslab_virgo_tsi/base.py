@@ -7,6 +7,7 @@ import numpy as np
 
 from dslab_virgo_tsi.data_utils import notnan_indices, detect_outliers
 from dslab_virgo_tsi.model_constants import OutputTimeConstants as OutTimeConsts
+from dslab_virgo_tsi.status_utils import status
 
 
 class Mode(Enum):
@@ -15,13 +16,13 @@ class Mode(Enum):
 
 
 class ExposureMethod(Enum):
-    NUM_MEASUREMENTS = auto()
-    EXPOSURE_SUM = auto()
+    NUM_MEASUREMENTS = "Num. measurements"
+    EXPOSURE_SUM = "Exposure sum"
 
 
 class CorrectionMethod(Enum):
-    CORRECT_BOTH = auto()
-    CORRECT_ONE = auto()
+    CORRECT_BOTH = "Correct both"
+    CORRECT_ONE = "Correct one"
 
 
 class BaseSignals:
@@ -65,11 +66,6 @@ class BaseSignals:
 class OutParams:
     def __init__(self, svgp_iter_loglikelihood=None, svgp_inducing_points=None, svgp_prior_samples=None,
                  svgp_t_prior=None, svgp_posterior_samples=None, svgp_t_posterior=None):
-        """
-
-        :param svgp_iter_loglikelihood:
-        :param svgp_inducing_points:
-        """
         self.svgp_iter_loglikelihood = svgp_iter_loglikelihood
         self.svgp_inducing_points = svgp_inducing_points
         self.svgp_prior_samples = svgp_prior_samples
@@ -202,9 +198,7 @@ class ModelFitter:
     nn -> values taken at times when specific signal is not nan
     """
 
-    def __init__(self, mode: Mode, data, a_field_name, b_field_name, t_field_name, exposure_method, outlier_fraction=0):
-        self.mode = mode
-
+    def __init__(self, data, a_field_name, b_field_name, t_field_name, exposure_method, outlier_fraction=0):
         # Compute all signals and store all relevant to BaseSignals object
         a, b, t = data[a_field_name].values, data[b_field_name].values, data[t_field_name].values
 
@@ -237,12 +231,13 @@ class ModelFitter:
                                         b_mutual_nn, t_mutual_nn, exposure_a_mutual_nn, exposure_b_mutual_nn)
 
     def __call__(self, model: BaseModel, output_model: BaseOutputModel, correction_method: CorrectionMethod,
-                 compute_output=True) -> Result:
+                 mode: Mode, compute_output=True) -> Result:
 
         # Perform initial fit if needed
         initial_params: Params = model.get_initial_params(self.base_signals)
 
         # Compute iterative corrections
+        status.update_progress("Performing iterative corrections", 15)
         history_mutual_nn, optimal_params = self._iterative_correction(model, self.base_signals, initial_params,
                                                                        correction_method)
 
@@ -251,7 +246,7 @@ class ModelFitter:
 
         # Compute output signals
         if compute_output:
-            out_result = self._compute_output(output_model, self.base_signals, final_result)
+            out_result = self._compute_output(mode, output_model, self.base_signals, final_result)
         else:
             # Only in model comparison mode
             out_result = None
@@ -283,17 +278,17 @@ class ModelFitter:
 
         return data
 
-    def _compute_output(self, output_model: BaseOutputModel, base_signals: BaseSignals,
+    def _compute_output(self, mode: Mode, output_model: BaseOutputModel, base_signals: BaseSignals,
                         final_result: FinalResult) -> OutResult:
         logging.info("Computing output ...")
 
         # Output resampling
-        t_hourly_out, num_hours_in_day = self._output_resampling(self.mode, base_signals)
+        t_hourly_out, num_hours_in_day = self._output_resampling(mode, base_signals)
 
         logging.info(f"Data shapes are t_hourly {t_hourly_out.shape}.")
 
         # Training samples
-        signal_hourly_out, signal_std_hourly_out, params_out = output_model.fit_and_predict(self.mode, base_signals,
+        signal_hourly_out, signal_std_hourly_out, params_out = output_model.fit_and_predict(mode, base_signals,
                                                                                             final_result,
                                                                                             t_hourly_out)
 

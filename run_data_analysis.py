@@ -221,8 +221,7 @@ if __name__ == "__main__":
         else:
             exposure_mode = ExposureMethod.EXPOSURE_SUM
 
-        fitter = ModelFitter(mode=ARGS.data_file,
-                             data=data,
+        fitter = ModelFitter(data=data,
                              t_field_name=Const.T,
                              a_field_name=Const.A,
                              b_field_name=Const.B,

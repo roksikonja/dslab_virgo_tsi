@@ -30,6 +30,10 @@ def check_data(file_dir, num_cols=4):
         return True
 
 
+def load_data_from_frontend(data_path):
+    return pd.read_csv(data_path, header=None, delimiter=r"\s+").rename(columns={0: Const.T, 1: Const.A, 2: Const.B})
+
+
 def load_data(data_dir_path, file_name, data_type="virgo"):
     file_name_no_extension, extension = os.path.splitext(file_name)
 
@@ -61,7 +65,7 @@ def load_data(data_dir_path, file_name, data_type="virgo"):
 
                     # Time in mission days
                     date = datetime.datetime.strptime("-".join(line[0:2]), "%Y%m%d-%H%M%S") \
-                           - datetime.datetime(1996, 1, 1, 0, 0, 0)
+                        - datetime.datetime(1996, 1, 1, 0, 0, 0)
                     date = float(date.days) + float(date.seconds) / (3600 * 24.0)
                     values = line[2:]
 
