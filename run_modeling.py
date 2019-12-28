@@ -93,7 +93,7 @@ def plot_results(visualizer_: Visualizer, result_: Result, results_dir, model_na
             (base_sig.t_b_nn, final_res.degradation_b_nn, f"DEGRADATION_{Const.B}", False)
         ],
         results_dir, f"{model_name}_DEGRADATION_{Const.A}_{Const.B}", x_ticker=Const.XTICKER, legend="upper right",
-        x_label=Const.YEAR_UNIT, y_label=Const.TSI_UNIT)
+        x_label=Const.YEAR_UNIT, y_label=Const.DEGRADATION_UNIT)
 
     visualizer_.plot_signals(
         [

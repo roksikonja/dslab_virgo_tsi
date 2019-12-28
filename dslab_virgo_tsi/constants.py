@@ -50,6 +50,7 @@ class Constants(object):
     TSI_UNIT = "TSI [W/m^2]"
     TEMP_UNIT = "TEMPERATURE [C]"
     SPECTRUM_UNIT = "POWER SPECTRUM [1]"
+    DEGRADATION_UNIT = "DEGRADATION [1]"
 
     # VISUALIZATION
     MATPLOTLIB_STYLE = "seaborn"  # "default"

@@ -31,15 +31,15 @@ def plot_results(ground_truth_, results_, results_dir, model_name):
     logging.info("Plotting results ...")
     visualizer.plot_signals(signal_fourplets, results_dir, f"DEGRADATION_{Const.A}_{Const.B}_{model_name}",
                             x_ticker=Const.XTICKER, legend="upper right", x_label=Const.YEAR_UNIT,
-                            y_label=Const.TSI_UNIT)
+                            y_label=Const.DEGRADATION_UNIT)
 
     visualizer.plot_signals(signal_fourplets_a, results_dir, f"DEGRADATION_{Const.A}_{model_name}",
                             x_ticker=Const.XTICKER, legend="upper right", x_label=Const.YEAR_UNIT,
-                            y_label=Const.TSI_UNIT)
+                            y_label=Const.DEGRADATION_UNIT)
 
     visualizer.plot_signals(signal_fourplets_b, results_dir, f"DEGRADATION_{Const.B}_{model_name}",
                             x_ticker=Const.XTICKER, legend="upper right", x_label=Const.YEAR_UNIT,
-                            y_label=Const.TSI_UNIT)
+                            y_label=Const.DEGRADATION_UNIT)
 
     signal_fourplets_a = []
     signal_fourplets_b = []
