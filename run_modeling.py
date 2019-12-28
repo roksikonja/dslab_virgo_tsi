@@ -215,6 +215,6 @@ if __name__ == "__main__":
     result.out.params_out.svgp_inducing_points = None
 
     if ARGS.save_plots or not ARGS.save_signals:
-        plot_results(visualizer, result, results_dir_path, f"{model_type}_{output_method}")
+        plot_results(visualizer, result, results_dir_path, f"{model_type}_{output_method}", "virgo_tsi")
 
     logging.info("Application finished.")
