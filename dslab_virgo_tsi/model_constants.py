@@ -101,7 +101,7 @@ class GaussianProcessConstants(ModelConstants):
     MAX_ITERATIONS = 10000
     NUM_SAMPLES = 20000
     LEARNING_RATE = 0.005
-    PRIOR_POSTERIOR_SAMPLES = 10
+    PRIOR_POSTERIOR_SAMPLES = 3
     PRIOR_POSTERIOR_LENGTH = 2000
 
     # local gp
