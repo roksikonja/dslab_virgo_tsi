@@ -12,7 +12,7 @@ TSI data from PMO6-V Radiometers** available at ```DSLab_project_paper.pdf```. A
 at ```DSLab_project_poster```.
 
 ## Installation
-* Install Miniconda from [Miniconda website](https://docs.conda.io/en/latest/miniconda.html)
+* Install Miniconda (Python 3.x) from [Miniconda website](https://docs.conda.io/en/latest/miniconda.html)
 * Run following commands within Miniconda terminal (**DO NOT** use `sudo` or `Run as administrator`):
     * *Optionally*:
     ```
@@ -21,7 +21,8 @@ at ```DSLab_project_poster```.
     ```
     * In any case
     ```
-    conda install numpy pandas matplotlib ipykernel jupyter scipy scikit-learn numba pytables flask flask-wtf tensorflow=2.0.0 cvxpy
+    conda install numpy pandas matplotlib scipy scikit-learn numba pytables flask flask-wtf flask-sqlalchemy tensorflow=2.0.0
+    conda install -c conda-forge cvxpy
     pip install gpflow==2.0.0rc1
     ```
     
