@@ -13,6 +13,7 @@ at ```DSLab_project_poster```.
 
 ## Installation
 * Install Miniconda (Python 3.x) from [Miniconda website](https://docs.conda.io/en/latest/miniconda.html)
+   * When asked `Do you wish the installer to initialize Miniconda3 by running conda init? [yes|no]` choose `yes`
 * Run following commands within Miniconda terminal (**DO NOT** use `sudo` or `Run as administrator`):
     * *Optionally*:
     ```
