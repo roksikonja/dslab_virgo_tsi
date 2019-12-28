@@ -59,6 +59,7 @@ output_method ∈ {"svgp", "gp", "localgp"}
 python run.py
 ```
 After running python script, in browser (preferably Google Chrome/Firefox) go to `localhost:5000`.
+**Note**: Accepted are `.csv` files with 3 (or more) columns separated by tabs, where first column is time, second values of signal A, and third values of signal B.
 
 ### Data Analysis
 ```
