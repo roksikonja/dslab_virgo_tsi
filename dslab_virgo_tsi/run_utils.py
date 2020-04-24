@@ -118,7 +118,7 @@ def setup_run(args, mode: Mode, results_dir_path):
     logging.info(f"Output method {output_method} selected.")
     logging.info(f"Outlier fraction {args.outlier_fraction} selected.")
 
-    if mode == Mode.VIRGO:
+    if mode == Mode.VIRGO or mode == Mode.SPM:
         config["virgo_days_start"] = args.virgo_days_start
         config["virgo_days_end"] = args.virgo_days_end
         if args.virgo_days_start > 0:
@@ -132,11 +132,21 @@ def setup_run(args, mode: Mode, results_dir_path):
     return model, model_type, correction_method, exposure_method, output_model, output_method, args.outlier_fraction
 
 
-def load_data_run(args, mode: Mode):
+def load_data_run(args, mode: Mode, stds=None):
     if mode == Mode.GENERATOR:
-        generator = SignalGenerator(length=GenConsts.SIGNAL_LENGTH,
-                                    random_seed=args.random_seed,
-                                    exposure_method=args.exposure_method)
+        if stds:
+            std_noise_a, std_noise_b = stds
+            generator = SignalGenerator(length=GenConsts.SIGNAL_LENGTH,
+                                        random_seed=args.random_seed,
+                                        exposure_method=args.exposure_method,
+                                        std_noise_a=std_noise_a,
+                                        std_noise_b=std_noise_b)
+
+        else:
+            generator = SignalGenerator(length=GenConsts.SIGNAL_LENGTH,
+                                        random_seed=args.random_seed,
+                                        exposure_method=args.exposure_method)
+
         t = generator.time
         x = generator.x
 
@@ -153,6 +163,18 @@ def load_data_run(args, mode: Mode):
 
         ground_truth = (t, x)
         logging.info(f"Dataset Generator of size {data.shape} loaded.")
+    elif mode == Mode.SPM:
+        data = load_data(Const.DATA_DIR, Const.SPM_FILE)
+
+        if args.virgo_days_end > 0:
+            data = data[data[Const.T] <= args.virgo_days_end]
+
+        if args.virgo_days_start > 0:
+            data = data[data[Const.T] >= args.virgo_days_start]
+
+        t_field_name, a_field_name, b_field_name = Const.T, Const.SPM_A, Const.SPM_B
+        ground_truth = None
+        logging.info(f"Dataset {Const.SPM_FILE} of size {data.shape} loaded.")
     else:
         data = load_data(Const.DATA_DIR, Const.VIRGO_FILE)
 

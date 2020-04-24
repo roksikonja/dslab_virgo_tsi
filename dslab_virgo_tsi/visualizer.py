@@ -9,7 +9,7 @@ from matplotlib import style
 from scipy.stats import norm
 
 from dslab_virgo_tsi.constants import Constants as Const
-from dslab_virgo_tsi.data_utils import moving_average_std, mission_day_to_year, downsample_signal
+from dslab_virgo_tsi.data_utils import moving_average_std, mission_day_to_year, downsample_signal, notnan_indices
 
 
 class Visualizer(object):
@@ -39,7 +39,7 @@ class Visualizer(object):
 
     @staticmethod
     def plot_signals(signal_fourplets, results_dir, title, x_ticker=None, legend=None, y_lim=None,
-                     x_label=None, y_label=None, max_points=1e5):
+                     x_label=None, y_label=None, max_points=1e6):
 
         _ = plt.figure()
         for signal_fourplet in signal_fourplets:
@@ -48,6 +48,12 @@ class Visualizer(object):
 
             t = signal_fourplet[0]
             x = signal_fourplet[1]
+
+            # Delete NaNs
+            index_x_nn = notnan_indices(x)
+            t = t[index_x_nn]
+            x = x[index_x_nn]
+
             label = signal_fourplet[2]
             scatter = signal_fourplet[3]
 
@@ -209,7 +215,7 @@ class Visualizer(object):
                     if x_label == Const.YEAR_UNIT:
                         t = np.array(list(map(mission_day_to_year, t)))
 
-                    plt.plot(t.reshape(-1, 1), x, "C2", lw=Const.MATPLOTLIB_STYLE_LINEWIDTH/3)
+                    plt.plot(t.reshape(-1, 1), x, "C2", lw=Const.MATPLOTLIB_STYLE_LINEWIDTH / 3)
 
         if ground_truth_triplet:
             t_ground_truth = ground_truth_triplet[0]

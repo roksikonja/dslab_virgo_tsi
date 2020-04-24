@@ -78,8 +78,28 @@ def load_data(data_dir_path, file_name, data_type="virgo"):
                                            Const.VIRGO_TSI_OLD,
                                            Const.DIARAD_OLD,
                                            Const.PMO6V_OLD], dtype=float)
+
         # Replace missing values with NaN
         data[data == Const.VIRGO_TSI_NAN_VALUE] = np.nan
+
+        # Store to HDF5
+        data.to_hdf(h5_file_path, "table")
+        return data
+    elif data_type == "spm":
+        data = []
+        with open(os.path.join("./data/", file_name), "r") as f:
+            for idx, line in enumerate(f.readlines()):
+                if line[0] != "%":
+                    line = line.strip().split()
+
+                    data.append(line)
+
+        data = pd.DataFrame(data, columns=[Const.T,
+                                           Const.SPM_A,
+                                           Const.SPM_B], dtype=float)
+
+        # Replace missing values with NaN
+        data[data == Const.SPM_NAN_VALUE] = np.nan
 
         # Store to HDF5
         data.to_hdf(h5_file_path, "table")

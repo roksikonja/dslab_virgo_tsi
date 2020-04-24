@@ -13,6 +13,7 @@ from dslab_virgo_tsi.status_utils import status
 class Mode(Enum):
     VIRGO = auto()
     GENERATOR = auto()
+    SPM = auto()
 
 
 class ExposureMethod(Enum):
@@ -202,6 +203,12 @@ class ModelFitter:
         # Compute all signals and store all relevant to BaseSignals object
         a, b, t = data[a_field_name].values, data[b_field_name].values, data[t_field_name].values
 
+        logging.info(f"{a_field_name} with shape {a.shape} with {np.sum(~np.isnan(a))} valid and "
+                     f"{np.isnan(a).sum()} NaN values.")
+
+        logging.info(f"{b_field_name} with shape {b.shape} with {np.sum(~np.isnan(b))} valid and "
+                     f"{np.isnan(b).sum()} NaN values.")
+
         # Filter outliers
         if outlier_fraction > 0:
             data = self._filter_outliers(data, a_field_name, b_field_name, outlier_fraction)
@@ -215,16 +222,29 @@ class ModelFitter:
 
         # Not nan rows (non-mutual)
         index_a_nn, index_b_nn = notnan_indices(a), notnan_indices(b)
+        index_a_outlier = np.logical_and(np.greater_equal(a, 0.55) , np.less_equal(a, 1.00))
+        index_a_nn = np.logical_and(index_a_nn, index_a_outlier)
+
         a_nn, b_nn = a[index_a_nn], b[index_b_nn]
         t_a_nn, t_b_nn = t[index_a_nn], t[index_b_nn]
         exposure_a_nn, exposure_b_nn = exposure_a[index_a_nn], exposure_b[index_b_nn]
 
+        logging.info(f"t_a {t_a_nn.min()} {t_a_nn.max()}")
+        logging.info(f"t_b {t_b_nn.min()} {t_b_nn.max()}")
+
         # Extract mutual not nan rows
+        data[a_field_name][~index_a_nn] = np.nan
         data_mutual_nn = data[[t_field_name, a_field_name, b_field_name, "e_a", "e_b"]].dropna()
         a_mutual_nn, b_mutual_nn = data_mutual_nn[a_field_name].values, data_mutual_nn[b_field_name].values
         t_mutual_nn = data_mutual_nn[t_field_name].values
         exposure_a_mutual_nn, exposure_b_mutual_nn = data_mutual_nn["e_a"].values, data_mutual_nn["e_b"].values
         logging.info("Mutual signals extracted.")
+
+        logging.info(f"{a_field_name} mutual with shape {a_mutual_nn.shape} with {np.sum(~np.isnan(a_mutual_nn))} "
+                     f"valid and {np.isnan(a_mutual_nn).sum()} NaN values.")
+
+        logging.info(f"{b_field_name} mutual with shape {b_mutual_nn.shape} with {np.sum(~np.isnan(b_mutual_nn))} "
+                     f"valid and {np.isnan(b_mutual_nn).sum()} NaN values.")
 
         # Create BaseSignals instance
         self.base_signals = BaseSignals(a_nn, b_nn, t_a_nn, t_b_nn, exposure_a_nn, exposure_b_nn, a_mutual_nn,

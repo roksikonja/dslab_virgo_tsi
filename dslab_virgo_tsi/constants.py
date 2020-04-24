@@ -4,9 +4,11 @@ class Constants(object):
     RESULTS_DIR = "./results"
 
     # Data files
-    VIRGO_FILE = "VIRGO_Level1.txt"
+    # VIRGO_FILE = "VIRGO_Level1.txt"
+    VIRGO_FILE = "VIRGO_Level1_2020.txt"
     PREMOS_FILE = "PREMOS.dat"
     VIRGO_TSI_FILE = "virgo_tsi_h_v6_005_1805.dat"
+    SPM_FILE = "SpmRed.txt"
 
     # PMO6V
     A = "PMO6V-A"
@@ -22,6 +24,11 @@ class Constants(object):
     DIARAD_OLD = "DIARAD-OLD"
     PMO6V_OLD = "PMO6V-OLD"
     VIRGO_TSI_NAN_VALUE = -99.0
+
+    # SPM
+    SPM_A = "SPM-A"
+    SPM_B = "SPM-B"
+    SPM_NAN_VALUE = "NaN"
 
     # RANDOMNESS
     RANDOM_SEED = 0
@@ -51,6 +58,7 @@ class Constants(object):
     TEMP_UNIT = "TEMPERATURE [C]"
     SPECTRUM_UNIT = "POWER SPECTRUM [1]"
     DEGRADATION_UNIT = "DEGRADATION [1]"
+    SPM_UNIT = "SPM [1]"
 
     # VISUALIZATION
     MATPLOTLIB_STYLE = "seaborn"  # "default"

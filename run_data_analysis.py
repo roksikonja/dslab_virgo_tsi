@@ -76,6 +76,34 @@ def plot_base_virgo_signals(base_sig):
                             legend="upper right", x_label=Const.DAY_UNIT, y_label=Const.TSI_UNIT)
 
 
+def plot_base_spm_signals(data_):
+    time = data_[Const.T].values
+    spm_a = data_[Const.SPM_A].values
+    spm_b = data_[Const.SPM_B].values
+
+    logging.info(f"{Const.SPM_A} with shape {spm_a.shape} with {np.sum(~np.isnan(spm_a))} valid and "
+                 f"{np.isnan(spm_a).sum()} NaN values.")
+
+    logging.info(f"{Const.SPM_B} with shape {spm_b.shape} with {np.sum(~np.isnan(spm_b))} valid and "
+                 f"{np.isnan(spm_b).sum()} NaN values.")
+
+    visualizer.plot_signals([
+        (time, spm_a, Const.SPM_A, False),
+        (time, spm_b, Const.SPM_B, False),
+    ], results_dir_path, f"{Const.SPM_A}_{Const.SPM_B}_raw", legend="upper right",
+        x_label=Const.DAY_UNIT, y_label=Const.TSI_UNIT, y_lim=[0, None])
+
+    visualizer.plot_signals([
+        (time, spm_a, Const.SPM_A, False),
+    ], results_dir_path, f"{Const.SPM_A}_raw", legend="upper right",
+        x_label=Const.DAY_UNIT, y_label=Const.TSI_UNIT, y_lim=[0, None])
+
+    visualizer.plot_signals([
+        (time, spm_b, Const.SPM_B, False),
+    ], results_dir_path, f"{Const.SPM_B}_raw", legend="upper right",
+        x_label=Const.DAY_UNIT, y_label=Const.TSI_UNIT, y_lim=[0, None])
+
+
 def analyse_virgo_data(data_, base_sig: BaseSignals, t_early_increase=100):
     logging.info("Analysing virgo data.")
     t = data_[Const.T].values
@@ -210,8 +238,11 @@ if __name__ == "__main__":
     if ARGS.data_file == "premos":
         pass
     elif ARGS.data_file == "virgo_tsi":
-        other_res = load_data(Const.DATA_DIR, Const.VIRGO_TSI_FILE, "virgo_tsi")
-        plot_base_virgo_tsi_signals(other_res)
+        data = load_data(Const.DATA_DIR, Const.VIRGO_TSI_FILE, "virgo_tsi")
+        plot_base_virgo_tsi_signals(data)
+    elif ARGS.data_file == "spm":
+        data = load_data(Const.DATA_DIR, Const.SPM_FILE, "spm")
+        plot_base_spm_signals(data)
     else:
         data = load_data(Const.DATA_DIR, Const.VIRGO_FILE)
         logging.info(f"Data {Const.VIRGO_FILE} loaded.")

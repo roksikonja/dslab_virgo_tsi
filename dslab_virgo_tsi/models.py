@@ -971,6 +971,10 @@ class SVGPModel(GPFamilyMixin, BaseOutputModel):
 
     def _prepare_data(self, t_a, t_b, a, b, t_hourly_out):
 
+        # print(a.shape, b.shape, t_a.shape, t_b.shape)
+        # a, t_a = a[::1000000], t_a[::1000000]
+        # print(a.shape, b.shape, t_a.shape, t_b.shape)
+
         # Data standardization parameters
         self.x_mean, self.x_std = np.mean(np.concatenate((a, b), axis=0)), np.std(np.concatenate((a, b), axis=0))
         self.t_mean, self.t_std = np.mean(np.concatenate((t_a, t_b), axis=0)), \
